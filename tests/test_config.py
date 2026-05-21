@@ -1,0 +1,90 @@
+"""
+Tests for eldritch_dm.config — Settings class and get_settings().
+"""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from eldritch_dm.config import Settings, get_settings
+
+
+class TestDefaultsLoad:
+    """When only DISCORD_TOKEN is set, all defaults are as expected."""
+
+    def test_defaults_load(self, tmp_env: None) -> None:
+        settings = get_settings()
+        assert settings.discord_token == "test-token"
+        assert settings.omlx_health_interval == 60
+        assert settings.omlx_circuit_breaker_threshold == 3
+        assert settings.max_modal_input_chars == 500
+        assert settings.eldritch_db_path.endswith("eldritch.sqlite3")
+        assert settings.log_format == "console"
+        assert settings.log_level == "INFO"
+        assert settings.riposte_ttl_seconds == 8
+
+    def test_guild_ids_list_empty(self, tmp_env: None) -> None:
+        settings = get_settings()
+        assert settings.guild_ids_list == []
+
+
+class TestMissingToken:
+    """Missing DISCORD_TOKEN must raise ValidationError."""
+
+    def test_missing_discord_token_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        get_settings.cache_clear()
+        monkeypatch.delenv("DISCORD_TOKEN", raising=False)
+        # Ensure no .env file with a token is picked up — override env_file
+        with pytest.raises(ValidationError, match="discord_token"):
+            Settings(_env_file=None)  # type: ignore[call-arg]
+        get_settings.cache_clear()
+
+
+class TestShellEnvWins:
+    """Shell environment variable wins over .env file content."""
+
+    def test_shell_env_wins_over_dotenv(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """Write a .env file with one value; set a different value in shell env."""
+        get_settings.cache_clear()
+
+        env_file = tmp_path / ".env"
+        env_file.write_text("DISCORD_TOKEN=from-dotenv-file\n")
+
+        # Shell env takes priority (pydantic-settings default)
+        monkeypatch.setenv("DISCORD_TOKEN", "from-shell-env")
+
+        settings = Settings(_env_file=str(env_file))  # type: ignore[call-arg]
+        assert settings.discord_token == "from-shell-env"
+        get_settings.cache_clear()
+
+
+class TestGuildIdsParsing:
+    """guild_ids_list parses CSV correctly."""
+
+    def test_guild_ids_csv(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        get_settings.cache_clear()
+        monkeypatch.setenv("DISCORD_TOKEN", "t")
+        monkeypatch.setenv("DISCORD_GUILD_IDS", "111,222,333")
+        settings = get_settings()
+        assert settings.guild_ids_list == [111, 222, 333]
+        get_settings.cache_clear()
+
+    def test_guild_ids_single(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        get_settings.cache_clear()
+        monkeypatch.setenv("DISCORD_TOKEN", "t")
+        monkeypatch.setenv("DISCORD_GUILD_IDS", "  999  ")
+        settings = get_settings()
+        assert settings.guild_ids_list == [999]
+        get_settings.cache_clear()
+
+
+class TestFrozen:
+    """Settings instance is frozen — attribute assignment raises."""
+
+    def test_frozen_raises(self, tmp_env: None) -> None:
+        settings = get_settings()
+        with pytest.raises((ValidationError, TypeError)):
+            settings.log_level = "DEBUG"  # type: ignore[misc]
