@@ -12,7 +12,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
 
 ## Phases
 
-- [ ] **Phase 1: MCP Client + Local State** — Async MCP wrapper to dm20 at oMLX, local Discord-state SQLite (WAL, repositories), sanitizer pipeline
+- [x] **Phase 1: MCP Client + Local State** — Async MCP wrapper to dm20 at oMLX, local Discord-state SQLite (WAL, repositories), sanitizer pipeline
 - [ ] **Phase 2: Discord Scaffold + Persistent Views** — discord.py bot, slash command tree, DynamicItem `custom_id`s, embed coalescer, defer discipline, restart-drill infrastructure
 - [ ] **Phase 3: Lobby + Character Ingest** — `/start_game` + `/load_adventure`, ready-check, D&D Beyond import, OCR/PDF pipeline for paper sheets, manual-review modal
 - [ ] **Phase 4: Gameplay — Exploration + Combat (Party Mode)** — Bind to dm20 Party Mode queue, action batching, combat embed, turn gatekeeping by Discord user_id, dodge, 8-player load proof
@@ -33,8 +33,8 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   5. Unit tests for MCP client (httpx mocked), repositories (round-trip), and sanitizer (corpus) all pass; no `database is locked` under a 4-channel concurrent write stress test
 **Plans**:
 - [x] Plan 01: Foundation (pyproject, config, logging, WAL persistence, import-linter) — COMPLETE (73 tests, 18 files, 18 min)
-- [ ] Plan 02: Repositories + MCP Client (CRUD repos, MCPClient, health/circuit-breaker, typed tool wrappers)
-- [ ] Plan 03: Sanitizer pipeline (sanitize_player_input, adversarial corpus, audit rows)
+- [x] Plan 02: Repositories + MCP Client (CRUD repos, MCPClient, health/circuit-breaker, typed tool wrappers) — COMPLETE (105 tests, 15 files, 45 min)
+- [x] Plan 03: Sanitizer pipeline (sanitize_player_input, adversarial corpus, audit rows, stress test) — COMPLETE (177 tests, 10 files, 40 min)
 
 ### Phase 2: Discord Scaffold + Persistent Views
 **Goal**: A running discord.py bot with slash command surface, embed renderers, and a persistent-view infrastructure that survives restart — proven by a kill-and-restart drill
