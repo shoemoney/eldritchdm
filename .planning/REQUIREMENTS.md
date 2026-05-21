@@ -184,17 +184,118 @@ Deferred to future release.
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (pending roadmap) | — | Pending |
+| INFRA-01 | Phase 11 | Pending |
+| INFRA-02 | Phase 3 | Pending |
+| INFRA-03 | Phase 3 | Pending |
+| INFRA-04 | Phase 3 | Pending |
+| INFRA-05 | Phase 3 | Pending |
+| INFRA-06 | Phase 3 / Phase 5 | Pending |
+| INFRA-07 | Phase 11 | Pending |
+| DB-01 | Phase 1 | Pending |
+| DB-02 | Phase 1 | Pending |
+| DB-03 | Phase 1 | Pending |
+| DB-04 | Phase 1 | Pending |
+| DB-05 | Phase 1 | Pending |
+| DB-06 | Phase 1 | Pending |
+| DB-07 | Phase 1 | Pending |
+| DB-08 | Phase 1 | Pending |
+| ENG-01 | Phase 2 | Pending |
+| ENG-02 | Phase 2 | Pending |
+| ENG-03 | Phase 2 | Pending |
+| ENG-04 | Phase 2 | Pending |
+| ENG-05 | Phase 2 | Pending |
+| ENG-06 | Phase 2 | Pending |
+| ENG-07 | Phase 2 | Pending |
+| ENG-08 | Phase 2 | Pending |
+| ENG-09 | Phase 2 | Pending |
+| ENG-10 | Phase 2 | Pending |
+| ENG-11 | Phase 2 | Pending |
+| ENG-12 | Phase 2 | Pending |
+| INF-01 | Phase 3 | Pending |
+| INF-02 | Phase 3 | Pending |
+| INF-03 | Phase 3 | Pending |
+| INF-04 | Phase 3 | Pending |
+| INF-05 | Phase 3 | Pending |
+| INF-06 | Phase 3 | Pending |
+| INF-07 | Phase 3 | Pending |
+| INF-08 | Phase 3 | Pending |
+| INF-09 | Phase 3 | Pending |
+| INF-10 | Phase 3 | Pending |
+| INF-11 | Phase 3 | Pending |
+| INF-12 | Phase 3 | Pending |
+| BOT-01 | Phase 5 | Pending |
+| BOT-02 | Phase 5 | Pending |
+| BOT-03 | Phase 5 | Pending |
+| BOT-04 | Phase 5 | Pending |
+| BOT-05 | Phase 5 | Pending |
+| BOT-06 | Phase 5 | Pending |
+| BOT-07 | Phase 5 | Pending |
+| BOT-08 | Phase 5 | Pending |
+| LOBBY-01 | Phase 6 | Pending |
+| LOBBY-02 | Phase 6 | Pending |
+| LOBBY-03 | Phase 6 | Pending |
+| LOBBY-04 | Phase 6 | Pending |
+| INGEST-01 | Phase 7 | Pending |
+| INGEST-02 | Phase 7 | Pending |
+| INGEST-03 | Phase 7 | Pending |
+| INGEST-04 | Phase 7 | Pending |
+| INGEST-05 | Phase 7 | Pending |
+| INGEST-06 | Phase 7 | Pending |
+| INGEST-07 | Phase 7 | Pending |
+| INGEST-08 | Phase 7 | Pending |
+| INGEST-09 | Phase 7 | Pending |
+| EXPLORE-01 | Phase 8 | Pending |
+| EXPLORE-02 | Phase 8 | Pending |
+| EXPLORE-03 | Phase 8 | Pending |
+| EXPLORE-04 | Phase 8 | Pending |
+| EXPLORE-05 | Phase 8 | Pending |
+| EXPLORE-06 | Phase 8 | Pending |
+| EXPLORE-07 | Phase 8 | Pending |
+| COMBAT-01 | Phase 9 | Pending |
+| COMBAT-02 | Phase 9 | Pending |
+| COMBAT-03 | Phase 9 | Pending |
+| COMBAT-04 | Phase 9 | Pending |
+| COMBAT-05 | Phase 9 | Pending |
+| COMBAT-06 | Phase 9 | Pending |
+| COMBAT-07 | Phase 9 | Pending |
+| COMBAT-08 | Phase 9 | Pending |
+| COMBAT-09 | Phase 9 | Pending |
+| COMBAT-10 | Phase 10 | Pending |
+| COMBAT-11 | Phase 10 | Pending |
+| COMBAT-12 | Phase 9 | Pending |
+| COMBAT-13 | Phase 9 | Pending |
+| MEM-01 | Phase 10 | Pending |
+| MEM-02 | Phase 10 | Pending |
+| MEM-03 | Phase 10 | Pending |
+| MEM-04 | Phase 10 | Pending |
+| MEM-05 | Phase 10 | Pending |
+| MEM-06 | Phase 10 | Pending |
+| RULES-01 | Phase 10 | Pending |
+| RULES-02 | Phase 10 | Pending |
+| RULES-03 | Phase 10 | Pending |
+| RULES-04 | Phase 10 | Pending |
+| RULES-05 | Phase 10 | Pending |
+| STATE-01 | Phase 4 | Pending |
+| STATE-02 | Phase 4 | Pending |
+| STATE-03 | Phase 4 | Pending |
+| STATE-04 | Phase 4 | Pending |
+| STATE-05 | Phase 4 | Pending |
+| HOST-01 | Phase 11 | Pending |
+| HOST-02 | Phase 11 | Pending |
+| HOST-03 | Phase 11 | Pending |
+| HOST-04 | Phase 11 | Pending |
+| HOST-05 | Phase 11 | Pending |
+| HOST-06 | Phase 11 | Pending |
 
 **Coverage:**
 - v1 requirements: 87 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 87 ⚠️ (will be resolved by gsd-roadmapper)
+- Mapped to phases: 87 ✓
+- Unmapped: 0
+
+Note: INFRA-06 (structlog) is foundational in Phase 3 (inference client uses bound context first) and reinforced in Phase 5 (Discord interaction routing adopts the same logger), but its single owning phase is **Phase 3**.
 
 ---
 *Requirements defined: 2026-05-21*
-*Last updated: 2026-05-21 after initial definition*
+*Last updated: 2026-05-21 — traceability populated by gsd-roadmapper*
