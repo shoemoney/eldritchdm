@@ -4,13 +4,10 @@ Tests for eldritch_dm.persistence.bootstrap — schema application.
 
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
-
 import aiosqlite
 import pytest
 
-from eldritch_dm.persistence.bootstrap import SCHEMA_PATH, bootstrap, main
+from eldritch_dm.persistence.bootstrap import bootstrap, main
 
 
 class TestBootstrapCreatesTables:

@@ -70,13 +70,6 @@ class TestCheckpointSkipsWhenQueueBusy:
 
         pragma_ran = False
 
-        original_open = None
-
-        # Patch open_connection to detect if PRAGMA was run
-        from eldritch_dm.persistence import connection as conn_mod
-
-        original_open_conn = conn_mod.open_connection
-
         class _TrackingConn:
             def __aenter__(self):
                 nonlocal pragma_ran

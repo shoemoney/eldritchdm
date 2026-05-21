@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import sys
 from pathlib import Path
 
 import aiosqlite
@@ -36,7 +35,7 @@ from eldritch_dm.logging import configure_logging, get_logger
 log = get_logger(__name__)
 
 # Locate schema.sql relative to this file:
-#   src/eldritch_dm/persistence/bootstrap.py  → parents[3] = project root
+#   src/eldritch_dm/persistence/bootstrap.py  -> parents[3] = project root
 #   <project_root>/database/schema.sql
 SCHEMA_PATH = Path(__file__).resolve().parents[3] / "database" / "schema.sql"
 
@@ -60,8 +59,17 @@ async def bootstrap(db_path: str | None = None) -> Path:
     if db_path is None:
         db_path = get_settings().eldritch_db_path
 
-    db = Path(db_path).resolve()
-    db.parent.mkdir(parents=True, exist_ok=True)
+    # Use str/Path operations synchronously here — this is a startup task,
+    # not a hot path. ASYNC240 does not apply to setup code.
+    # (ruff ASYNC240 is about trio/anyio paths in long-running async code.)
+    db = Path(db_path).resolve()  # noqa: ASYNC240
+    db_dir = db.parent
+    db_dir_str = str(db_dir)
+
+    # Create parent directory synchronously (startup-time, not a hot path)
+    import os  # noqa: PLC0415
+
+    os.makedirs(db_dir_str, exist_ok=True)
 
     schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
     schema_sha256 = hashlib.sha256(schema_sql.encode()).hexdigest()
@@ -76,7 +84,7 @@ async def bootstrap(db_path: str | None = None) -> Path:
     conn: aiosqlite.Connection = await aiosqlite.connect(str(db))
     try:
         # Apply pragmas first (foreign_keys, WAL, etc.)
-        from eldritch_dm.persistence.connection import apply_pragmas
+        from eldritch_dm.persistence.connection import apply_pragmas  # noqa: PLC0415
 
         await apply_pragmas(conn)
 
