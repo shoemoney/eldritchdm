@@ -13,6 +13,8 @@ land in Phases 3-5 in their own cogs.
 
 from __future__ import annotations
 
+import asyncio
+
 import discord
 from discord.ext import commands
 
@@ -22,6 +24,7 @@ from eldritch_dm.mcp.client import MCPClient
 from eldritch_dm.mcp.health import CircuitBreaker, HealthCheck
 from eldritch_dm.persistence import ChannelSessionRepo, WriterQueue
 from eldritch_dm.persistence.bootstrap import bootstrap
+from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 
 log = get_logger(__name__)
 
@@ -51,6 +54,7 @@ class EldritchBot(commands.Bot):
         self.mcp: MCPClient | None = None
         self.health: HealthCheck | None = None
         self.channel_sessions_repo: ChannelSessionRepo | None = None
+        self.persistent_views_repo: PersistentViewRepo | None = None
 
         self._logger = log.bind(component="EldritchBot")
 
@@ -95,15 +99,30 @@ class EldritchBot(commands.Bot):
         )
         await self.health.start()
 
-        # (e) Channel sessions repository
+        # (e) Channel sessions repository + persistent views repository
         self.channel_sessions_repo = ChannelSessionRepo(
             settings.eldritch_db_path,
             self.writer_queue,
         )
+        self.persistent_views_repo = PersistentViewRepo(
+            settings.eldritch_db_path,
+            self.writer_queue,
+        )
 
-        # Plan 03: rehydrate persistent_views here
-        # (register DynamicItem subclasses via self.add_dynamic_items(...) and
-        #  optionally log count from PersistentViewRepo.list_all())
+        # (e2) Register DynamicItem subclasses — the primary dispatch mechanism.
+        # add_dynamic_items is sufficient for persistent buttons per RESEARCH.md Pitfall 1.
+        from eldritch_dm.bot.dynamic_items import DYNAMIC_ITEM_CLASSES
+        from eldritch_dm.bot.setup_hook import rehydrate_persistent_views
+
+        self.add_dynamic_items(*DYNAMIC_ITEM_CLASSES)
+
+        # (e3) Rehydrate persistent_views: call bot.add_view for each DB row
+        # (audit layer; dispatch still works via add_dynamic_items above)
+        rehydrated_count = await rehydrate_persistent_views(
+            self,
+            self.persistent_views_repo,
+            self.channel_sessions_repo,
+        )
 
         # (f) Load cogs
         await self.load_extension("eldritch_dm.bot.cogs.diagnostics")
@@ -122,30 +141,52 @@ class EldritchBot(commands.Bot):
 
         self._logger.info(
             "setup_hook_ok",
+            rehydrated_views=rehydrated_count,
             cmd_count=cmd_count,
             guild_ids=guild_ids,
             db_path=settings.eldritch_db_path,
         )
 
     async def close(self) -> None:
-        """Graceful shutdown (D-26).
+        """Graceful shutdown (D-26 / OPS-04).
 
-        Order:
+        Order (T-02-16 mitigated by 5s timeout on writer_queue drain):
           1. Stop HealthCheck (cancel background ping task)
-          2. Stop WriterQueue (best-effort drain; full timeout wired in Plan 03)
+          2. Stop WriterQueue (drain with 5s timeout; log timeout, continue)
           3. Close MCPClient httpx pool
           4. super().close() — disconnects gateway
+
+        Each step is wrapped in try/except so subsequent steps always run,
+        even if an earlier step raises an unexpected error.
         """
         self._logger.info("bot_closing")
 
+        # Step 1: Stop HealthCheck
         if self.health is not None:
-            await self.health.stop()
+            try:
+                await self.health.stop()
+                self._logger.debug("health_stopped")
+            except Exception:  # noqa: BLE001
+                self._logger.exception("health_stop_error")
 
+        # Step 2: Drain WriterQueue with 5s timeout (T-02-16)
         if self.writer_queue is not None:
-            await self.writer_queue.stop()
+            try:
+                await asyncio.wait_for(self.writer_queue.stop(), timeout=5.0)
+                self._logger.debug("writer_queue_stopped")
+            except TimeoutError:
+                self._logger.warning("writer_queue_drain_timeout")
+            except Exception:  # noqa: BLE001
+                self._logger.exception("writer_queue_stop_error")
 
+        # Step 3: Close MCP httpx connection pool
         if self.mcp is not None:
-            await self.mcp.aclose()
+            try:
+                await self.mcp.aclose()
+                self._logger.debug("mcp_closed")
+            except Exception:  # noqa: BLE001
+                self._logger.exception("mcp_close_error")
 
+        # Step 4: Disconnect gateway
         await super().close()
         self._logger.info("bot_closed")

@@ -124,17 +124,17 @@ async def test_rehydrate_persistent_views_happy_path():
     mock_bot = MagicMock(spec=discord.Client)
     mock_bot.add_view = MagicMock()
 
-    # 2 active sessions
-    sessions = [_make_session("ch-A"), _make_session("ch-B")]
+    # 2 active sessions — use numeric channel IDs to match DynamicItem regex patterns
+    sessions = [_make_session("111"), _make_session("222")]
 
-    # 2 views in ch-A, 1 view in ch-B
+    # 2 views in channel 111, 1 view in channel 222
     views_by_channel = {
-        "ch-A": [
-            _make_pv(custom_id="ready:ch-A", view_class="ReadyButton", message_id="100", channel_id="ch-A"),
-            _make_pv(custom_id="endturn:ch-A:42", view_class="EndTurnButton", message_id="101", channel_id="ch-A"),
+        "111": [
+            _make_pv(custom_id="ready:111", view_class="ReadyButton", message_id="100", channel_id="111"),
+            _make_pv(custom_id="endturn:111:42", view_class="EndTurnButton", message_id="101", channel_id="111"),
         ],
-        "ch-B": [
-            _make_pv(custom_id="declare:ch-B", view_class="DeclareActionButton", message_id="200", channel_id="ch-B"),
+        "222": [
+            _make_pv(custom_id="declare:222", view_class="DeclareActionButton", message_id="200", channel_id="222"),
         ],
     }
 
