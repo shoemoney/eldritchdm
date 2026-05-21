@@ -89,9 +89,14 @@ async def test_first_update_fires_immediately():
 
 @pytest.mark.asyncio
 async def test_rate_limit_applied_on_second_update():
-    """Two rapid updates produce 2 edits; second is delayed by sleep(~rate_limit - elapsed)."""
+    """Two rapid updates produce 2 edits; second is delayed by sleep(rate_limit - elapsed).
+
+    Scenario:
+      - First edit fires immediately at t=0 (_last_edit_t == -inf before, set to 0 after)
+      - Second update arrives; clock returns 0.3 (only 0.3s have elapsed since first edit)
+      - Rate limit is 1.0s → coalescer must sleep(1.0 - 0.3 = 0.7s)
+    """
     sleep_calls: list[float] = []
-    event_loop = asyncio.get_event_loop()
 
     # Use a real asyncio.Event to coordinate the test
     sleep_started = asyncio.Event()
@@ -102,12 +107,18 @@ async def test_rate_limit_applied_on_second_update():
         sleep_started.set()
         await sleep_done.wait()
 
-    clock_val = 0.5  # 0.5s elapsed since last edit
-    rate_limit = 1.0
+    # Clock: returns 0 for first edit, then 0.3 for subsequent calls
+    first_edit_done = False
+    clock_sequence = [0.0, 0.0, 0.3, 0.3, 0.3]
+    clock_idx = 0
 
     def fake_clock() -> float:
-        return clock_val
+        nonlocal clock_idx
+        val = clock_sequence[min(clock_idx, len(clock_sequence) - 1)]
+        clock_idx += 1
+        return val
 
+    rate_limit = 1.0
     msg = make_fake_message()
     coalescer = EmbedCoalescer(
         msg,
@@ -121,9 +132,10 @@ async def test_rate_limit_applied_on_second_update():
     await coalescer.update(embed1)
     await asyncio.sleep(0)
     await asyncio.sleep(0)
+    await asyncio.sleep(0)
 
-    # Now simulate that 0.5s have elapsed since last edit
-    # Second update: clock says 0.5s elapsed; need sleep(0.5s more)
+    # Second update: clock will return 0.3 (only 0.3s since edit at t=0.0)
+    # So sleep should be called with ~0.7s
     embed2 = make_embed("second")
     await coalescer.update(embed2)
 
@@ -134,8 +146,8 @@ async def test_rate_limit_applied_on_second_update():
         pass
 
     assert len(sleep_calls) >= 1, "Expected sleep to be called for rate-limiting"
-    # Sleep should be ~0.5s (rate_limit - elapsed = 1.0 - 0.5)
-    assert abs(sleep_calls[0] - 0.5) < 0.1, f"Expected sleep(~0.5), got sleep({sleep_calls[0]})"
+    # Sleep should be ~0.7s (rate_limit - elapsed = 1.0 - 0.3)
+    assert abs(sleep_calls[0] - 0.7) < 0.15, f"Expected sleep(~0.7), got sleep({sleep_calls[0]})"
 
     sleep_done.set()
     await asyncio.sleep(0)
