@@ -70,11 +70,28 @@ def bot_factory(bot_settings):
 
     tree.sync is replaced with AsyncMock so no real Discord API calls happen.
     health.start is called with a high interval (3600s) so no ping fires in tests.
+
+    Args (for the returned async callable):
+        eldritch_db_path: Override the DB path (used by restart-drill tests
+                          that want two bot instances sharing a tmp DB).
     """
     from eldritch_dm.bot.bot import EldritchBot
+    from eldritch_dm.config import Settings
 
-    async def _make() -> EldritchBot:
-        bot = EldritchBot(bot_settings)
+    async def _make(eldritch_db_path: str | None = None) -> EldritchBot:
+        if eldritch_db_path is not None:
+            # Build a Settings copy with the overridden DB path
+            settings = Settings(
+                discord_token=bot_settings.discord_token,
+                discord_guild_ids=bot_settings.discord_guild_ids or "",
+                eldritch_db_path=eldritch_db_path,
+                omlx_health_interval=bot_settings.omlx_health_interval,
+                omlx_circuit_breaker_threshold=bot_settings.omlx_circuit_breaker_threshold,
+            )
+        else:
+            settings = bot_settings
+
+        bot = EldritchBot(settings)
         # Prevent real Discord API calls during tree sync
         bot.tree.sync = AsyncMock(return_value=[])
         await bot.setup_hook()
