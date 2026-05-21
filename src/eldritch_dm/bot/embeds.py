@@ -70,6 +70,8 @@ def lobby_embed(
     campaign_name: str,
     players: Sequence[PlayerStatus],
     party_invite: str | None = None,
+    server_url: str | None = None,
+    transition_state: str | None = None,
 ) -> discord.Embed:
     """Render the lobby status embed.
 
@@ -77,7 +79,13 @@ def lobby_embed(
         campaign_name: Name of the campaign / session.
         players: Sequence of :class:`PlayerStatus` snapshots.
         party_invite: Optional invite URL; if provided a ``Join Party Mode``
-            field is added; omitted when ``None``.
+            field is added; omitted when ``None``. (back-compat with Phase 2 callers)
+        server_url: Optional Party Mode server base URL. When provided, adds a
+            ``Party Mode Server`` field to the embed. Phase 3 addition (D-09).
+        transition_state: Optional state hint for the description suffix.
+            ``"transitioning"`` → "All ready — entering EXPLORATION…"
+            ``"exploration"`` → "EXPLORATION active"
+            ``None`` or ``"lobby"`` → "Waiting for players to ready up"
 
     Returns:
         A :class:`discord.Embed` with LOBBY color.
@@ -86,7 +94,17 @@ def lobby_embed(
         f"{'✅' if p.ready else '⌛'} **{p.display_name}** — {p.character_name or 'no character yet'}"
         for p in players
     ]
-    description = "\n".join(lines) if lines else "*No players yet.*"
+    player_block = "\n".join(lines) if lines else "*No players yet.*"
+
+    # Append description suffix based on transition state
+    if transition_state == "transitioning":
+        suffix = "\n\n✅ All ready — entering EXPLORATION…"
+    elif transition_state == "exploration":
+        suffix = "\n\n🟢 EXPLORATION active"
+    else:
+        suffix = "\n\nWaiting for players to ready up."
+
+    description = player_block + suffix
 
     embed = discord.Embed(
         title=f"⚔️ {campaign_name} — Lobby",
@@ -96,6 +114,9 @@ def lobby_embed(
 
     if party_invite is not None:
         embed.add_field(name="Join Party Mode", value=party_invite, inline=False)
+
+    if server_url is not None:
+        embed.add_field(name="Party Mode Server", value=server_url, inline=False)
 
     _apply_footer(embed)
     return embed

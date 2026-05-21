@@ -141,18 +141,20 @@ class TestBadCustomId:
 
 
 # ── Test 4: stub callback — defer first, then followup.send ───────────────────
+# Note: ReadyButton is NOT included here — its callback was replaced by a real
+# implementation in Phase 3 (Task 3). Tests for the real ReadyButton callback
+# live in test_dynamic_items_real.py.
+
+
+_STUB_CLASSES = [
+    (DeclareActionButton, {"channel_id": 20}),
+    (EndTurnButton, {"channel_id": 30, "actor_id": 40}),
+    (RiposteButton, {"timer_id": 50, "user_id": 60}),
+]
 
 
 class TestStubCallback:
-    @pytest.mark.parametrize(
-        "cls, kwargs",
-        [
-            (ReadyButton, {"channel_id": 10}),
-            (DeclareActionButton, {"channel_id": 20}),
-            (EndTurnButton, {"channel_id": 30, "actor_id": 40}),
-            (RiposteButton, {"timer_id": 50, "user_id": 60}),
-        ],
-    )
+    @pytest.mark.parametrize("cls, kwargs", _STUB_CLASSES)
     @pytest.mark.asyncio
     async def test_callback_defers_first(self, cls, kwargs) -> None:
         instance = cls(**kwargs)
@@ -163,15 +165,7 @@ class TestStubCallback:
         # defer must be called before followup.send
         interaction.response.defer.assert_awaited_once_with(thinking=True, ephemeral=True)
 
-    @pytest.mark.parametrize(
-        "cls, kwargs",
-        [
-            (ReadyButton, {"channel_id": 10}),
-            (DeclareActionButton, {"channel_id": 20}),
-            (EndTurnButton, {"channel_id": 30, "actor_id": 40}),
-            (RiposteButton, {"timer_id": 50, "user_id": 60}),
-        ],
-    )
+    @pytest.mark.parametrize("cls, kwargs", _STUB_CLASSES)
     @pytest.mark.asyncio
     async def test_callback_followup_contains_class_name(self, cls, kwargs) -> None:
         instance = cls(**kwargs)
@@ -190,23 +184,13 @@ class TestStubCallback:
         # Must be ephemeral
         assert call_kwargs.kwargs.get("ephemeral") is True
 
-    @pytest.mark.parametrize(
-        "cls, kwargs",
-        [
-            (ReadyButton, {"channel_id": 10}),
-            (DeclareActionButton, {"channel_id": 20}),
-            (EndTurnButton, {"channel_id": 30, "actor_id": 40}),
-            (RiposteButton, {"timer_id": 50, "user_id": 60}),
-        ],
-    )
+    @pytest.mark.parametrize("cls, kwargs", _STUB_CLASSES)
     @pytest.mark.asyncio
     async def test_callback_defer_before_followup_ordering(self, cls, kwargs) -> None:
         """Verify defer is awaited before followup.send (call ordering)."""
         call_order: list[str] = []
 
         interaction = _make_interaction()
-        interaction.response.defer.side_effect = lambda **kw: call_order.append("defer")
-        interaction.followup.send.side_effect = lambda **kw: call_order.append("followup")
 
         # Need to make them actual coroutines
         async def defer_coro(**kw):

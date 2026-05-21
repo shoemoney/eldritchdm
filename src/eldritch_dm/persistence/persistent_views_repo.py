@@ -83,6 +83,47 @@ class PersistentViewRepo:
         self._logger.debug("insert_ok", custom_id=view.custom_id)
         return model
 
+    async def upsert(self, view: PersistentView) -> PersistentView:
+        """Insert or update a PersistentView row (ON CONFLICT DO UPDATE).
+
+        On conflict (same custom_id), updates payload_json, message_id, and
+        channel_id to the new values. Used by ReadyButton to persist the
+        per-channel ready-state dict across bot restarts (D-12).
+        """
+        sql = """
+            INSERT INTO persistent_views
+                (custom_id, view_class, message_id, channel_id, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(custom_id) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                message_id   = excluded.message_id,
+                channel_id   = excluded.channel_id
+        """
+        payload_json = json.dumps(view.payload)
+
+        async def _do(conn: aiosqlite.Connection) -> dict:
+            await conn.execute(
+                sql,
+                (view.custom_id, view.view_class, view.message_id, view.channel_id, payload_json),
+            )
+            cursor = await conn.execute(
+                "SELECT * FROM persistent_views WHERE custom_id = ?", (view.custom_id,)
+            )
+            row = await cursor.fetchone()
+            assert row is not None
+            return dict(row)
+
+        row_dict = await self._writer_queue.submit(_do)
+        payload_json_val = row_dict.pop("payload_json", "{}")
+        row_dict["payload"] = json.loads(payload_json_val) if payload_json_val else {}
+        for col in ("created_at",):
+            v = row_dict.get(col)
+            if isinstance(v, str):
+                row_dict[col] = datetime.fromisoformat(v)
+        model = PersistentView(**row_dict)
+        self._logger.debug("upsert_ok", custom_id=view.custom_id)
+        return model
+
     async def delete_for_message(self, message_id: str) -> int:
         """Delete all views associated with a given message_id.
 

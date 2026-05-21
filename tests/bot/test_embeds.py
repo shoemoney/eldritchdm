@@ -168,6 +168,70 @@ class TestCharacterConfirmEmbedSnapshot:
         assert result == expected
 
 
+# ── Phase 3: server_url extension ────────────────────────────────────────────
+
+
+class TestLobbyEmbedServerUrl:
+    """Phase 3: lobby_embed accepts optional server_url kwarg."""
+
+    def test_lobby_embed_with_server_url_shows_field(self) -> None:
+        """When server_url is provided, a 'Party Mode server' field appears."""
+        embed = lobby_embed(
+            campaign_name="TestCamp",
+            players=[],
+            server_url="http://192.168.1.5:8080",
+        )
+        field_names = [f.name for f in embed.fields]
+        assert "Party Mode Server" in field_names
+
+    def test_lobby_embed_server_url_value_in_field(self) -> None:
+        """The Party Mode Server field contains the provided URL."""
+        url = "http://192.168.1.5:8080"
+        embed = lobby_embed(
+            campaign_name="TestCamp",
+            players=[],
+            server_url=url,
+        )
+        server_fields = [f for f in embed.fields if f.name == "Party Mode Server"]
+        assert len(server_fields) == 1
+        assert url in server_fields[0].value
+
+    def test_lobby_embed_no_server_url_no_field(self) -> None:
+        """When server_url is None (default), no 'Party Mode Server' field is added."""
+        embed = lobby_embed(campaign_name="TestCamp", players=[])
+        field_names = [f.name for f in embed.fields]
+        assert "Party Mode Server" not in field_names
+
+    def test_lobby_embed_backward_compat_party_invite_still_works(self) -> None:
+        """Existing callers using party_invite= still work (no regression)."""
+        embed = lobby_embed(
+            campaign_name="TestCamp",
+            players=[],
+            party_invite="https://example.com/join",
+        )
+        field_names = [f.name for f in embed.fields]
+        assert "Join Party Mode" in field_names
+
+    def test_lobby_embed_transitioning_description(self) -> None:
+        """Transitioning state produces exploration copy in description area."""
+        player = PlayerStatus(display_name="Alice", ready=True, character_name="Aria")
+        embed = lobby_embed(
+            campaign_name="TestCamp",
+            players=[player],
+            transition_state="transitioning",
+        )
+        assert "EXPLORATION" in embed.description or "All ready" in embed.description
+
+    def test_lobby_embed_exploration_description(self) -> None:
+        """Exploration state produces green copy."""
+        embed = lobby_embed(
+            campaign_name="TestCamp",
+            players=[],
+            transition_state="exploration",
+        )
+        assert "EXPLORATION" in embed.description
+
+
 class TestEmbedColorAndFooter:
     @pytest.mark.parametrize(
         "fn, kwargs, expected_color",
