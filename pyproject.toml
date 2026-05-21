@@ -20,6 +20,7 @@ dependencies = [
   "pypdf>=4.3,<6.0",
   "openai>=1.55,<2.0",
   "python-dotenv>=1.0,<2.0",
+  "segno>=1.6,<2.0",
 ]
 
 [project.optional-dependencies]

@@ -11,7 +11,7 @@ Tests cover the state machine wired via interaction.client:
   - ready_user_ids are deduped (same user clicking twice doesn't double-count)
 
 Isolation: all I/O (MCP, DB repos) is replaced with AsyncMock / MagicMock.
-The bot is a MagicMock with .mcp, .channel_sessions, .persistent_views attributes.
+The bot is a MagicMock with .mcp, .channel_sessions, and .pv_repo attributes.
 """
 
 from __future__ import annotations
@@ -60,7 +60,8 @@ def _make_mock_client(
     cs_repo.set_state = AsyncMock()
     client.channel_sessions = cs_repo
 
-    # persistent_views repo
+    # persistent_views repo (accessed via bot.pv_repo — discord.Client has a
+    # `persistent_views` property so we cannot reuse that name on the bot)
     pv_repo = AsyncMock()
     if persistent_view_payload is not None:
         pv_view = MagicMock()
@@ -69,7 +70,7 @@ def _make_mock_client(
     else:
         pv_repo.get.return_value = None
     pv_repo.insert = AsyncMock()
-    client.persistent_views = pv_repo
+    client.pv_repo = pv_repo
 
     # mcp client
     mcp = AsyncMock()
@@ -152,7 +153,7 @@ class TestReadyButtonReal:
         assert sent_kwargs.kwargs.get("ephemeral") is True
         # Must NOT write any state
         client.channel_sessions.set_state.assert_not_awaited()
-        client.persistent_views.insert.assert_not_awaited()
+        client.pv_repo.insert.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_non_roster_user_rejected(self):
@@ -199,7 +200,7 @@ class TestReadyButtonReal:
         # Should NOT transition
         client.channel_sessions.set_state.assert_not_awaited()
         # Should update persistent_views
-        client.persistent_views.insert.assert_awaited_once()
+        client.pv_repo.insert.assert_awaited_once()
         # Should send progress message
         interaction.followup.send.assert_awaited_once()
         sent_kwargs = interaction.followup.send.call_args
@@ -283,9 +284,9 @@ class TestReadyButtonReal:
         button = ReadyButton(channel_id=200)
         await button.callback(interaction)
 
-        # persistent_views.insert should have been called
-        client.persistent_views.insert.assert_awaited()
-        insert_call = client.persistent_views.insert.call_args
+        # pv_repo.insert should have been called
+        client.pv_repo.insert.assert_awaited()
+        insert_call = client.pv_repo.insert.call_args
         inserted_view = insert_call.args[0] if insert_call.args else insert_call.kwargs.get("view")
         assert inserted_view is not None
         assert "100" in inserted_view.payload.get("ready_user_ids", [])
@@ -311,7 +312,7 @@ class TestReadyButtonReal:
         await button.callback(interaction)
 
         # Should insert with deduped list (100 appears only once)
-        insert_call = client.persistent_views.insert.call_args
+        insert_call = client.pv_repo.insert.call_args
         inserted_view = insert_call.args[0] if insert_call.args else insert_call.kwargs.get("view")
         if inserted_view:
             ready_ids = inserted_view.payload.get("ready_user_ids", [])

@@ -127,7 +127,7 @@ class ReadyButton(
         # with DynamicItem — discord.py routes dispatch via class; cog can't inject deps).
         bot = interaction.client
         channel_sessions_repo = bot.channel_sessions
-        persistent_views_repo = bot.persistent_views
+        persistent_views_repo = bot.pv_repo
         mcp_client = bot.mcp
 
         # Step 2: Load channel session

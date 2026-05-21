@@ -55,6 +55,14 @@ class EldritchBot(commands.Bot):
         self.health: HealthCheck | None = None
         self.channel_sessions_repo: ChannelSessionRepo | None = None
         self.persistent_views_repo: PersistentViewRepo | None = None
+        # Phase 3 convenience aliases — ReadyButton.callback and LobbyCog read these via
+        # interaction.client (cannot use constructor injection with DynamicItem).
+        # Named with trailing underscore to avoid collision with discord.Client.persistent_views
+        # property. These are set to the same objects as channel_sessions_repo /
+        # persistent_views_repo during setup_hook; both names are valid.
+        # NOTE: discord.Client has a `persistent_views` property, so we use different names.
+        self.channel_sessions: ChannelSessionRepo | None = None
+        self.pv_repo: PersistentViewRepo | None = None
 
         self._logger = log.bind(component="EldritchBot")
 
@@ -108,6 +116,10 @@ class EldritchBot(commands.Bot):
             settings.eldritch_db_path,
             self.writer_queue,
         )
+        # Phase 3 convenience aliases for ReadyButton.callback + LobbyCog
+        # (discord.Client has a `persistent_views` property; use pv_repo instead)
+        self.channel_sessions = self.channel_sessions_repo
+        self.pv_repo = self.persistent_views_repo
 
         # (e2) Register DynamicItem subclasses — the primary dispatch mechanism.
         # add_dynamic_items is sufficient for persistent buttons per RESEARCH.md Pitfall 1.
@@ -126,6 +138,8 @@ class EldritchBot(commands.Bot):
 
         # (f) Load cogs
         await self.load_extension("eldritch_dm.bot.cogs.diagnostics")
+        # Phase 3: LobbyCog (/start_game, /load_adventure, ReadyButton wiring)
+        await self.load_extension("eldritch_dm.bot.cogs.lobby")
 
         # (g) Sync app command tree
         guild_ids = settings.guild_ids_list
