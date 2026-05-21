@@ -12,21 +12,21 @@
 - [ ] **MCP-03**: Typed wrapper functions for every dm20 tool we use (campaign, character, combat, party-mode, claudmaster, library) — generated or hand-written, but type-checked
 - [ ] **MCP-04**: Error mapping: dm20 tool errors surface as structured exceptions with tool_name + arg snapshot for logging
 - [ ] **MCP-05**: Health-check ping (`fetch__fetch` GET `:8765/v1/models`) every 60s; circuit-breaker trips after 3 consecutive failures; surface "DM is offline" embed
-- [ ] **MCP-06**: `structlog` JSON logging binds `channel_id`, `campaign_name`, `session_id`, `tool_name` on every MCP call
+- [x] **MCP-06**: `structlog` JSON logging binds `channel_id`, `campaign_name`, `session_id`, `tool_name` on every MCP call
 - [ ] **MCP-07**: Per-channel `asyncio.Lock` around MCP calls that mutate dm20 state (prevents concurrent `combat_action` clobbering each other)
 
 ### Local Discord-State Persistence (LOC)
 
-- [ ] **LOC-01**: SQLite (WAL) at `ELDRITCH_DB_PATH` (default `./eldritch.sqlite3`)
-- [ ] **LOC-02**: Schema tables (small, Discord-specific only):
+- [x] **LOC-01**: SQLite (WAL) at `ELDRITCH_DB_PATH` (default `./eldritch.sqlite3`)
+- [x] **LOC-02**: Schema tables (small, Discord-specific only):
   - `channel_sessions` (channel_id PK, campaign_name, claudmaster_session_id, dm20_party_token, state, created_at)
   - `persistent_views` (custom_id PK, view_class, message_id, channel_id, payload_json, created_at)
   - `riposte_timers` (id PK, channel_id, character_id, deadline_ts, monster_uuid, weapon_used, status)
   - `sanitizer_audit` (id PK, channel_id, user_id, raw_input, stripped_tokens, redacted_output, ts)
-- [ ] **LOC-03**: WAL + `busy_timeout=5000` + `BEGIN IMMEDIATE` for writes
-- [ ] **LOC-04**: Single-writer asyncio queue for `eldritch.sqlite3` writes
+- [x] **LOC-03**: WAL + `busy_timeout=5000` + `BEGIN IMMEDIATE` for writes
+- [x] **LOC-04**: Single-writer asyncio queue for `eldritch.sqlite3` writes
 - [ ] **LOC-05**: Repositories per table using `aiosqlite` and pydantic v2 frozen models
-- [ ] **LOC-06**: `bootstrap.py` creates schema idempotently on startup
+- [x] **LOC-06**: `bootstrap.py` creates schema idempotently on startup
 
 ### Discord Scaffold (BOT)
 
@@ -110,7 +110,7 @@
 - [ ] **OPS-01**: Resume drill — kill bot mid-combat, restart, confirm turn order/HP/buttons all functional from `channel_sessions` + `dm20__get_claudmaster_session_state`
 - [ ] **OPS-02**: Circuit breaker on dm20 unreachable: bot replies to all interactions with ephemeral "DM is offline, try again shortly" embed; auto-recovers on health-check restoration
 - [ ] **OPS-03**: Per-channel rate-limit on MCP calls (max 1 mutating call per 200ms) to prevent dm20 thrashing under spam clicks
-- [ ] **OPS-04**: Graceful shutdown: cancel pending riposte timers, flush sanitizer audit, close DB
+- [x] **OPS-04**: Graceful shutdown: cancel pending riposte timers, flush sanitizer audit, close DB
 
 ## v2 Requirements
 

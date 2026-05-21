@@ -31,7 +31,10 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   3. Local SQLite (`eldritch.sqlite3`) bootstraps four Discord-state tables (`channel_sessions`, `persistent_views`, `riposte_timers`, `sanitizer_audit`) with WAL + busy_timeout; all writes through a single writer task using `BEGIN IMMEDIATE`
   4. `sanitize_player_input` passes a ≥30-scenario adversarial corpus: strips control tokens, caps at 500 chars, wraps in `<player_action>` sentinels, audit row written when stripping occurs
   5. Unit tests for MCP client (httpx mocked), repositories (round-trip), and sanitizer (corpus) all pass; no `database is locked` under a 4-channel concurrent write stress test
-**Plans**: TBD
+**Plans**:
+- [x] Plan 01: Foundation (pyproject, config, logging, WAL persistence, import-linter) — COMPLETE (73 tests, 18 files, 18 min)
+- [ ] Plan 02: Repositories + MCP Client (CRUD repos, MCPClient, health/circuit-breaker, typed tool wrappers)
+- [ ] Plan 03: Sanitizer pipeline (sanitize_player_input, adversarial corpus, audit rows)
 
 ### Phase 2: Discord Scaffold + Persistent Views
 **Goal**: A running discord.py bot with slash command surface, embed renderers, and a persistent-view infrastructure that survives restart — proven by a kill-and-restart drill

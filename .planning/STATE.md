@@ -1,6 +1,22 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: in_progress
+last_updated: "2026-05-21T21:30:00Z"
+progress:
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 20
+current_phase: "01-mcp-client-local-state"
+current_plan: "01-02"
+---
+
 # EldritchDM — State
 
-**Last updated:** 2026-05-21 (post-MCP-pivot roadmap revision)
+**Last updated:** 2026-05-21 (Phase 1 Plan 01 complete — foundation, 73 tests passing)
 **Milestone:** v1.0
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -36,9 +52,23 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - [ ] Verify dm20 models reactions (`has_reaction`) natively; if not, design the shim (Phase 5)
 - [ ] Confirm `dm20__party_pop_action` returns immediately when queue empty (we may need polling cadence vs WS)
 
+## Decisions
+
+- Used Python 3.11 venv (python3.11 on PATH) despite project allowing <3.13
+- Removed TCH ruff rules — false positives with pydantic/aiosqlite runtime usage
+- ASYNC240 (pathlib in async) suppressed for bootstrap.py — startup-only code, not hot path
+- safety may import persistence.models (pure pydantic data shapes); contract relaxed to allow this while still forbidding persistence internals
+
+## Performance Metrics
+
+| Phase | Plan | Duration (min) | Tasks | Files |
+|-------|------|----------------|-------|-------|
+| 01-mcp-client-local-state | 01 | 18 | 3 | 18 |
+
 ## Recent History
 
 - 2026-05-21: Project init → research → roadmap (11 phases, 87 reqs)
 - 2026-05-21: Discovered 116-tool MCP toolbox via `ddmcpskills.md`
 - 2026-05-21: Pivot decision: hybrid (dm20 for content, ours for Discord state), Party Mode binding, Riposte stays, OCR/PDF stays
 - 2026-05-21: Roadmap revised 11 → 5 phases; requirements 87 → ~55
+- 2026-05-21: Phase 1 Plan 01 (foundation) complete — pyproject.toml, config, logging, WAL persistence, import-linter; 73 tests passing
