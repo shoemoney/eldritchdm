@@ -51,7 +51,6 @@ class TestExtractPdfText:
         fake_pypdf = MagicMock()
         fake_pypdf.PdfReader.side_effect = Exception("pypdf internal error")
 
-        import sys
 
         with patch.dict("sys.modules", {"fitz": fake_fitz, "pypdf": fake_pypdf}):
             with pytest.raises(PdfExtractionError):
@@ -59,7 +58,6 @@ class TestExtractPdfText:
 
     def test_raises_when_no_backends_installed(self):
         """Should raise PdfExtractionError when both fitz and pypdf are missing."""
-        import sys
 
         with patch.dict("sys.modules", {"fitz": None, "pypdf": None}):  # type: ignore[dict-item]
             with pytest.raises((PdfExtractionError, ImportError)):

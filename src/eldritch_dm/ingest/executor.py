@@ -11,8 +11,9 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from eldritch_dm.logging import get_logger
 
