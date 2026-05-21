@@ -16,7 +16,7 @@ EldritchDM is a local-first, self-hostable Discord bot that runs full D&D 5e gam
 
 ### Active
 
-- [ ] Local inference client (mlx-omni-server, Gemma 4) with OpenAI-compatible API at `localhost:8080/v1`
+- [ ] Local inference client (oMLX (`omlx serve`), Gemma 4) with OpenAI-compatible API at `localhost:8080/v1`
 - [ ] SQLite (WAL mode) schema: `game_sessions`, `characters`, `combat_monsters`, `campaign_memory`
 - [ ] Character ingest via OCR (EasyOCR for PNG/JPG) and PDF (pypdf) → LLM-translated JSON → DB
 - [ ] State machine: LOBBY → EXPLORATION → COMBAT_INIT → COMBAT, with persistent state across restarts
@@ -50,7 +50,7 @@ EldritchDM is a local-first, self-hostable Discord bot that runs full D&D 5e gam
 
 - **Runtime:** Python 3.11+
 - **Platform:** macOS Apple Silicon primary target (Linux/CUDA secondary if not in conflict)
-- **Inference backend:** `mlx-omni-server` exposing OpenAI-compatible API at `http://localhost:8080/v1` (Gemma 4 default model, 4-bit quantized). Tool calls are reliable on this combo — confirmed by user. Structured-output fallback parser remains as a defensive safety net but native `tool_calls` is the primary path.
+- **Inference backend:** `oMLX (`omlx serve`)` exposing OpenAI-compatible API at `http://localhost:8765/v1` (model id `ShoeGPT`, Gemma 4 4-bit quantized under the hood). Tool calls are reliable on this combo — confirmed by user. Structured-output fallback parser remains as a defensive safety net but native `tool_calls` is the primary path.
 - **Discord library:** `discord.py` v2.3.2+ (Views, Modals, Select Menus required)
 - **Database:** SQLite3 with WAL journaling — no external DB server
 - **Rules source:** Open5e REST API (`https://api.open5e.com/`) with local fallback cache
@@ -65,7 +65,7 @@ EldritchDM is a local-first, self-hostable Discord bot that runs full D&D 5e gam
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Three-brain architecture (Voice / Brain / Orchestrator) | Prevents LLM math hallucination, the #1 failure mode of AI DMs | — Pending |
-| mlx-omni-server + Gemma 4 (over mlx-lm.server / Ollama / Qwen) | User has working setup; OpenAI-compatible tool calls confirmed reliable | ✓ Good |
+| oMLX (`omlx serve`) + Gemma 4 (over mlx-lm.server / Ollama / Qwen) | User has working setup; OpenAI-compatible tool calls confirmed reliable | ✓ Good |
 | SQLite + WAL over hosted DB | Local-first, zero ops, sufficient for concurrent channel writes | — Pending |
 | Self-hostable from day one | Bot is the product; others should be able to run their own | — Pending |
 | Full PRD scope as v1 (no slicing) | Spec is internally coherent — sub-MVPs would feel broken | — Pending |
