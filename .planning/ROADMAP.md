@@ -49,7 +49,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   4. `DynamicItem` `custom_id` templates for every persistent button class (`endturn`, `riposte`, `ready`, `declare_action`); on `setup_hook` bot reads `persistent_views` rows and `bot.add_view(view, message_id=...)`
   5. Kill-and-restart drill: bot killed while a test message has buttons → process restarts → buttons still functional (matching `custom_id` dispatches to handler with state restored from DB)
 **Plans**:
-- [ ] 01-PLAN-bot-scaffold.md — EldritchBot subclass, /ping + /status diagnostics cog, lifecycle tests, bot/ import-linter contract
+- [x] 01-PLAN-bot-scaffold.md — EldritchBot subclass, /ping + /status diagnostics cog, lifecycle tests, bot/ import-linter contract — COMPLETE (11 tests, 9 files, 15 min)
 - [ ] 02-PLAN-embeds-and-views.md — 4 embed renderers (snapshot-tested), 4 DynamicItem subclasses (regex custom_ids), ephemeral warning helper
 - [ ] 03-PLAN-coalescer-rehydration-restart.md — EmbedCoalescer, setup_hook persistent-view rehydration, EDM001 lint, kill-and-restart drill, OPS-04 graceful shutdown, Phase 2 SUMMARY
 

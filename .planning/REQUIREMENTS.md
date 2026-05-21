@@ -30,7 +30,7 @@
 
 ### Discord Scaffold (BOT)
 
-- [ ] **BOT-01**: `discord.py 2.7.1+` bot with slash command tree
+- [x] **BOT-01**: `discord.py 2.7.1+` bot with slash command tree
 - [ ] **BOT-02**: Every interaction callback's first line is `await interaction.response.defer(thinking=True)` (lint-enforced via custom ruff/pre-commit rule)
 - [x] **BOT-03**: Embed renderers: `lobby_embed`, `room_embed`, `combat_embed`, `character_confirm_embed`
 - [x] **BOT-04**: Persistent Views: `discord.ui.DynamicItem` with regex `custom_id` templates, e.g. `endturn:(?P<channel_id>\d+):(?P<actor>\d+)`
