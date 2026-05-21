@@ -57,6 +57,14 @@ ignore = [
   "ASYNC240", # pathlib.Path in async — used only in startup/bootstrap code, not hot paths
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# stress test: pytestmark (skipif) must be declared before subject imports,
+# so imports after pytestmark are intentionally post-top-level (E402).
+# Long doc comments with command lines exceed 100 chars (E501).
+"tests/persistence/test_concurrent_writes.py" = ["E402", "E501"]
+# Long assertion failure messages in parametrized tests exceed 100 chars (E501).
+"tests/safety/test_sanitizer.py" = ["E501"]
+
 # ── pytest ───────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

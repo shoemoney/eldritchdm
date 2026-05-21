@@ -139,7 +139,11 @@ def sanitize_player_input(
         # Step 2: blacklist tokens (case-insensitive)
         for token in blacklist:
             pattern = re.compile(re.escape(token), re.IGNORECASE)
-            new_cleaned, count = pattern.subn(lambda m: (stripped_tokens.append(m.group(0)), "")[1], cleaned)
+            def _replacer(m: re.Match, _tokens: list = stripped_tokens) -> str:
+                _tokens.append(m.group(0))
+                return ""
+
+            new_cleaned, count = pattern.subn(_replacer, cleaned)
             if count > 0:
                 cleaned = new_cleaned
                 made_change = True

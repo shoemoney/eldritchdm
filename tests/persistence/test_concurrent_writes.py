@@ -32,17 +32,16 @@ pytestmark = [
 ]
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
+from eldritch_dm.logging import get_logger
 from eldritch_dm.persistence.bootstrap import bootstrap
 from eldritch_dm.persistence.channel_sessions_repo import ChannelSessionRepo
 from eldritch_dm.persistence.connection import WriterQueue
 from eldritch_dm.persistence.locks import SessionLocks
 from eldritch_dm.persistence.models import ChannelState, PersistentView, SanitizerAuditRow
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
-from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
 from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
-from eldritch_dm.logging import get_logger
 
 log = get_logger(__name__)
 

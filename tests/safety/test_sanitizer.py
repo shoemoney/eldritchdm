@@ -10,18 +10,17 @@ from __future__ import annotations
 import inspect
 import re
 from pathlib import Path
-from datetime import UTC, datetime
 
 import pytest
 import yaml
 
+from eldritch_dm.persistence.models import SanitizerAuditRow
 from eldritch_dm.safety.sanitizer import (
     DEFAULT_BLACKLIST,
     SanitizedInput,
     make_async_audit_callback,
     sanitize_player_input,
 )
-from eldritch_dm.persistence.models import SanitizerAuditRow
 
 # ── Corpus helpers ─────────────────────────────────────────────────────────────
 
@@ -195,7 +194,6 @@ def test_no_audit_for_clean_input():
 
 async def test_make_async_audit_callback_routes_to_repo(bootstrapped_db_with_repos):
     """make_async_audit_callback wires correctly; audit row count increments."""
-    from eldritch_dm.safety.sanitizer import make_async_audit_callback
 
     db_path, wq, _, _, _, audit_repo, _ = bootstrapped_db_with_repos
 
