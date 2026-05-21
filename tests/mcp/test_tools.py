@@ -236,6 +236,107 @@ def test_tool_to_function_complete():
         )
 
 
+# ── Phase 3 wrappers ─────────────────────────────────────────────────────────
+
+
+class TestPhase3Wrappers:
+    """TDD: RED tests for Phase 3 MCP wrappers (list_characters, get_class_info,
+    get_race_info, player_action, get_party_status, load_adventure)."""
+
+    @respx.mock
+    async def test_list_characters_routes_to_correct_tool(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.list_characters(client, campaign_name="X")
+        body = _parse_body(route.calls.last.request)
+        assert body["tool_name"] == "dm20__list_characters"
+        assert body["arguments"]["campaign_name"] == "X"
+        await client.aclose()
+
+    @respx.mock
+    async def test_get_class_info_routes_to_correct_tool(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.get_class_info(client, class_name="Fighter")
+        body = _parse_body(route.calls.last.request)
+        assert body["tool_name"] == "dm20__get_class_info"
+        assert body["arguments"]["class_name"] == "Fighter"
+        await client.aclose()
+
+    @respx.mock
+    async def test_get_race_info_routes_to_correct_tool(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.get_race_info(client, race="Elf")
+        body = _parse_body(route.calls.last.request)
+        assert body["tool_name"] == "dm20__get_race_info"
+        assert body["arguments"]["race"] == "Elf"
+        await client.aclose()
+
+    @respx.mock
+    async def test_player_action_forwards_all_kwargs(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.player_action(
+            client, session_id="s1", action="party_ready", context="lobby_complete"
+        )
+        body = _parse_body(route.calls.last.request)
+        assert body["tool_name"] == "dm20__player_action"
+        assert body["arguments"]["session_id"] == "s1"
+        assert body["arguments"]["action"] == "party_ready"
+        assert body["arguments"]["context"] == "lobby_complete"
+        await client.aclose()
+
+    @respx.mock
+    async def test_get_party_status_routes_to_correct_tool(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.get_party_status(client, campaign_name="X")
+        body = _parse_body(route.calls.last.request)
+        assert body["tool_name"] == "dm20__get_party_status"
+        assert body["arguments"]["campaign_name"] == "X"
+        await client.aclose()
+
+    @respx.mock
+    async def test_load_adventure_with_all_kwargs(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.load_adventure(
+            client, module_id="CoS", populate_chapter_1=False, campaign_name="TestCamp"
+        )
+        body = _parse_body(route.calls.last.request)
+        assert body["tool_name"] == "dm20__load_adventure"
+        assert body["arguments"]["module_id"] == "CoS"
+        assert body["arguments"]["populate_chapter_1"] is False
+        assert body["arguments"]["campaign_name"] == "TestCamp"
+        await client.aclose()
+
+    @respx.mock
+    async def test_load_adventure_omits_campaign_name_when_none(self):
+        route = respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"ok": True}))
+        client = _make_client()
+        await tools.load_adventure(client, module_id="CoS", populate_chapter_1=False)
+        body = _parse_body(route.calls.last.request)
+        assert "campaign_name" not in body["arguments"]
+        await client.aclose()
+
+    def test_phase3_tools_in_registry(self):
+        expected = {
+            "dm20__list_characters",
+            "dm20__get_class_info",
+            "dm20__get_race_info",
+            "dm20__player_action",
+            "dm20__get_party_status",
+            "dm20__load_adventure",
+        }
+        for tool_name in expected:
+            assert tool_name in TOOL_TO_FUNCTION, f"{tool_name!r} missing from TOOL_TO_FUNCTION"
+
+    def test_tool_to_function_has_at_least_34_entries(self):
+        """Phase 3 adds 6 wrappers to the existing 28 = minimum 34."""
+        assert len(TOOL_TO_FUNCTION) >= 34
+
+
 # ── Generator script ──────────────────────────────────────────────────────────
 
 

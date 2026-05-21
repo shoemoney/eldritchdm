@@ -418,6 +418,118 @@ async def dice_roll(
     return await roll_dice(client, notation=notation, label=label, verbose=verbose)
 
 
+# ── Phase 3: Character queries + session actions ──────────────────────────────
+
+
+async def list_characters(
+    client: MCPClient,
+    *,
+    campaign_name: str,
+) -> dict[str, Any]:
+    """List all characters in a campaign.
+
+    Returns dict with ``characters`` key containing a list of character dicts.
+    Each character dict includes: character_id, name, player_id, player_name,
+    class_level, race, character_class.
+
+    Phase 3: used by ReadyButton to verify the ready user is on the roster.
+    """
+    return await client.call("dm20__list_characters", campaign_name=campaign_name)
+
+
+async def get_class_info(
+    client: MCPClient,
+    *,
+    class_name: str,
+) -> dict[str, Any]:
+    """Get D&D 5e class information from dm20.
+
+    Phase 3: used during character ingest validation (D-25) to verify that
+    the class extracted by OCR/LLM translation exists in the 5e ruleset.
+    Returns "not found" indicator in the dict if the class is not recognized.
+    """
+    return await client.call("dm20__get_class_info", class_name=class_name)
+
+
+async def get_race_info(
+    client: MCPClient,
+    *,
+    race: str,
+) -> dict[str, Any]:
+    """Get D&D 5e race information from dm20.
+
+    Phase 3: used during character ingest validation (D-25) to verify that
+    the race extracted by OCR/LLM translation exists in the 5e ruleset.
+    Returns "not found" indicator in the dict if the race is not recognized.
+    """
+    return await client.call("dm20__get_race_info", race=race)
+
+
+async def player_action(
+    client: MCPClient,
+    *,
+    session_id: str,
+    action: str,
+    context: str = "",
+) -> dict[str, Any]:
+    """Signal a player action to the Claudmaster session.
+
+    Phase 3: used by ReadyButton on all-ready transition to signal
+    dm20__player_action(action='party_ready', context='lobby_complete').
+
+    Phase 4+: will be used for exploration and combat action declarations.
+    """
+    return await client.call(
+        "dm20__player_action",
+        session_id=session_id,
+        action=action,
+        context=context,
+    )
+
+
+async def get_party_status(
+    client: MCPClient,
+    *,
+    campaign_name: str,
+) -> dict[str, Any]:
+    """Get the current party mode status for a campaign.
+
+    Phase 3: used when dm20 reports "Party Mode is already running"
+    (Pitfall 8 in RESEARCH.md) to recover the canonical server URL and
+    member list without restarting party mode.
+    """
+    return await client.call("dm20__get_party_status", campaign_name=campaign_name)
+
+
+async def load_adventure(
+    client: MCPClient,
+    *,
+    module_id: str,
+    populate_chapter_1: bool = True,
+    campaign_name: str | None = None,
+) -> dict[str, Any]:
+    """Load an official 5e adventure module into a campaign.
+
+    Phase 3: used by /load_adventure command (D-05).
+
+    IMPORTANT — idempotency (RESEARCH §3, Pitfall 7): ``populate_chapter_1=True``
+    unconditionally re-creates Chapter 1 entities (locations, NPCs, quests) on
+    every call. Callers MUST set ``populate_chapter_1=False`` when the module has
+    already been bound to the campaign (tracked via ``module_bound`` in
+    ``channel_sessions.dm20_party_token`` JSON).
+
+    ``campaign_name`` is omitted from the MCP call when None, mirroring the
+    conditional-kwarg pattern used by ``start_party_mode`` with its ``port`` arg.
+    """
+    kwargs: dict[str, Any] = {
+        "module_id": module_id,
+        "populate_chapter_1": populate_chapter_1,
+    }
+    if campaign_name is not None:
+        kwargs["campaign_name"] = campaign_name
+    return await client.call("dm20__load_adventure", **kwargs)
+
+
 # ── DnD SRD ───────────────────────────────────────────────────────────────────
 
 
@@ -471,4 +583,11 @@ TOOL_TO_FUNCTION: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
     "dnd__search_all_categories": search_rules,
     "dice__dice_roll": roll_dice,
     "dnd__verify_with_api": verify_with_api,
+    # Phase 3 additions
+    "dm20__list_characters": list_characters,
+    "dm20__get_class_info": get_class_info,
+    "dm20__get_race_info": get_race_info,
+    "dm20__player_action": player_action,
+    "dm20__get_party_status": get_party_status,
+    "dm20__load_adventure": load_adventure,
 }
