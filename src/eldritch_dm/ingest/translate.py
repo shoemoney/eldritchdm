@@ -107,7 +107,7 @@ def _defensive_json_parse(raw_response: str) -> dict[str, Any]:
 
 
 async def translate_character_sheet(
-    openai_client: "AsyncOpenAI",
+    openai_client: AsyncOpenAI,
     raw_text_wrapped: str,
     *,
     model: str = "ShoeGPT",
@@ -150,7 +150,7 @@ async def translate_character_sheet(
 
 async def translate_to_character_sheet(
     raw_text: str,
-    openai_client: "AsyncOpenAI",
+    openai_client: AsyncOpenAI,
     *,
     speaker: str = "character_sheet_ocr",
     user_id: str = "system",

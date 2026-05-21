@@ -6,7 +6,7 @@ The oMLX HTTP call is mocked via unittest.mock — no real network needed.
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
