@@ -35,6 +35,8 @@ dev = [
   "pyyaml>=6.0,<7.0",
   "syrupy>=4.6,<5.0",
   # TODO(02-RESEARCH): dpytest deferred — see Q3; dpytest officially caps at discord.py 2.6
+  # Plan 02: used in conftest to generate synthetic PDF fixtures for ingest tests
+  "reportlab>=4.0,<5.0",
 ]
 # Platform-conditional OCR extras:
 # install.sh does uv pip install ocrmac or easyocr based on platform.
@@ -134,6 +136,14 @@ forbidden_modules = [
 ]
 
 # bot/ is the integration layer; subsystems must remain hermetic and testable without Discord.
+[[tool.importlinter.contracts]]
+# ingest is a pure-Python pipeline module. It may import mcp.client (to call oMLX)
+# but must NOT import bot (Discord coupling) or persistence (DB coupling).
+name = "ingest must not import bot or persistence"
+type = "forbidden"
+source_modules = ["eldritch_dm.ingest"]
+forbidden_modules = ["eldritch_dm.bot", "eldritch_dm.persistence"]
+
 [[tool.importlinter.contracts]]
 name = "nothing outside bot may import from bot"
 type = "forbidden"
