@@ -91,10 +91,23 @@ source_modules = ["eldritch_dm.mcp"]
 forbidden_modules = ["eldritch_dm.persistence", "eldritch_dm.safety"]
 
 [[tool.importlinter.contracts]]
-name = "safety must not import mcp or persistence"
+# safety may import persistence.models (pure pydantic data shapes — no SQL, no behavior).
+# safety must NOT import persistence.connection, .bootstrap, .checkpoint, or any *_repo.
+# (Plan 03 decision: option (a) — relax the import-linter contract for safety→persistence.models
+# rather than duplicating the SanitizerAuditRow definition inside the safety module.)
+name = "safety must not import mcp or persistence internals"
 type = "forbidden"
 source_modules = ["eldritch_dm.safety"]
-forbidden_modules = ["eldritch_dm.mcp", "eldritch_dm.persistence"]
+forbidden_modules = [
+  "eldritch_dm.mcp",
+  "eldritch_dm.persistence.connection",
+  "eldritch_dm.persistence.bootstrap",
+  "eldritch_dm.persistence.checkpoint",
+  "eldritch_dm.persistence.channel_sessions_repo",
+  "eldritch_dm.persistence.persistent_views_repo",
+  "eldritch_dm.persistence.riposte_timers_repo",
+  "eldritch_dm.persistence.sanitizer_audit_repo",
+]
 
 [[tool.importlinter.contracts]]
 name = "config and logging must not import subsystems"
