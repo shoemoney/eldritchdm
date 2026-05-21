@@ -15,7 +15,7 @@ class TestChannelSessionRoundtrip:
         db_path, wq = bootstrapped_db
         repo = ChannelSessionRepo(db_path, wq)
 
-        session = await repo.upsert(channel_id="ch-1", campaign_name="TestCamp")
+        await repo.upsert(channel_id="ch-1", campaign_name="TestCamp")
         got = await repo.get("ch-1")
 
         assert got is not None
@@ -133,7 +133,8 @@ class TestChannelSessionWritesThroughQueue:
 
         async def _bad_insert(conn: aiosqlite.Connection) -> None:
             await conn.execute(
-                "INSERT INTO channel_sessions (channel_id, campaign_name, state, created_at, updated_at) "
+                "INSERT INTO channel_sessions "
+                "(channel_id, campaign_name, state, created_at, updated_at) "
                 "VALUES (?, ?, ?, datetime('now'), datetime('now'))",
                 ("bogus-ch", "Bogus", "INVALID_STATE"),
             )

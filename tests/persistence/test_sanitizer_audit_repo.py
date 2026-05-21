@@ -4,13 +4,10 @@ Tests for SanitizerAuditRepo.
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
-
-import pytest
+from datetime import UTC, datetime
 
 from eldritch_dm.persistence.models import SanitizerAuditRow
 from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
-
 
 _SENTINEL = object()
 

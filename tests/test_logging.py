@@ -5,7 +5,6 @@ Tests for eldritch_dm.logging — configure_logging and get_logger.
 from __future__ import annotations
 
 import importlib
-import io
 import json
 import subprocess
 import sys

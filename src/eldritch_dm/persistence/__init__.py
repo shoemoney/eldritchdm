@@ -1,15 +1,15 @@
 """
 EldritchDM persistence subpackage — public API surface.
 
-Exports the connection helpers, lock registry, and pydantic models.
-Repositories (ChannelSessionRepo, PersistentViewRepo, RiposteTimerRepo,
-SanitizerAuditRepo) will be added by Plan 02 and extend __all__.
+Exports the connection helpers, lock registry, pydantic models, and repositories.
+Repositories were created early (Wave 1) to support Wave 2 tests.
 
-DO NOT import from eldritch_dm.mcp or eldritch_dm.safety — boundary discipline.
+DO NOT import from eldritch_dm.mcp or eldritch_dm.safety -- boundary discipline.
 """
 
 from __future__ import annotations
 
+from eldritch_dm.persistence.channel_sessions_repo import ChannelSessionRepo
 from eldritch_dm.persistence.connection import (
     WriterQueue,
     apply_pragmas,
@@ -24,6 +24,9 @@ from eldritch_dm.persistence.models import (
     RiposteTimer,
     SanitizerAuditRow,
 )
+from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
+from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
+from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
 
 __all__ = [
     # Connection helpers
@@ -40,4 +43,9 @@ __all__ = [
     # Enums
     "ChannelState",
     "RiposteStatus",
+    # Repositories
+    "ChannelSessionRepo",
+    "PersistentViewRepo",
+    "RiposteTimerRepo",
+    "SanitizerAuditRepo",
 ]

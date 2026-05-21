@@ -11,7 +11,7 @@ JSON columns:
 
 Repositories handle the JSON serialization/deserialization; callers see Python types.
 
-DO NOT import from eldritch_dm.mcp or eldritch_dm.safety — boundary discipline.
+DO NOT import from eldritch_dm.mcp or eldritch_dm.safety -- boundary discipline.
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 
@@ -78,7 +77,7 @@ class PersistentView(BaseModel):
     Tracks Discord UI components (buttons, selects) that need to be
     re-registered after a bot restart.
 
-    Note: `payload` (Python dict) ↔ `payload_json` (TEXT) in the DB.
+    Note: `payload` (Python dict) <-> `payload_json` (TEXT) in the DB.
     The repository is responsible for JSON serialization/deserialization.
     """
 
@@ -120,7 +119,7 @@ class SanitizerAuditRow(BaseModel):
     Append-only audit log for every sanitized player input that had
     tokens stripped or was truncated.
 
-    Note: `stripped_tokens` (Python list) ↔ `stripped_tokens` (TEXT/JSON) in the DB.
+    Note: `stripped_tokens` (Python list) <-> `stripped_tokens` (TEXT/JSON) in the DB.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")

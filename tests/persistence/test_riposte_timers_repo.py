@@ -4,22 +4,19 @@ Tests for RiposteTimerRepo.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, UTC
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from eldritch_dm.persistence.models import RiposteStatus, RiposteTimer
-from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
 
 
 def make_timer(
-    channel_id="ch-1",
-    character_id="char-1",
-    user_id="user-1",
-    deadline_offset_seconds=10,
-    status=RiposteStatus.PENDING,
-    custom_id="cid-1",
-    message_id="msg-1",
+    channel_id: str = "ch-1",
+    character_id: str = "char-1",
+    user_id: str = "user-1",
+    deadline_offset_seconds: int = 10,
+    status: RiposteStatus = RiposteStatus.PENDING,
+    custom_id: str = "cid-1",
+    message_id: str = "msg-1",
 ) -> RiposteTimer:
     return RiposteTimer(
         channel_id=channel_id,
@@ -110,9 +107,15 @@ class TestRiposteTimerListPending:
         await channel_repo.upsert(channel_id="ch-1", campaign_name="Camp1")
 
         # Insert timers with different deadlines
-        t1 = await riposte_repo.insert(make_timer(custom_id="t1", message_id="m1", deadline_offset_seconds=30))
-        t2 = await riposte_repo.insert(make_timer(custom_id="t2", message_id="m2", deadline_offset_seconds=10))
-        t3 = await riposte_repo.insert(make_timer(custom_id="t3", message_id="m3", deadline_offset_seconds=20))
+        await riposte_repo.insert(
+            make_timer(custom_id="t1", message_id="m1", deadline_offset_seconds=30)
+        )
+        await riposte_repo.insert(
+            make_timer(custom_id="t2", message_id="m2", deadline_offset_seconds=10)
+        )
+        await riposte_repo.insert(
+            make_timer(custom_id="t3", message_id="m3", deadline_offset_seconds=20)
+        )
 
         pending = await riposte_repo.list_pending()
         assert len(pending) == 3
@@ -124,8 +127,12 @@ class TestRiposteTimerListPending:
         db_path, wq, channel_repo, _, riposte_repo, _, _ = bootstrapped_db_with_repos
         await channel_repo.upsert(channel_id="ch-1", campaign_name="Camp1")
 
-        pending_timer = await riposte_repo.insert(make_timer(custom_id="pending-t", message_id="mp"))
-        consumed_timer = await riposte_repo.insert(make_timer(custom_id="consumed-t", message_id="mc"))
+        pending_timer = await riposte_repo.insert(
+            make_timer(custom_id="pending-t", message_id="mp")
+        )
+        consumed_timer = await riposte_repo.insert(
+            make_timer(custom_id="consumed-t", message_id="mc")
+        )
         await riposte_repo.mark_consumed(consumed_timer.id)
 
         pending = await riposte_repo.list_pending()

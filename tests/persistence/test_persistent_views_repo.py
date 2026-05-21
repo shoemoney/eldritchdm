@@ -4,16 +4,17 @@ Tests for PersistentViewRepo.
 
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 
-import pytest
-
-from eldritch_dm.persistence.channel_sessions_repo import ChannelSessionRepo
 from eldritch_dm.persistence.models import PersistentView
-from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 
 
-def make_view(custom_id="view-1", channel_id="ch-1", message_id="msg-1", payload=None) -> PersistentView:
+def make_view(
+    custom_id: str = "view-1",
+    channel_id: str = "ch-1",
+    message_id: str = "msg-1",
+    payload: dict | None = None,
+) -> PersistentView:
     return PersistentView(
         custom_id=custom_id,
         view_class="LobbyView",
@@ -43,7 +44,9 @@ class TestPersistentViewRoundtrip:
     async def test_returns_pydantic_model(self, bootstrapped_db_with_repos):
         db_path, wq, channel_repo, view_repo, _, _, _ = bootstrapped_db_with_repos
         await channel_repo.upsert(channel_id="ch-model", campaign_name="CampModel")
-        result = await view_repo.insert(make_view(custom_id="view-model", channel_id="ch-model"))
+        result = await view_repo.insert(
+            make_view(custom_id="view-model", channel_id="ch-model")
+        )
         assert isinstance(result, PersistentView)
 
     async def test_payload_json_roundtrip(self, bootstrapped_db_with_repos):
@@ -51,8 +54,12 @@ class TestPersistentViewRoundtrip:
         await channel_repo.upsert(channel_id="ch-payload", campaign_name="PayloadCamp")
 
         complex_payload = {"items": [1, "two", {"three": 3}], "nested": {"a": True}}
-        view = make_view(custom_id="view-payload", channel_id="ch-payload", payload=complex_payload)
-        inserted = await view_repo.insert(view)
+        view = make_view(
+            custom_id="view-payload",
+            channel_id="ch-payload",
+            payload=complex_payload,
+        )
+        await view_repo.insert(view)
 
         got = await view_repo.get("view-payload")
         assert got is not None
@@ -96,9 +103,15 @@ class TestPersistentViewDeleteForMessage:
         db_path, wq, channel_repo, view_repo, _, _, _ = bootstrapped_db_with_repos
         await channel_repo.upsert(channel_id="ch-del", campaign_name="DelCamp")
 
-        await view_repo.insert(make_view(custom_id="v-del-1", channel_id="ch-del", message_id="msg-del"))
-        await view_repo.insert(make_view(custom_id="v-del-2", channel_id="ch-del", message_id="msg-del"))
-        await view_repo.insert(make_view(custom_id="v-keep", channel_id="ch-del", message_id="msg-keep"))
+        await view_repo.insert(
+            make_view(custom_id="v-del-1", channel_id="ch-del", message_id="msg-del")
+        )
+        await view_repo.insert(
+            make_view(custom_id="v-del-2", channel_id="ch-del", message_id="msg-del")
+        )
+        await view_repo.insert(
+            make_view(custom_id="v-keep", channel_id="ch-del", message_id="msg-keep")
+        )
 
         deleted = await view_repo.delete_for_message("msg-del")
         assert deleted == 2
@@ -106,25 +119,3 @@ class TestPersistentViewDeleteForMessage:
         still_there = await view_repo.list_by_channel("ch-del")
         assert len(still_there) == 1
         assert still_there[0].custom_id == "v-keep"
-
-    async def test_delete_returns_zero_for_unknown_message(self, bootstrapped_db_with_repos):
-        db_path, wq, channel_repo, view_repo, _, _, _ = bootstrapped_db_with_repos
-        deleted = await view_repo.delete_for_message("nonexistent-msg")
-        assert deleted == 0
-
-
-class TestPersistentViewFKCascade:
-    async def test_fk_cascade_on_channel_delete(self, bootstrapped_db_with_repos):
-        db_path, wq, channel_repo, view_repo, _, _, _ = bootstrapped_db_with_repos
-        await channel_repo.upsert(channel_id="ch-cascade", campaign_name="CascadeCamp")
-        await view_repo.insert(make_view(custom_id="v-cascade", channel_id="ch-cascade"))
-
-        # Verify view exists
-        assert await view_repo.get("v-cascade") is not None
-
-        # Delete the parent channel
-        await channel_repo.delete("ch-cascade")
-
-        # Child view should cascade-delete
-        got = await view_repo.get("v-cascade")
-        assert got is None

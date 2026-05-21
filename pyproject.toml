@@ -51,9 +51,10 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC", "TCH"]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
 ignore = [
-  "B008",  # do not perform function calls in default arguments — needed for pydantic Field defaults
+  "B008",    # do not perform function calls in default arguments — needed for pydantic Field defaults
+  "ASYNC240", # pathlib.Path in async — used only in startup/bootstrap code, not hot paths
 ]
 
 # ── pytest ───────────────────────────────────────────────────────────────────

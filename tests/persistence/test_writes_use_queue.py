@@ -8,7 +8,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_FILES = [
     "src/eldritch_dm/persistence/channel_sessions_repo.py",
     "src/eldritch_dm/persistence/persistent_views_repo.py",

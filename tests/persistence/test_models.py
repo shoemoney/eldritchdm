@@ -5,7 +5,7 @@ Tests for eldritch_dm.persistence.models — pydantic v2 frozen models.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -15,11 +15,10 @@ from eldritch_dm.persistence.models import (
     ChannelState,
     PersistentView,
     RiposteStatus,
-    RiposteTimer,
     SanitizerAuditRow,
 )
 
-NOW = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC)
 
 
 class TestChannelSessionFrozen:

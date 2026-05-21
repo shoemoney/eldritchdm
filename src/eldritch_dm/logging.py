@@ -20,7 +20,6 @@ from typing import Any, Literal
 import structlog
 from structlog.types import EventDict, WrappedLogger
 
-
 # ── Secret scrubbing processor ────────────────────────────────────────────────
 
 _SCRUB_KEYS = frozenset({"token", "secret", "key", "password", "passwd", "auth"})

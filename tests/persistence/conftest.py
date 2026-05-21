@@ -12,7 +12,6 @@ bootstrapped_db_with_repos(tmp_path) → (db_path, wq, channel_repo, view_repo,
 
 from __future__ import annotations
 
-import pytest
 import pytest_asyncio
 
 from eldritch_dm.persistence.bootstrap import bootstrap

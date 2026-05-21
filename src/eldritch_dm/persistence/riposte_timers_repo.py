@@ -13,7 +13,7 @@ import aiosqlite
 
 from eldritch_dm.logging import get_logger
 from eldritch_dm.persistence.connection import WriterQueue, open_connection
-from eldritch_dm.persistence.models import RiposteStatus, RiposteTimer
+from eldritch_dm.persistence.models import RiposteTimer
 
 
 def _row_to_model(row: aiosqlite.Row) -> RiposteTimer:

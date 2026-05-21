@@ -9,7 +9,6 @@ Returned values are always frozen pydantic ChannelSession instances.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Any
 

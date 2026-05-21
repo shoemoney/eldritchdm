@@ -124,7 +124,13 @@ class TestWriterQueueUsesBeginImmediate:
     def test_writer_queue_uses_begin_immediate(self) -> None:
         import pathlib
 
-        source_path = pathlib.Path(__file__).parents[2] / "src" / "eldritch_dm" / "persistence" / "connection.py"
+        source_path = (
+            pathlib.Path(__file__).parents[2]
+            / "src"
+            / "eldritch_dm"
+            / "persistence"
+            / "connection.py"
+        )
         source = source_path.read_text()
 
         # Must contain BEGIN IMMEDIATE

@@ -102,7 +102,7 @@ class WriterQueue:
     - Owns one long-lived aiosqlite connection (the writer connection).
     - Accepts write coroutines via submit().
     - Drains them in FIFO order on a single background asyncio task.
-    - Each write runs under BEGIN IMMEDIATE → user fn → COMMIT (D-17).
+    - Each write runs under BEGIN IMMEDIATE -> user fn -> COMMIT (D-17).
 
     Lifecycle::
 
@@ -155,7 +155,7 @@ class WriterQueue:
             log.debug("writer_queue_dequeue", q_depth=q_depth)
 
             try:
-                # BEGIN IMMEDIATE: acquire write lock immediately; no plain BEGIN.
+                # BEGIN IMMEDIATE: acquire write lock immediately; no bare transaction.
                 await self._conn.execute("BEGIN IMMEDIATE")
                 result = await fn(self._conn)
                 await self._conn.commit()
@@ -213,7 +213,7 @@ class WriterQueue:
         if self._task is not None:
             try:
                 await asyncio.wait_for(self._task, timeout=self._drain_timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 log.warning("writer_queue_drain_timeout", drain_timeout=self._drain_timeout)
                 self._task.cancel()
                 try:
