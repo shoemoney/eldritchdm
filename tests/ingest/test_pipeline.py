@@ -1,104 +1,121 @@
 """Unit tests for eldritch_dm.ingest.pipeline.
 
-All external calls (OCR, PDF, oMLX, MCP) are mocked.
-Tests verify routing logic, confidence scoring, and IngestResult fields.
+All external I/O is mocked:
+  - OCR/PDF extraction via patched IngestExecutor.run_sync
+  - oMLX translation (translate_to_character_sheet) via AsyncMock
+  - MCP class/race verification (get_class_info / get_race_info) via AsyncMock
 """
 
 from __future__ import annotations
 
-import json
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from eldritch_dm.ingest.schema import IngestResult
+from eldritch_dm.ingest.pipeline import _sniff_kind, ingest
+from eldritch_dm.ingest.schema import AbilityScores, CharacterSheet, IngestResult
 
 # ---------------------------------------------------------------------------
-# Helpers / shared fixtures
+# Test data
 # ---------------------------------------------------------------------------
 
-VALID_ABILITIES = {
-    "strength": 16,
-    "dexterity": 14,
-    "constitution": 15,
-    "intelligence": 10,
-    "wisdom": 12,
-    "charisma": 8,
-}
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
+_JPEG_MAGIC = b"\xff\xd8\xff" + b"\x00" * 100
+_PDF_MAGIC = b"%PDF-1.4\n" + b"\x00" * 100
 
-VALID_SHEET_DICT = {
-    "name": "Aragorn",
-    "character_class": "Ranger",
-    "class_level": 5,
-    "race": "Human",
-    "abilities": VALID_ABILITIES,
-}
-
-PNG_MAGIC = b"\x89PNG\r\n\x1a\n" + b"\x00" * 100
-JPEG_MAGIC = b"\xff\xd8\xff" + b"\x00" * 100
-PDF_MAGIC = b"%PDF-1.4\n" + b"\x00" * 100
+VALID_SHEET = CharacterSheet(
+    name="Thalindra",
+    character_class="Wizard",
+    class_level=5,
+    race="High Elf",
+    abilities=AbilityScores(
+        strength=8, dexterity=16, constitution=14,
+        intelligence=18, wisdom=12, charisma=10,
+    ),
+    hp=35,
+    ac=13,
+)
 
 
-def _make_openai_client(sheet_dict=None):
-    """Return a mocked AsyncOpenAI client that returns sheet_dict as JSON content."""
-    content = json.dumps(sheet_dict or VALID_SHEET_DICT)
-    msg = MagicMock()
-    msg.content = content
-    choice = MagicMock()
-    choice.message = msg
-    resp = MagicMock()
-    resp.choices = [choice]
-    client = MagicMock()
-    client.chat = MagicMock()
-    client.chat.completions = MagicMock()
-    client.chat.completions.create = AsyncMock(return_value=resp)
-    return client
+def _make_patches(
+    ocr_result: tuple = ("raw ocr text", 0.95),
+    translate_result: tuple = (VALID_SHEET, []),
+    class_found: bool = True,
+    race_found: bool = True,
+    ocr_backend: str = "ocrmac",
+    pdf_result: tuple = ("pdf text", "pymupdf"),
+):
+    """Build an ExitStack with all the standard patches for ingest() tests."""
+    sheet, warnings = translate_result
 
+    stack = ExitStack()
+    stack.enter_context(
+        patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value=ocr_backend)
+    )
 
-def _make_mcp_client(class_found=True, race_found=True):
-    """Return a mocked MCPClient for class/race verification."""
-    client = MagicMock()
-    class_result = {"found": class_found, "name": "Ranger"} if class_found else {"found": False}
-    race_result = {"found": race_found, "name": "Human"} if race_found else {"found": False}
-    client.call = AsyncMock(side_effect=lambda tool, **kwargs: (
-        class_result if "class" in tool else race_result
-    ))
-    return client
+    # Patch IngestExecutor.run_sync to route to the right fake result
+    async def _fake_run_sync(fn, *args):
+        fn_name = getattr(fn, "__name__", repr(fn))
+        if fn_name in ("run_ocrmac", "run_easyocr"):
+            return ocr_result
+        if fn_name == "extract_pdf_text":
+            return pdf_result
+        raise AssertionError(f"Unexpected fn in run_sync: {fn!r}")
+
+    stack.enter_context(
+        patch(
+            "eldritch_dm.ingest.pipeline.get_executor",
+            return_value=MagicMock(run_sync=AsyncMock(side_effect=_fake_run_sync)),
+        )
+    )
+    stack.enter_context(
+        patch(
+            "eldritch_dm.ingest.pipeline.translate_to_character_sheet",
+            new=AsyncMock(return_value=(sheet, list(warnings))),
+        )
+    )
+    stack.enter_context(
+        patch(
+            "eldritch_dm.ingest.pipeline.get_class_info",
+            new=AsyncMock(return_value={"found": class_found}),
+        )
+    )
+    stack.enter_context(
+        patch(
+            "eldritch_dm.ingest.pipeline.get_race_info",
+            new=AsyncMock(return_value={"found": race_found}),
+        )
+    )
+    return stack
 
 
 # ---------------------------------------------------------------------------
-# _sniff_kind
+# _sniff_kind tests
 # ---------------------------------------------------------------------------
 
 
 class TestSniffKind:
-    def test_png_magic_bytes(self):
-        from eldritch_dm.ingest.pipeline import _sniff_kind
-        assert _sniff_kind(PNG_MAGIC, None) == "image"
+    def test_png_magic_returns_image(self):
+        assert _sniff_kind(_PNG_MAGIC, "image/png") == "image"
 
-    def test_jpeg_magic_bytes(self):
-        from eldritch_dm.ingest.pipeline import _sniff_kind
-        assert _sniff_kind(JPEG_MAGIC, None) == "image"
+    def test_jpeg_magic_returns_image(self):
+        assert _sniff_kind(_JPEG_MAGIC, "image/jpeg") == "image"
 
-    def test_pdf_magic_bytes(self):
-        from eldritch_dm.ingest.pipeline import _sniff_kind
-        assert _sniff_kind(PDF_MAGIC, None) == "pdf"
+    def test_pdf_magic_returns_pdf(self):
+        assert _sniff_kind(_PDF_MAGIC, "application/pdf") == "pdf"
 
     def test_pdf_magic_overrides_image_content_type(self):
-        """PDF bytes must be treated as pdf even if content_type says image/png."""
-        from eldritch_dm.ingest.pipeline import _sniff_kind
-        assert _sniff_kind(PDF_MAGIC, "image/png") == "pdf"
+        """Magic bytes take priority over the declared content-type."""
+        assert _sniff_kind(_PDF_MAGIC, "image/png") == "pdf"
 
-    def test_image_content_type_used_when_no_magic(self):
-        """Falls back to content_type hint when bytes don't match any magic."""
-        from eldritch_dm.ingest.pipeline import _sniff_kind
-        # A bytes blob that starts with PNG magic qualifies
-        assert _sniff_kind(PNG_MAGIC, "image/jpeg") == "image"
+    def test_png_magic_overrides_pdf_content_type(self):
+        """PNG magic bytes take priority even if Discord declares PDF."""
+        assert _sniff_kind(_PNG_MAGIC, "application/pdf") == "image"
 
-    def test_unknown_bytes_raises(self):
-        from eldritch_dm.ingest.pipeline import _sniff_kind
+    def test_unknown_magic_raises(self):
         with pytest.raises(ValueError, match="Unsupported"):
-            _sniff_kind(b"\x00\x01\x02\x03", None)
+            _sniff_kind(b"\x00\x01\x02\x03" * 10, "application/octet-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -107,108 +124,46 @@ class TestSniffKind:
 
 
 class TestIngestImagePath:
-    async def test_png_routes_to_ocr(self):
-        """PNG bytes → resolve_ocr_backend → run_ocrmac → translate → IngestResult."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="ocrmac"),
-            patch("eldritch_dm.ingest.pipeline.run_ocrmac", return_value=("Aragorn Ranger 5", 0.95)),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
+    async def test_happy_path_image_ocrmac(self, png_bytes):
+        """PNG bytes -> OCR path, IngestResult with ocr_backend='ocrmac'."""
+        with _make_patches(
+            ocr_result=("Thalindra Wizard 5", 0.95),
+            translate_result=(VALID_SHEET, []),
+            class_found=True,
+            race_found=True,
         ):
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("Aragorn Ranger 5", 0.95))
-
             result = await ingest(
-                PNG_MAGIC,
+                png_bytes,
                 content_type="image/png",
                 filename="sheet.png",
                 player_name="Jeremy",
                 user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
+                openai_client=MagicMock(),
+                mcp_client=MagicMock(),
             )
 
         assert isinstance(result, IngestResult)
+        assert result.parsed_sheet is not None
         assert result.ocr_backend == "ocrmac"
         assert result.pdf_backend is None
-        assert result.parsed_sheet is not None
-        assert result.parsed_sheet.name == "Aragorn"
+        # ocr=0.3 + pydantic=0.3 + class=0.2 + race=0.2 = 1.0
+        assert result.confidence_score == pytest.approx(1.0)
 
-    async def test_ocr_confidence_above_threshold_adds_score(self):
-        """OCR confidence >0.8 should add 0.3 to the confidence score."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="ocrmac"),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
-        ):
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("Aragorn text", 0.95))
-
-            result = await ingest(
-                PNG_MAGIC,
-                content_type="image/png",
-                filename="sheet.png",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
-            )
-
-        # >0.8 confidence → +0.3 OCR component
-        assert result.confidence_score >= 0.3
-
-    async def test_ocr_confidence_below_threshold_partial_score(self):
-        """OCR confidence 0.5-0.8 → +0.15 (partial), below 0.5 → +0.0."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="easyocr"),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
-        ):
-            # 0.6 confidence → partial credit (0.15)
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("Aragorn text", 0.6))
-
-            result = await ingest(
-                PNG_MAGIC,
-                content_type="image/png",
-                filename="sheet.png",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
-            )
-
-        # 0.15 (ocr) + 0.3 (pydantic) + 0.2 (class) + 0.2 (race) = 0.85
-        assert 0.1 <= result.confidence_score <= 1.0
-
-    async def test_no_ocr_backend_raises(self):
-        """resolve_ocr_backend returning None should raise UnavailableOCRBackend."""
-        from eldritch_dm.ingest.ocr import UnavailableOCRBackend
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value=None):
-            with pytest.raises(UnavailableOCRBackend):
-                await ingest(
-                    PNG_MAGIC,
-                    content_type="image/png",
-                    filename="sheet.png",
-                    player_name="Jeremy",
-                    user_id="123",
-                    openai_client=openai_client,
-                    mcp_client=mcp_client,
-                )
+    async def test_unsupported_bytes_returns_zero_confidence(self):
+        """Unknown magic bytes -> IngestResult with confidence 0 and warning."""
+        bad_bytes = b"\x00\x01\x02\x03" * 20
+        result = await ingest(
+            bad_bytes,
+            content_type="image/png",
+            filename="garbage.bin",
+            player_name="Test",
+            user_id="456",
+            openai_client=MagicMock(),
+            mcp_client=MagicMock(),
+        )
+        assert result.confidence_score == 0.0
+        assert result.parsed_sheet is None
+        assert len(result.validation_warnings) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -217,189 +172,113 @@ class TestIngestImagePath:
 
 
 class TestIngestPdfPath:
-    async def test_pdf_routes_to_extract(self):
-        """PDF bytes → extract_pdf_text → translate → IngestResult."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
+    async def test_happy_path_pdf(self):
+        """PDF bytes -> PDF path, IngestResult with pdf_backend set."""
+        with _make_patches(
+            pdf_result=("pdf extracted text", "pymupdf"),
+            translate_result=(VALID_SHEET, []),
+            class_found=True,
+            race_found=True,
         ):
-            mock_exec.return_value.run_sync = AsyncMock(
-                return_value=("Aragorn Ranger Level 5 Human", "pymupdf")
-            )
-
             result = await ingest(
-                PDF_MAGIC,
+                _PDF_MAGIC,
                 content_type="application/pdf",
                 filename="sheet.pdf",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
+                player_name="DM",
+                user_id="789",
+                openai_client=MagicMock(),
+                mcp_client=MagicMock(),
             )
 
         assert isinstance(result, IngestResult)
         assert result.pdf_backend == "pymupdf"
         assert result.ocr_backend is None
-        assert result.parsed_sheet is not None
-
-    async def test_pdf_magic_overrides_png_content_type(self):
-        """PDF magic bytes must route to PDF pipeline regardless of content_type."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
-        ):
-            mock_exec.return_value.run_sync = AsyncMock(
-                return_value=("Aragorn text", "pymupdf")
-            )
-
-            result = await ingest(
-                PDF_MAGIC,
-                content_type="image/png",  # lying content_type
-                filename="sheet.pdf",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
-            )
-
-        assert result.pdf_backend is not None
-        assert result.ocr_backend is None
-
-
-# ---------------------------------------------------------------------------
-# ingest() — confidence scoring (D-26)
-# ---------------------------------------------------------------------------
-
-
-class TestConfidenceScoring:
-    async def test_happy_path_full_score(self):
-        """All 4 components → confidence_score == 1.0."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client(class_found=True, race_found=True)
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="ocrmac"),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
-        ):
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("Aragorn text", 0.95))
-
-            result = await ingest(
-                PNG_MAGIC,
-                content_type="image/png",
-                filename="sheet.png",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
-            )
-
+        # PDF ocr_confidence=1.0 -> ocr_quality=0.3 + pydantic=0.3 + class=0.2 + race=0.2 = 1.0
         assert result.confidence_score == pytest.approx(1.0)
-        assert result.validation_warnings == []
 
-    async def test_class_not_found_adds_warning_and_reduces_score(self):
-        """Class 'Witcher' not in 5e → -0.2 component + warning string."""
-        from eldritch_dm.ingest.pipeline import ingest
 
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client(class_found=False, race_found=True)
+# ---------------------------------------------------------------------------
+# Confidence score assembly
+# ---------------------------------------------------------------------------
 
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="ocrmac"),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
+
+class TestConfidenceScoreAssembly:
+    async def test_full_confidence_all_passes(self, png_bytes):
+        """OCR>0.8 + clean validate + class found + race found -> 1.0."""
+        with _make_patches(
+            ocr_result=("text", 0.95),
+            translate_result=(VALID_SHEET, []),
+            class_found=True,
+            race_found=True,
         ):
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("text", 0.95))
-
             result = await ingest(
-                PNG_MAGIC,
-                content_type="image/png",
-                filename="sheet.png",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
+                png_bytes, content_type="image/png", filename="s.png",
+                player_name="Alice", user_id="1",
+                openai_client=MagicMock(), mcp_client=MagicMock(),
             )
+        assert result.confidence_score == pytest.approx(1.0)
 
-        # Without class component: 0.3 + 0.3 + 0.0 + 0.2 = 0.8
+    async def test_class_not_found_reduces_score_and_adds_warning(self, png_bytes):
+        """Unknown class -> -0.2 and warning added."""
+        with _make_patches(
+            ocr_result=("text", 0.95),
+            translate_result=(VALID_SHEET, []),
+            class_found=False,
+            race_found=True,
+        ):
+            result = await ingest(
+                png_bytes, content_type="image/png", filename="s.png",
+                player_name="Bob", user_id="2",
+                openai_client=MagicMock(), mcp_client=MagicMock(),
+            )
+        # ocr=0.3 + pydantic=0.3 + class=0.0 + race=0.2 = 0.8
         assert result.confidence_score == pytest.approx(0.8)
-        assert any("class" in w.lower() or "ranger" in w.lower() for w in result.validation_warnings)
+        assert any("Class" in w for w in result.validation_warnings)
 
-    async def test_pydantic_failure_returns_none_sheet(self):
-        """If pydantic validation fails, parsed_sheet is None and score is lower."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        # Provide dict with invalid abilities
-        bad_dict = {**VALID_SHEET_DICT, "abilities": {
-            "strength": 99, "dexterity": 10, "constitution": 10,
-            "intelligence": 10, "wisdom": 10, "charisma": 10,
-        }}
-        openai_client = _make_openai_client(bad_dict)
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="ocrmac"),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
+    async def test_pydantic_failure_gives_low_score(self, png_bytes):
+        """Failed translation (None sheet) -> low confidence, no class/race check."""
+        with _make_patches(
+            ocr_result=("text", 0.95),
+            translate_result=(None, ["class_level: must be <= 20"]),
         ):
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("text", 0.95))
-
             result = await ingest(
-                PNG_MAGIC,
-                content_type="image/png",
-                filename="sheet.png",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
+                png_bytes, content_type="image/png", filename="s.png",
+                player_name="Charlie", user_id="3",
+                openai_client=MagicMock(), mcp_client=MagicMock(),
             )
-
+        # sheet is None -> pydantic=0.0, class=0.0, race=0.0; ocr=0.3
+        assert result.confidence_score == pytest.approx(0.3)
         assert result.parsed_sheet is None
-        # Without pydantic component (0.3 absent) + no class/race (can't verify)
-        assert result.confidence_score < 0.5
         assert len(result.validation_warnings) > 0
 
-
-# ---------------------------------------------------------------------------
-# ingest() — IngestResult structure
-# ---------------------------------------------------------------------------
-
-
-class TestIngestResultStructure:
-    async def test_result_fields_populated(self):
-        """All IngestResult fields should be set after a successful ingest."""
-        from eldritch_dm.ingest.pipeline import ingest
-
-        openai_client = _make_openai_client()
-        mcp_client = _make_mcp_client()
-
-        with (
-            patch("eldritch_dm.ingest.pipeline.resolve_ocr_backend", return_value="ocrmac"),
-            patch("eldritch_dm.ingest.pipeline.get_executor") as mock_exec,
+    async def test_low_ocr_confidence_zero_score(self, png_bytes):
+        """OCR confidence < 0.5 -> ocr_quality = 0.0."""
+        with _make_patches(
+            ocr_result=("text", 0.3),  # < 0.5
+            translate_result=(VALID_SHEET, []),
+            class_found=True,
+            race_found=True,
         ):
-            mock_exec.return_value.run_sync = AsyncMock(return_value=("Aragorn text", 0.92))
-
             result = await ingest(
-                PNG_MAGIC,
-                content_type="image/png",
-                filename="sheet.png",
-                player_name="Jeremy",
-                user_id="123",
-                openai_client=openai_client,
-                mcp_client=mcp_client,
+                png_bytes, content_type="image/png", filename="s.png",
+                player_name="Diana", user_id="4",
+                openai_client=MagicMock(), mcp_client=MagicMock(),
             )
+        # ocr=0.0 + pydantic=0.3 + class=0.2 + race=0.2 = 0.7
+        assert result.confidence_score == pytest.approx(0.7)
 
-        assert isinstance(result.raw_text, str)
-        assert len(result.raw_text) > 0
-        assert isinstance(result.confidence_score, float)
-        assert 0.0 <= result.confidence_score <= 1.0
-        assert isinstance(result.validation_warnings, list)
-        assert result.ocr_backend == "ocrmac"
-        assert result.pdf_backend is None
+    async def test_medium_ocr_confidence_partial_score(self, png_bytes):
+        """OCR confidence 0.5 < x <= 0.8 -> ocr_quality = 0.15."""
+        with _make_patches(
+            ocr_result=("text", 0.65),  # 0.5 < 0.65 <= 0.8
+            translate_result=(VALID_SHEET, []),
+            class_found=True,
+            race_found=True,
+        ):
+            result = await ingest(
+                png_bytes, content_type="image/png", filename="s.png",
+                player_name="Eve", user_id="5",
+                openai_client=MagicMock(), mcp_client=MagicMock(),
+            )
+        # ocr=0.15 + pydantic=0.3 + class=0.2 + race=0.2 = 0.85
+        assert result.confidence_score == pytest.approx(0.85)
