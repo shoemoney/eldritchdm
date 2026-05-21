@@ -13,7 +13,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
 ## Phases
 
 - [x] **Phase 1: MCP Client + Local State** — Async MCP wrapper to dm20 at oMLX, local Discord-state SQLite (WAL, repositories), sanitizer pipeline
-- [ ] **Phase 2: Discord Scaffold + Persistent Views** — discord.py bot, slash command tree, DynamicItem `custom_id`s, embed coalescer, defer discipline, restart-drill infrastructure
+- [x] **Phase 2: Discord Scaffold + Persistent Views** — discord.py bot, slash command tree, DynamicItem `custom_id`s, embed coalescer, defer discipline, restart-drill infrastructure
 - [ ] **Phase 3: Lobby + Character Ingest** — `/start_game` + `/load_adventure`, ready-check, D&D Beyond import, OCR/PDF pipeline for paper sheets, manual-review modal
 - [ ] **Phase 4: Gameplay — Exploration + Combat (Party Mode)** — Bind to dm20 Party Mode queue, action batching, combat embed, turn gatekeeping by Discord user_id, dodge, 8-player load proof
 - [ ] **Phase 5: Reactions + Self-Host Polish** — Timed Riposte button with restart-survival, README, `.env.example`, bootstrap, `run.py`, launchd recipe, full test suite
@@ -50,8 +50,8 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   5. Kill-and-restart drill: bot killed while a test message has buttons → process restarts → buttons still functional (matching `custom_id` dispatches to handler with state restored from DB)
 **Plans**:
 - [x] 01-PLAN-bot-scaffold.md — EldritchBot subclass, /ping + /status diagnostics cog, lifecycle tests, bot/ import-linter contract — COMPLETE (11 tests, 9 files, 15 min)
-- [ ] 02-PLAN-embeds-and-views.md — 4 embed renderers (snapshot-tested), 4 DynamicItem subclasses (regex custom_ids), ephemeral warning helper
-- [ ] 03-PLAN-coalescer-rehydration-restart.md — EmbedCoalescer, setup_hook persistent-view rehydration, EDM001 lint, kill-and-restart drill, OPS-04 graceful shutdown, Phase 2 SUMMARY
+- [x] 02-PLAN-embeds-and-views.md — 4 embed renderers (snapshot-tested), 4 DynamicItem subclasses (regex custom_ids), ephemeral warning helper — COMPLETE (67 tests, 11 files, 28 min)
+- [x] 03-PLAN-coalescer-rehydration-restart.md — EmbedCoalescer, setup_hook persistent-view rehydration, EDM001 lint, kill-and-restart drill, OPS-04 graceful shutdown, Phase 2 SUMMARY — COMPLETE (49 tests, 13 files, 90 min)
 
 ### Phase 3: Lobby + Character Ingest
 **Goal**: Players can start a session in any channel and load characters two ways: D&D Beyond URL (one MCP call) or photo/PDF of their sheet (OCR/PDF → schema-translation → manual review modal)

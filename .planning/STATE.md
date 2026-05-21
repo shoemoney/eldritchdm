@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-05-21T23:15:00.000Z"
+last_updated: "2026-05-21T22:58:30.219Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 2
   total_plans: 0
-  completed_plans: 6
+  completed_plans: 9
   percent: 0
 ---
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-21 (Phase 2 Plan 01 complete — EldritchBot scaffold, 188 tests passing)
+**Last updated:** 2026-05-21 (Phase 2 COMPLETE — coalescer + rehydration + EDM001 + restart drill, 284 tests passing)
 **Milestone:** v1.0
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -23,7 +23,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 1 — MCP Client + Local State
+**Current focus:** Phase 3 — Lobby + Character Ingest
 
 ## Architecture (post-pivot)
 
@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | # | Phase | Status |
 |---|-------|--------|
 | 1 | MCP Client + Local State | ✅ Complete (3/3 plans, 177 tests) |
-| 2 | Discord Scaffold + Persistent Views | 🔄 In Progress (1/3 plans complete) |
+| 2 | Discord Scaffold + Persistent Views | ✅ Complete (3/3 plans, 284 tests) |
 | 3 | Lobby + Character Ingest | ⚪ Not Started |
 | 4 | Gameplay — Exploration + Combat (Party Mode) | ⚪ Not Started |
 | 5 | Reactions + Self-Host Polish | ⚪ Not Started |
@@ -65,6 +65,11 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - Intents.default() + message_content=False: security decision per D-04 — bot cannot read raw messages
 - dpytest skipped: officially caps at discord.py 2.6; direct MagicMock/AsyncMock recipe used instead
 - MCPClient URL: strip trailing /v1 from omlx_endpoint before passing to MCPClient
+- add_dynamic_items alone is sufficient for DynamicItem restart-survival; add_view calls are audit-only (RESEARCH.md Pitfall 1)
+- asyncio.Event + latest-value slot for EmbedCoalescer; not Queue(maxsize=1) (non-blocking, race-free)
+- EDM001 implemented as AST-based pre-commit hook; no Rust toolchain needed
+- OPS-04: asyncio.wait_for(writer_queue.stop(), timeout=5.0) — shutdown always completes (T-02-16)
+- RUN_INTEGRATION=1 gate for restart-drill integration tests (slow DB I/O)
 
 ## Performance Metrics
 
@@ -74,6 +79,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 01-mcp-client-local-state | 02 | 45 | 5 | 15 |
 | 01-mcp-client-local-state | 03 | 40 | 4 | 10 |
 | 02-discord-scaffold-persistent-views | 01 | 15 | 3 | 9 |
+| 02-discord-scaffold-persistent-views | 02 | 45 | 3 | 12 |
+| 02-discord-scaffold-persistent-views | 03 | 90 | 4 | 13 |
 
 ## Recent History
 
@@ -86,3 +93,6 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-21: Phase 1 Plan 03 (sanitizer+stress) complete — sanitizer, 34-case corpus, 4-channel stress test, integration smoke; 177 tests passing
 - 2026-05-21: Phase 1 COMPLETE — all 3 plans done, pre-commit ruff hooks, import-linter 4 contracts KEPT
 - 2026-05-21: Phase 2 Plan 01 COMPLETE — EldritchBot scaffold, /ping+/status diagnostics cog, lifecycle test harness, import-linter 5 contracts KEPT; 188 tests passing
+- 2026-05-21: Phase 2 Plan 02 COMPLETE — embed renderers (4 templates, JSON snapshots), DynamicItem subclasses (4 persistent buttons), warning helper; 235 tests passing
+- 2026-05-21: Phase 2 Plan 03 COMPLETE — EmbedCoalescer (≤1 edit/sec), setup_hook rehydration, EDM001 AST lint, restart drill (BOT-08), OPS-04 shutdown; 284 tests passing
+- 2026-05-21: PHASE 2 COMPLETE — all 3 plans done, BOT-01..08 + OPS-04 satisfied, pre-commit ruff+EDM001 hooks, import-linter 5 contracts KEPT

@@ -31,13 +31,13 @@
 ### Discord Scaffold (BOT)
 
 - [x] **BOT-01**: `discord.py 2.7.1+` bot with slash command tree
-- [ ] **BOT-02**: Every interaction callback's first line is `await interaction.response.defer(thinking=True)` (lint-enforced via custom ruff/pre-commit rule)
+- [x] **BOT-02**: Every interaction callback's first line is `await interaction.response.defer(thinking=True)` (lint-enforced via custom ruff/pre-commit rule)
 - [x] **BOT-03**: Embed renderers: `lobby_embed`, `room_embed`, `combat_embed`, `character_confirm_embed`
 - [x] **BOT-04**: Persistent Views: `discord.ui.DynamicItem` with regex `custom_id` templates, e.g. `endturn:(?P<channel_id>\d+):(?P<actor>\d+)`
-- [ ] **BOT-05**: `setup_hook` rehydrates active channel sessions from `channel_sessions`, calls `bot.add_view(view, message_id=...)` for every row in `persistent_views`
-- [ ] **BOT-06**: Embed update coalescer — per-message `asyncio.Queue` + render task limits edits to ≤1/sec/message
+- [x] **BOT-05**: `setup_hook` rehydrates active channel sessions from `channel_sessions`, calls `bot.add_view(view, message_id=...)` for every row in `persistent_views`
+- [x] **BOT-06**: Embed update coalescer — per-message `asyncio.Queue` + render task limits edits to ≤1/sec/message
 - [x] **BOT-07**: Ephemeral warning helper for invalid actions: `❌ Not your turn`, `❌ Riposte expired`, `❌ DM is thinking…`
-- [ ] **BOT-08**: Kill-and-restart-mid-combat test: bot process killed during a combat turn, restart, click buttons → flows continue
+- [x] **BOT-08**: Kill-and-restart-mid-combat test: bot process killed during a combat turn, restart, click buttons → flows continue
 
 ### Lobby (LOBBY)
 
