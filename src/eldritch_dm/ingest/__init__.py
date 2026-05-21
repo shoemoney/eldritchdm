@@ -7,6 +7,7 @@ Public API:
     ingest           — async pipeline entry-point (added in plan-02 Task 6)
 """
 
+from eldritch_dm.ingest.pipeline import ingest
 from eldritch_dm.ingest.schema import AbilityScores, CharacterSheet, IngestResult
 
-__all__ = ["AbilityScores", "CharacterSheet", "IngestResult"]
+__all__ = ["AbilityScores", "CharacterSheet", "IngestResult", "ingest"]
