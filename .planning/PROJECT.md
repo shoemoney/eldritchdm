@@ -2,11 +2,22 @@
 
 ## What This Is
 
-EldritchDM is a local-first, self-hostable Discord bot that runs full D&D 5e games end-to-end with an AI Dungeon Master persona called **ShoeGPT**. It splits the DM job across three brains — a local quantized MoE LLM (MLX) for narration, a Python rules engine for math/state, and a `discord.py` orchestrator for real-time UI — so the AI can never hallucinate HP, miscalculate AC, or break turn order. It's for tabletop players who want a "forever DM" available on demand without paying for hosted AI or surrendering the rule integrity that makes 5e actually feel like 5e.
+EldritchDM is a local-first, self-hostable **Discord adapter** that exposes the `dm20` MCP server (a complete D&D 5e DM toolkit with autonomous "Claudmaster" mode) through Discord — turning any text channel into a multiplayer 5e table run by an AI Dungeon Master persona called **ShoeGPT**. We do not build a DM engine; we build the Discord skin on top of one that already exists, plus the Discord-specific affordances (timed reactive buttons, turn gatekeeping by user ID, persistent Views across restarts, photo/PDF character ingest for non-D&D-Beyond sheets). It's for tabletop players who want a "forever DM" running entirely on their own hardware with zero API spend and the rule integrity that makes 5e actually feel like 5e.
 
 ## Core Value
 
-**Mechanically honest AI DM.** Narration is evocative, but every die roll, HP change, AC check, and turn boundary is enforced by deterministic Python code — the LLM never touches the math.
+**Mechanically honest AI DM, on Discord, fully local.** Narration is evocative, but every die roll, HP change, AC check, and turn boundary is enforced by `dm20`'s Python — the LLM (oMLX/`ShoeGPT`) never touches the math. Players never leave Discord; we never leave the laptop.
+
+## Architecture — Three-Brain via Existing Infrastructure
+
+- **Voice** → oMLX server (`omlx serve`, port 8765, launchd-supervised as `com.user.omlx`) running model id `ShoeGPT` (Gemma 4 4-bit). Already deployed.
+- **Brain** → `dm20` MCP server (97 tools, exposed by oMLX at `:8765/v1/mcp/execute`). Already deployed. Provides: campaigns, characters, multiclass/level-up, combat (start/next_turn/combat_action), encounters, rulebook indexing, Claudmaster autonomous-DM loop, party mode HTTP/WS multiplayer queue, D&D Beyond import, prebuilt adventures.
+- **Orchestrator** → **This project.** Discord bot that:
+  1. Binds to `dm20`'s Party Mode queue per channel (pop/think/prefetch/resolve)
+  2. Owns Discord-specific state (channel → campaign mapping, riposte deadlines, persistent View `custom_id`s, sanitization audit) in a small local SQLite
+  3. Provides the timed reactive UI (8s Riposte button) that dm20 doesn't natively model
+  4. Enforces turn gatekeeping by Discord user_id (dm20 doesn't know about Discord identities)
+  5. Ingests non-DDB character sheets via OCR/PDF → schema translation → `dm20__update_character`
 
 ## Requirements
 
@@ -16,61 +27,75 @@ EldritchDM is a local-first, self-hostable Discord bot that runs full D&D 5e gam
 
 ### Active
 
-- [ ] Local inference client (oMLX (`omlx serve`), Gemma 4) with OpenAI-compatible API at `localhost:8080/v1`
-- [ ] SQLite (WAL mode) schema: `game_sessions`, `characters`, `combat_monsters`, `campaign_memory`
-- [ ] Character ingest via OCR (EasyOCR for PNG/JPG) and PDF (pypdf) → LLM-translated JSON → DB
-- [ ] State machine: LOBBY → EXPLORATION → COMBAT_INIT → COMBAT, with persistent state across restarts
-- [ ] Discord UI: dynamic Views (buttons, modals, select menus), rich embeds, ephemeral warnings
-- [ ] `/start_game` lobby flow with character upload and readiness check
-- [ ] EXPLORATION action-batching: collect player intents via modals, auto-roll skill checks, batch into a single narration prompt
-- [ ] COMBAT engine: initiative, turn gatekeeping by Discord user ID, attack resolution with crit/fail/dodge math
-- [ ] Dodge mechanic: sets `is_dodging`, forces disadvantage on incoming attacks, auto-resets next turn
-- [ ] Riposte reaction: 8-second timed button for eligible classes after a missed monster attack
-- [ ] MCP-style tool registry exposed to the model: `lookup_open5e_rule`, `search_monster_guide`, `save_session_memory`
-- [ ] Open5e API client with graceful local-fallback when offline
-- [ ] ShoeGPT persona prompt enforcing strict separation (no math in LLM output) and tactile narration
-- [ ] Multi-channel concurrent sessions on one DB without races (WAL + careful locking)
-- [ ] Self-hostable: README, `requirements.txt`, config template, schema bootstrap
-- [ ] Support up to 8+ players per session in initiative/embed UI
-- [ ] Test suites: `test_local_inference.py`, `test_database.py`, `test_gameplay_cycles.py`
+- [ ] MCP client to dm20 at `http://localhost:8765/v1/mcp/execute` (async, retry, timeout, error mapping)
+- [ ] Small local SQLite (WAL) for Discord-specific state: channel↔campaign, riposte deadlines, view registry, sanitizer audit
+- [ ] Discord bot scaffold (discord.py 2.7.1+), slash command tree, defer discipline lint
+- [ ] Persistent View infrastructure: `DynamicItem` custom_id templates, `bot.add_view()` in `setup_hook`, survive restart
+- [ ] Embed renderers (lobby, room, combat tracker, character confirm) with ≤1-edit/sec coalescer
+- [ ] `/start_game` → `dm20__create_campaign` + `start_claudmaster_session` + `start_party_mode`
+- [ ] Ready-check via persistent button → transition to EXPLORATION
+- [ ] D&D Beyond character ingest via `dm20__import_from_dndbeyond(url)`
+- [ ] OCR (ocrmac) + PDF (PyMuPDF) ingest for non-DDB sheets → oMLX schema translate → manual-review modal → `dm20__update_character`
+- [ ] EXPLORATION action batching: collect modal intents, post as one `party_action` via `dm20__party_pop_action`/`party_resolve_action` flow
+- [ ] COMBAT turn gatekeeping: only the current actor's Discord user_id can click action buttons
+- [ ] Action buttons → `dm20__combat_action` / `use_spell_slot` / `apply_effect`
+- [ ] Dodge button → `dm20__apply_effect("dodging")` (or shim if dm20 lacks native dodge condition)
+- [ ] Riposte 8-second timed reactive button after eligible monster miss; deadline persists locally for restart survival
+- [ ] Riposte execution → `dm20__combat_action(reaction=true)` (or shim)
+- [ ] Player input sanitizer: control-token strip, `<player_action>` sentinel wrapping, 500-char cap
+- [ ] Health check + circuit breaker against oMLX/dm20
+- [ ] Up to 8+ Discord players per session (initiative UI accommodates)
+- [ ] Full resume across bot restart: channel sessions rehydrated, persistent Views re-registered, riposte timers resume
+- [ ] Self-hostable: README, `.env.example`, bootstrap script, run.py
 
 ### Out of Scope
 
-(To be added if/when scope tradeoffs emerge during planning.)
+- Building our own combat/dice/rules engine (dm20 + dice MCP already do this — rebuild rejected)
+- Building our own campaign memory / summarization (`dm20__add_session_note`/`summarize_session`/`party_knowledge` cover it)
+- Building our own SRD/monster/spell lookups (`dm20__search_rules`/`get_*_info` + `dnd__*` cover it)
+- Game-state SQLite schema for characters/sessions/monsters/memory (dm20 owns `~/.omlx/dm.db`)
+- LLM-as-judge for rule disputes
+- Image/map generation
+- Voice/TTS narration in v1
+- Cross-server character portability / cloud sync
+- Multiclass mechanics beyond what dm20 already supports
+- "Auto-DM mode" without players
 
 ## Context
 
 - **Author profile:** Senior dev (Jeremy / Shoemoney). Apple Silicon workstation. Comfortable with Python, async, Discord bots, local LLMs.
-- **Hardware target:** macOS / Apple Silicon (M-series). Unified memory makes MoE quantization tractable locally.
-- **Why local-first:** No API bills, no rate limits, no data leaving the machine; suitable for long campaigns.
-- **Why "three brains":** Pure LLM-as-DM systems hallucinate HP, forget conditions, and allow illegal moves. Splitting math out of the LLM is the entire architectural thesis.
-- **Self-hostable goal:** Others should be able to clone, install deps, set their Discord token, point at their MLX endpoint, and run.
+- **Hardware:** M-series Mac, oMLX already running on `:8765` with launchd supervisor (`com.user.omlx`). dm20 already exposed via oMLX MCP. Model `ShoeGPT` already loaded.
+- **Why local-first:** No API bills, no rate limits, no data leaving the machine.
+- **Why MCP-first:** dm20 implements ~70% of the original PRD. Rebuilding would waste months. Bot becomes a focused Discord adapter.
+- **Self-hostable goal:** Anyone with oMLX + dm20 should be able to clone this repo, set a Discord token, point at their oMLX endpoint, and run.
 
 ## Constraints
 
 - **Runtime:** Python 3.11+
-- **Platform:** macOS Apple Silicon primary target (Linux/CUDA secondary if not in conflict)
-- **Inference backend:** `oMLX (`omlx serve`)` exposing OpenAI-compatible API at `http://localhost:8765/v1` (model id `ShoeGPT`, Gemma 4 4-bit quantized under the hood). Tool calls are reliable on this combo — confirmed by user. Structured-output fallback parser remains as a defensive safety net but native `tool_calls` is the primary path.
-- **Discord library:** `discord.py` v2.3.2+ (Views, Modals, Select Menus required)
-- **Database:** SQLite3 with WAL journaling — no external DB server
-- **Rules source:** Open5e REST API (`https://api.open5e.com/`) with local fallback cache
-- **OCR:** EasyOCR (English, GPU/Metal where available)
-- **PDF:** pypdf
-- **Performance:** Character ingest <6s; narration responses <150 words; Discord interaction acks within 3s; rate-limit-aware embed updates
-- **Reliability:** Full resume across bot restarts (room, turn order, HP, memory, views rebuilt from DB)
-- **Integrity rule:** The LLM is forbidden from computing math; all numerical effects originate in Python and are passed *to* the LLM as facts to narrate
+- **Platform:** macOS Apple Silicon primary
+- **Inference / MCP endpoint:** oMLX at `http://localhost:8765/v1` and `/v1/mcp/execute`. Model id `ShoeGPT`. Tool calls reliable.
+- **Discord library:** `discord.py` 2.7.1+ (Views, Modals, Select Menus, DynamicItem)
+- **Local DB:** SQLite3 WAL — small Discord-state DB only (not gameplay)
+- **OCR:** `ocrmac` (Apple Vision) primary on macOS; `easyocr` as `linux-ocr` extra
+- **PDF:** `PyMuPDF` primary, `pypdf` MIT fallback
+- **Performance:** Discord interaction acks within 3s (defer-first discipline); narration ≤150 words; rate-limit-aware embed updates (≤1 edit/sec/msg)
+- **Reliability:** Full resume across bot restart
+- **Integrity rule:** Bot never computes game math. All mechanical effects flow through dm20 MCP tools.
+- **External dependency:** `dm20` MCP server must be running and reachable via oMLX. If unreachable, bot circuit-breaks to a degraded "DM is offline" state instead of guessing.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Three-brain architecture (Voice / Brain / Orchestrator) | Prevents LLM math hallucination, the #1 failure mode of AI DMs | — Pending |
-| oMLX (`omlx serve`) + Gemma 4 (over mlx-lm.server / Ollama / Qwen) | User has working setup; OpenAI-compatible tool calls confirmed reliable | ✓ Good |
-| SQLite + WAL over hosted DB | Local-first, zero ops, sufficient for concurrent channel writes | — Pending |
-| Self-hostable from day one | Bot is the product; others should be able to run their own | — Pending |
-| Full PRD scope as v1 (no slicing) | Spec is internally coherent — sub-MVPs would feel broken | — Pending |
-| Full resume across restarts | Long campaigns are the point; ephemeral state would break trust | — Pending |
-| Up to 8+ players per session | Larger groups common in home games; initiative UI must handle it | — Pending |
+| Hybrid: MCP for content, ours for state | dm20 is feature-complete for DM mechanics; rebuilding rejected | ✓ Good |
+| oMLX (`omlx serve`) + model `ShoeGPT` | Already deployed, tool calls reliable, launchd-supervised | ✓ Good |
+| Discord ↔ dm20 via Party Mode queue | Future-proofs for mixed Discord+browser sessions; clean separation | ✓ Good |
+| Riposte timed UI in v1 | Our differentiator; dm20 doesn't have timed Discord reactions | — Pending |
+| OCR/PDF ingest in v1 | DDB import covers some users; paper/handwritten sheets matter | — Pending |
+| Local SQLite for Discord state only | Game state stays in dm20's `~/.omlx/dm.db`; ours holds channel↔campaign, timers, view ids | — Pending |
+| Player input sanitizer + sentinels | Even though we don't drive the prompt directly, untrusted text reaches LLM via dm20 | — Pending |
+| Three-brain logical boundary preserved | Voice / Brain / Orchestrator still hold — just relocated | ✓ Good |
+| Drop our own DB/engine/memory phases | Direct consequence of pivot | ✓ Good |
 
 ## Evolution
 
@@ -90,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-21 after initialization*
+*Last updated: 2026-05-21 after MCP-hybrid pivot*

@@ -1,72 +1,44 @@
-# State: EldritchDM
+# EldritchDM — State
 
-**Initialized:** 2026-05-21
+**Last updated:** 2026-05-21 (post-MCP-pivot roadmap revision)
+**Milestone:** v1.0
+**Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
 ## Project Reference
 
-- **Project:** EldritchDM (ShoeGPT)
-- **Core Value:** Mechanically honest AI DM — narration is evocative, but every die roll, HP change, AC check, and turn boundary is enforced by deterministic Python code; the LLM never touches the math.
-- **Current Focus:** Phase 1 — Persistence Foundation
+See: `.planning/PROJECT.md` (updated 2026-05-21)
 
-## Current Position
+**Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
+**Current focus:** Phase 1 — MCP Client + Local State
 
-- **Milestone:** v1
-- **Phase:** 1 — Persistence Foundation
-- **Plan:** (none yet — awaiting `/gsd:plan-phase 1`)
-- **Status:** Roadmap complete; planning not yet started
-- **Progress:** [░░░░░░░░░░░░░░░░░░░░] 0% (0/11 phases complete)
+## Architecture (post-pivot)
 
-## Phase Pointer
+- **Voice** = oMLX `ShoeGPT` model on `:8765` (already running, launchd `com.user.omlx`)
+- **Brain** = `dm20` MCP server, 97 tools exposed at `:8765/v1/mcp/execute`
+- **Orchestrator** = this Discord bot (the thing we're building)
+- **Local DB** = small SQLite for Discord-specific state only (channel↔campaign, riposte timers, view registry, sanitizer audit)
+- **Discord ↔ dm20** = Party Mode queue binding (pop_action / thinking / get_prefetch / resolve_action)
 
-Phase 1: Persistence Foundation
-Goal: A correct, single-writer SQLite persistence layer that supports concurrent multi-channel sessions with zero writer contention
-Requirements: DB-01..DB-08
-Success Criteria:
-  1. The four tables exist with PRD-correct columns and constraints
-  2. Every connection sets `journal_mode=WAL` and `busy_timeout=5000`; a single asyncio writer task drains all writes
-  3. Every write uses `BEGIN IMMEDIATE`; no transaction spans an `await` to an external service
-  4. Multi-channel concurrent stress test passes with zero `database is locked` errors
-  5. Repository classes exist per aggregate; pure reads take no per-session lock
+## Phase Progress
 
-## Performance Metrics
+| # | Phase | Status |
+|---|-------|--------|
+| 1 | MCP Client + Local State | 🔵 In Progress (CONTEXT.md pending — old persistence-foundation CONTEXT.md superseded) |
+| 2 | Discord Scaffold + Persistent Views | ⚪ Not Started |
+| 3 | Lobby + Character Ingest | ⚪ Not Started |
+| 4 | Gameplay — Exploration + Combat (Party Mode) | ⚪ Not Started |
+| 5 | Reactions + Self-Host Polish | ⚪ Not Started |
 
-- **Phases planned:** 0/11
-- **Phases complete:** 0/11
-- **Requirements mapped:** 87/87 ✓
-- **Requirements complete:** 0/87
+## Blockers / Concerns
 
-## Accumulated Context
+- [ ] Verify dm20 supports concurrent multi-campaign sessions in one process (Phase 1 spike)
+- [ ] Verify dm20 has a "dodging" condition / `apply_effect` semantics suitable for our Dodge action (Phase 4)
+- [ ] Verify dm20 models reactions (`has_reaction`) natively; if not, design the shim (Phase 5)
+- [ ] Confirm `dm20__party_pop_action` returns immediately when queue empty (we may need polling cadence vs WS)
 
-### Key Decisions
+## Recent History
 
-- Inference backend is **oMLX (`omlx serve`)** at `http://localhost:8765/v1` with model id `ShoeGPT` (Gemma 4 4-bit under the hood). NOT mlx-lm.server. NOT port 8080.
-- Native `response.tool_calls` is the primary dispatch path; structured `<tool_call>{json}</tool_call>` parser is a defensive fallback, disabled for turns containing user free-text.
-- Three-brain architecture is a **logical** boundary inside one async Python process — not multiple processes.
-- `ocrmac` (Apple Vision) is primary OCR on macOS; `easyocr` lives behind a `linux-ocr` extra.
-- `PyMuPDF` is primary PDF parser; `pypdf` retained as MIT fallback.
-- Single-writer asyncio queue + `BEGIN IMMEDIATE` + `busy_timeout=5000` is the SQLite concurrency model (WAL alone is insufficient).
-- Self-hostable from day one — README + bootstrap + `.env.example` are first-class deliverables (Phase 11).
-
-### Active Todos
-
-- Run `/gsd:plan-phase 1` to plan the Persistence Foundation phase
-
-### Blockers
-
-(none)
-
-### Risk Watch (CRITICAL v1 pitfalls)
-
-- LLM math leakage → mitigated in Phase 3 (no-math validator + adversarial corpus)
-- Persistent Views vanishing on restart → mitigated in Phase 5 (DynamicItem in `setup_hook`)
-- Discord 3s ack cliff → mitigated in Phase 5 (lint-enforced `defer(thinking=True)`)
-- SQLite writer contention → mitigated in Phase 1 (single-writer queue)
-- Prompt injection via player modal → mitigated in Phase 3 (`<player_action>` sentinels, 500-char cap, fallback disabled with user text)
-
-## Session Continuity
-
-- **Last session:** 2026-05-21 — roadmap created with 11 phases, 87/87 requirements mapped
-- **Next session:** Begin `/gsd:plan-phase 1` for Persistence Foundation
-
----
-*State initialized: 2026-05-21*
+- 2026-05-21: Project init → research → roadmap (11 phases, 87 reqs)
+- 2026-05-21: Discovered 116-tool MCP toolbox via `ddmcpskills.md`
+- 2026-05-21: Pivot decision: hybrid (dm20 for content, ours for Discord state), Party Mode binding, Riposte stays, OCR/PDF stays
+- 2026-05-21: Roadmap revised 11 → 5 phases; requirements 87 → ~55

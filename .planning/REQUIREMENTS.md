@@ -1,301 +1,166 @@
 # Requirements: EldritchDM
 
-**Defined:** 2026-05-21
-**Core Value:** Mechanically honest AI DM — narration is evocative, but every die roll, HP change, AC check, and turn boundary is enforced by deterministic Python code; the LLM never touches the math.
+**Defined:** 2026-05-21 (post-MCP-pivot)
+**Core Value:** Mechanically honest AI DM, on Discord, fully local. Bot never computes game math — all mechanical effects flow through `dm20` MCP tools.
 
 ## v1 Requirements
 
-### Infrastructure (INFRA)
+### MCP & Local State (MCP)
 
-- [ ] **INFRA-01**: Project scaffolded with `pyproject.toml`, pinned dependencies, `requirements.txt`, `.env.example`
-- [ ] **INFRA-02**: Inference backend client targets oMLX (`omlx serve`) OpenAI-compatible API at `http://localhost:8765/v1`
-- [ ] **INFRA-03**: Default model id is `ShoeGPT` (Gemma 4 4-bit quantized); endpoint and model are config-driven via env
-- [ ] **INFRA-04**: `httpx` async client with timeouts (connect=2s, read=20s, write=5s) and tenacity-based retry
-- [ ] **INFRA-05**: Health-check ping every 60s; circuit-breaker fallback to templated narration on consecutive failures
-- [ ] **INFRA-06**: `structlog` JSON logging with bound session/channel context
-- [ ] **INFRA-07**: README documents `launchd`/`tmux+watchdog` supervisor recipes for `omlx serve`
+- [ ] **MCP-01**: Async MCP client posts to `http://localhost:8765/v1/mcp/execute` with `{tool_name, arguments}` payload
+- [ ] **MCP-02**: `httpx.AsyncClient` with timeouts (connect=2s, read=30s, write=5s) and tenacity retry on transient errors
+- [ ] **MCP-03**: Typed wrapper functions for every dm20 tool we use (campaign, character, combat, party-mode, claudmaster, library) — generated or hand-written, but type-checked
+- [ ] **MCP-04**: Error mapping: dm20 tool errors surface as structured exceptions with tool_name + arg snapshot for logging
+- [ ] **MCP-05**: Health-check ping (`fetch__fetch` GET `:8765/v1/models`) every 60s; circuit-breaker trips after 3 consecutive failures; surface "DM is offline" embed
+- [ ] **MCP-06**: `structlog` JSON logging binds `channel_id`, `campaign_name`, `session_id`, `tool_name` on every MCP call
+- [ ] **MCP-07**: Per-channel `asyncio.Lock` around MCP calls that mutate dm20 state (prevents concurrent `combat_action` clobbering each other)
 
-### Persistence (DB)
+### Local Discord-State Persistence (LOC)
 
-- [ ] **DB-01**: SQLite schema for `game_sessions`, `characters`, `combat_monsters`, `campaign_memory` matches PRD
-- [ ] **DB-02**: WAL journal mode + `busy_timeout=5000` set on every connection
-- [ ] **DB-03**: Single-writer asyncio queue funnels all write transactions (no writer/writer contention)
-- [ ] **DB-04**: Per-session `asyncio.Lock` for read-modify-write windows; pure reads are lock-free
-- [ ] **DB-05**: `BEGIN IMMEDIATE` for every write transaction; transactions never span `await llm_call()`
-- [ ] **DB-06**: Repository layer per aggregate (Session, Character, Monster, Memory) using `aiosqlite`
-- [ ] **DB-07**: Periodic `PRAGMA wal_checkpoint(TRUNCATE)`
-- [ ] **DB-08**: Multi-channel concurrent stress test passes with zero `database is locked` errors
+- [ ] **LOC-01**: SQLite (WAL) at `ELDRITCH_DB_PATH` (default `./eldritch.sqlite3`)
+- [ ] **LOC-02**: Schema tables (small, Discord-specific only):
+  - `channel_sessions` (channel_id PK, campaign_name, claudmaster_session_id, dm20_party_token, state, created_at)
+  - `persistent_views` (custom_id PK, view_class, message_id, channel_id, payload_json, created_at)
+  - `riposte_timers` (id PK, channel_id, character_id, deadline_ts, monster_uuid, weapon_used, status)
+  - `sanitizer_audit` (id PK, channel_id, user_id, raw_input, stripped_tokens, redacted_output, ts)
+- [ ] **LOC-03**: WAL + `busy_timeout=5000` + `BEGIN IMMEDIATE` for writes
+- [ ] **LOC-04**: Single-writer asyncio queue for `eldritch.sqlite3` writes
+- [ ] **LOC-05**: Repositories per table using `aiosqlite` and pydantic v2 frozen models
+- [ ] **LOC-06**: `bootstrap.py` creates schema idempotently on startup
 
-### Engine — Pure Rules (ENG)
+### Discord Scaffold (BOT)
 
-- [ ] **ENG-01**: Dice parser supports notation `NdM+K`, advantage, disadvantage, reroll
-- [ ] **ENG-02**: D20 attack resolver: natural 20 → crit (double damage dice), natural 1 → auto-miss, else sum vs AC
-- [ ] **ENG-03**: Damage rolled with modifiers; HP applied to target via repository
-- [ ] **ENG-04**: Dodge sets `is_dodging=1`, forces disadvantage on incoming attacks against that entity
-- [ ] **ENG-05**: Dodge auto-clears on the dodger's next turn start
-- [ ] **ENG-06**: Initiative roll = `1d20 + DEX modifier`, sorted desc, ties broken by DEX then random
-- [ ] **ENG-07**: Riposte eligibility check (Fighter/Battle Master, Rogue Swashbuckler at v1)
-- [ ] **ENG-08**: Riposte deducts `has_reaction=0`, rolls counter-attack with primary weapon
-- [ ] **ENG-09**: Reactions recharge (`has_reaction=1`) at start of each actor's turn
-- [ ] **ENG-10**: Skill check resolver: `1d20 + ability mod + proficiency` for relevant skill
-- [ ] **ENG-11**: Engine module is hermetic — no imports from orchestrator, persistence, or inference layers
-- [ ] **ENG-12**: 100% unit test coverage for crit/miss/dodge/riposte paths
-
-### Inference (INF)
-
-- [ ] **INF-01**: ShoeGPT persona system prompt loaded from `config/shoe_gpt_prompt.txt`
-- [ ] **INF-02**: Jinja2 (or equivalent) prompt assembler templates exploration batches, combat events, NPC dialog
-- [ ] **INF-03**: Tool-call dispatcher trusts native `response.tool_calls` (primary path on mlx-omni-server + Gemma 4)
-- [ ] **INF-04**: Structured `<tool_call>{json}</tool_call>` content-string parser remains as defensive fallback
-- [ ] **INF-05**: Tool registry exposes `lookup_open5e_rule`, `search_monster_guide`, `save_session_memory`
-- [ ] **INF-06**: JSON-mode prompts (temperature 0.05) for character-sheet schema translation
-- [ ] **INF-07**: Narration responses capped at 150 words; token cap enforced server-side and client-side
-- [ ] **INF-08**: No-math output validator: regex strips/rejects unsanctioned digits, HP/AC keywords, out-of-context entity names
-- [ ] **INF-09**: Adversarial test corpus (≥50 scenarios) for no-math validator runs in CI
-- [ ] **INF-10**: Player free-text wrapped in `<player_action>` sentinels; control tokens stripped; 500-char cap per input
-- [ ] **INF-11**: Tool-call content-string fallback disabled for turns containing user free-text (injection mitigation)
-- [ ] **INF-12**: `asyncio.Semaphore(1)` around inference client; "ShoeGPT is thinking…" surfaced when held
-
-### Discord UI (BOT)
-
-- [ ] **BOT-01**: `discord.py 2.7.1` bot scaffolded with slash command tree
-- [ ] **BOT-02**: Every interaction callback's first line is `await interaction.response.defer(thinking=True)` (lint-enforced)
-- [ ] **BOT-03**: Rich embed renderer templates: lobby card, room state, combat tracker, character confirmation
-- [ ] **BOT-04**: Persistent View infrastructure: `DynamicItem` regex `custom_id` templates registered in `setup_hook`
-- [ ] **BOT-05**: On startup, active sessions are reloaded from DB and `bot.add_view(view, message_id=...)` called per persisted message
-- [ ] **BOT-06**: Embed update coalescer: per-message `asyncio.Queue` + render task limits edits to ≤1/sec
-- [ ] **BOT-07**: Ephemeral warning card for invalid actions (e.g., out-of-turn click): `❌ It is not your turn yet.`
-- [ ] **BOT-08**: Kill-and-restart-mid-combat test: views remain functional after bot process restart
+- [ ] **BOT-01**: `discord.py 2.7.1+` bot with slash command tree
+- [ ] **BOT-02**: Every interaction callback's first line is `await interaction.response.defer(thinking=True)` (lint-enforced via custom ruff/pre-commit rule)
+- [ ] **BOT-03**: Embed renderers: `lobby_embed`, `room_embed`, `combat_embed`, `character_confirm_embed`
+- [ ] **BOT-04**: Persistent Views: `discord.ui.DynamicItem` with regex `custom_id` templates, e.g. `endturn:(?P<channel_id>\d+):(?P<actor>\d+)`
+- [ ] **BOT-05**: `setup_hook` rehydrates active channel sessions from `channel_sessions`, calls `bot.add_view(view, message_id=...)` for every row in `persistent_views`
+- [ ] **BOT-06**: Embed update coalescer — per-message `asyncio.Queue` + render task limits edits to ≤1/sec/message
+- [ ] **BOT-07**: Ephemeral warning helper for invalid actions: `❌ Not your turn`, `❌ Riposte expired`, `❌ DM is thinking…`
+- [ ] **BOT-08**: Kill-and-restart-mid-combat test: bot process killed during a combat turn, restart, click buttons → flows continue
 
 ### Lobby (LOBBY)
 
-- [ ] **LOBBY-01**: `/start_game` slash command initializes a new session in calling channel
-- [ ] **LOBBY-02**: Lobby embed instructs players to upload character sheets (PNG/JPG/PDF)
-- [ ] **LOBBY-03**: Ready check: players mark ready via persistent button; all-ready transitions to EXPLORATION
-- [ ] **LOBBY-04**: On EXPLORATION transition, a 3-room campaign blueprint is generated and stored
+- [ ] **LOBBY-01**: `/start_game` slash command — creates dm20 campaign via `dm20__create_campaign`, starts Claudmaster session via `dm20__start_claudmaster_session`, starts Party Mode via `dm20__start_party_mode`, records mapping in `channel_sessions`
+- [ ] **LOBBY-02**: Optional `/load_adventure <id>` — runs `dm20__load_adventure` (CoS, LMoP, etc.)
+- [ ] **LOBBY-03**: Lobby embed lists party-mode invite/QR (output of `start_party_mode`) AND a Discord-native "Join" persistent button
+- [ ] **LOBBY-04**: Ready check: each player marks ready via persistent button; all-ready transitions to EXPLORATION and signals Claudmaster
 
 ### Character Ingest (INGEST)
 
-- [ ] **INGEST-01**: `ocrmac` (Apple Vision) is the primary OCR path on macOS
-- [ ] **INGEST-02**: `easyocr` available via `linux-ocr` extra for non-macOS hosts
-- [ ] **INGEST-03**: `PyMuPDF` is primary PDF parser; `pypdf` retained as MIT-licensed fallback
-- [ ] **INGEST-04**: OCR/PDF work runs on `ThreadPoolExecutor(max_workers=2)` via `run_in_executor`
-- [ ] **INGEST-05**: Raw text passed to LLM for JSON-schema translation (temperature 0.05, response_format=json_object)
-- [ ] **INGEST-06**: Pydantic validates LLM output against schema; range checks on ability scores
-- [ ] **INGEST-07**: OCR confidence gate: low confidence triggers manual-entry modal as first-class path
-- [ ] **INGEST-08**: Character upload restricted to DM role; confirmations are ephemeral
-- [ ] **INGEST-09**: End-to-end ingest completes in <6s for standard sheets
+- [ ] **INGEST-01**: `/upload_character_url <ddb_url>` slash command → `dm20__import_from_dndbeyond(url_or_id, player_name)`
+- [ ] **INGEST-02**: `/upload_character_file` accepts PNG/JPG/PDF attachment for non-DDB sheets
+- [ ] **INGEST-03**: `ocrmac` (Apple Vision) primary OCR on macOS; `easyocr` via `linux-ocr` extra
+- [ ] **INGEST-04**: `PyMuPDF` primary PDF parse; `pypdf` MIT fallback
+- [ ] **INGEST-05**: OCR/PDF work runs on `ThreadPoolExecutor(max_workers=2)` via `run_in_executor`
+- [ ] **INGEST-06**: Extracted text passed to oMLX (`/v1/chat/completions`, response_format=json_object, temp=0.05) for schema translation
+- [ ] **INGEST-07**: Pydantic validates LLM output; ability-score ranges checked; class/race verified against `dm20__get_class_info`/`get_race_info`
+- [ ] **INGEST-08**: Manual-review modal: parsed fields rendered; player confirms or edits before `dm20__create_character` is called
+- [ ] **INGEST-09**: Confidence-gated: low-confidence OCR triggers manual-entry modal as first-class path
+- [ ] **INGEST-10**: Confirmations are ephemeral; uploads restricted to invoking player or DM
+- [ ] **INGEST-11**: End-to-end ingest (image → dm20 character) completes in <8s for standard sheets
 
-### Exploration (EXPLORE)
+### Exploration State (EXPLORE)
 
-- [ ] **EXPLORE-01**: Each room renders a state embed + `[ 💬 Declare Action ]` button
-- [ ] **EXPLORE-02**: Action button opens text modal (500-char cap); user submission marks player Registered
-- [ ] **EXPLORE-03**: Keyword scanner detects skill-check intents (`steal`, `search`, `strike`, `sneak`, `run`, `climb`, `inspect`)
-- [ ] **EXPLORE-04**: Engine auto-rolls `1d20 + relevant skill modifier`; result cached against player intent
-- [ ] **EXPLORE-05**: When all active players have submitted, intents + rolls batched into a single narration prompt
-- [ ] **EXPLORE-06**: ShoeGPT renders unified atmospheric prose (<180 words) describing the simultaneous actions
-- [ ] **EXPLORE-07**: Encounter triggers (auto-trap, hostile NPC, narrative choice) transition state to COMBAT_INIT
+- [ ] **EXPLORE-01**: Each room renders `room_embed` + `[ 💬 Declare Action ]` persistent button
+- [ ] **EXPLORE-02**: Action button opens text modal (500-char cap); submission posts a Party Mode action via the dm20 queue
+- [ ] **EXPLORE-03**: Bot polls `dm20__party_pop_action` (or subscribes if WS); on action, calls `dm20__party_thinking("ShoeGPT consults the ancient scrolls…")` and shows Discord "thinking" indicator
+- [ ] **EXPLORE-04**: For combat-relevant turns, bot calls `dm20__party_get_prefetch(turn_id, outcome, roll, damage, target_hp)` for narrative speedup
+- [ ] **EXPLORE-05**: Narrative returned via `dm20__party_resolve_action` → rendered in Discord embed
+- [ ] **EXPLORE-06**: Action-batching: when multiple players have unresolved actions, bot waits up to 30s or until all party members have submitted before resolving, producing a single batched narrative
+- [ ] **EXPLORE-07**: Combat trigger detected from dm20's game state transition → bot switches view to combat embed
 
-### Combat (COMBAT)
+### Combat State (COMBAT)
 
-- [ ] **COMBAT-01**: COMBAT_INIT calculates CR budget from party levels, queries monster guide for matching threats
-- [ ] **COMBAT-02**: Monsters mounted into `combat_monsters` with full stat blocks
-- [ ] **COMBAT-03**: Initiative rolls for all actors; sequence persisted to `game_sessions.turn_sequence`
-- [ ] **COMBAT-04**: Combat embed shows turn order, HP/AC per actor, active conditions; supports 8+ initiative rows
-- [ ] **COMBAT-05**: Action buttons `[⚔️ Attack]`, `[🧙 Cast Spell]`, `[🛡️ Dodge]`, `[⏭️ End Turn]`
-- [ ] **COMBAT-06**: Turn gatekeeper validates clicker's user ID == `turn_sequence[active_idx]`; otherwise ephemeral warning
-- [ ] **COMBAT-07**: Attack: weapon select via dropdown, target select, engine resolves crit/dodge/AC math
-- [ ] **COMBAT-08**: Engine returns event payload to inference layer; narration follows mechanical outcome (<150 words)
-- [ ] **COMBAT-09**: Dodge button: marks `is_dodging=1`, ends turn, advances `active_idx`
-- [ ] **COMBAT-10**: On monster miss against eligible PC, timed `[↩️ Riposte]` button surfaces for that PC only (8s TTL)
-- [ ] **COMBAT-11**: Riposte deadline persists in DB so timeout survives restart; expiry cleans the button
-- [ ] **COMBAT-12**: Combat ends when all monsters at HP≤0 or party defeated; transition back to EXPLORATION
-- [ ] **COMBAT-13**: 8-player load test passes with zero Discord 429 rate-limit errors
+- [ ] **COMBAT-01**: On combat start (`dm20__start_combat`), bot reads `dm20__get_game_state` for initiative order, renders combat embed
+- [ ] **COMBAT-02**: Combat embed shows turn order, HP/AC, conditions; supports 8+ initiative rows; refreshed via coalescer
+- [ ] **COMBAT-03**: Action buttons `[⚔️ Attack]`, `[🧙 Cast Spell]`, `[🛡️ Dodge]`, `[⏭️ End Turn]` rendered with `custom_id` including current actor's user_id
+- [ ] **COMBAT-04**: Turn gatekeeper validates clicker's Discord user_id == current actor (mapped via `channel_sessions` + `dm20__get_character.player_id`); else ephemeral warning
+- [ ] **COMBAT-05**: Attack → weapon select modal → `dm20__combat_action(action="attack", weapon=..., target=...)`; narrative resolved via party-mode flow
+- [ ] **COMBAT-06**: Dodge → `dm20__apply_effect(target=self, effect="dodging")` (verify dm20 supports this; else shim via condition); ends turn
+- [ ] **COMBAT-07**: End Turn → `dm20__next_turn`
+- [ ] **COMBAT-08**: 8-player Discord load test: combat embed updates 4× per round, zero 429 rate-limit errors
+- [ ] **COMBAT-09**: Riposte detection: on monster attack resolution where target is eligible (Fighter/Battle Master, Rogue Swashbuckler — verified via `dm20__validate_character_rules`) and target has `has_reaction=true`, bot surfaces timed Riposte button
+- [ ] **COMBAT-10**: Riposte button persists 8s with `deadline_ts` in `riposte_timers`; on click, bot calls `dm20__combat_action(reaction=true, weapon=primary)` (or shim if dm20 lacks reaction flag) — only target player can click
+- [ ] **COMBAT-11**: Riposte timer survives bot restart — `riposte_timers` row drives a background task that cleans expired buttons on restart and any time before expiry
+- [ ] **COMBAT-12**: Combat end detected from dm20 state transition; bot returns to EXPLORATION embed
 
-### Memory (MEM)
+### Sanitization & Safety (SAN)
 
-- [ ] **MEM-01**: `campaign_memory` table stores `entity_key` + `factual_note` per channel
-- [ ] **MEM-02**: `save_session_memory` tool invocation persists ShoeGPT-detected plot events
-- [ ] **MEM-03**: Rolling context summarization keeps prompt under model's token budget (~16k working window)
-- [ ] **MEM-04**: Memory recall surfaces relevant entries when entity keys appear in current prompt context
-- [ ] **MEM-05**: Memory visibility tag: `public` / `dm_only` / `user_id`; recall filters by requester
-- [ ] **MEM-06**: 100-turn synthetic session test: token count remains bounded; no context overflow
-
-### Rules Database (RULES)
-
-- [ ] **RULES-01**: Open5e REST client with 2s timeout, tenacity retry, structured error handling
-- [ ] **RULES-02**: Local SRD cache shipped with project; first-look is cache, network only refreshes
-- [ ] **RULES-03**: `lookup_open5e_rule` tool resolves spells, conditions, class features
-- [ ] **RULES-04**: `search_monster_guide` returns stat blocks usable directly by combat engine
-- [ ] **RULES-05**: Offline-mode session completes end-to-end using cache only
-
-### State Recovery (STATE)
-
-- [ ] **STATE-01**: All FSM transitions persisted to `game_sessions.state` immediately on change
-- [ ] **STATE-02**: On bot restart, all `state != 'LOBBY'` sessions are rehydrated
-- [ ] **STATE-03**: Persisted message IDs are re-registered with their views; existing Discord messages keep working
-- [ ] **STATE-04**: Active timers (riposte deadlines) resume from stored expiry timestamps
-- [ ] **STATE-05**: Resume drill: kill bot mid-combat, restart, confirm next button click resolves correctly
+- [ ] **SAN-01**: All player free-text (modals, chat) passes through `sanitize_player_input(raw) -> SanitizedInput` before reaching any MCP call
+- [ ] **SAN-02**: Sanitizer strips control tokens: `<tool_call>`, `<|im_start|>`, `<|im_end|>`, `SYSTEM:`, `ASSISTANT:`, `<player_action>`, `</player_action>`
+- [ ] **SAN-03**: 500-char hard cap on modal input; over-cap truncates with a flag
+- [ ] **SAN-04**: Sanitizer wraps output in `<player_action speaker="..." user_id="...">…</player_action>` for downstream consumption
+- [ ] **SAN-05**: Audit row written to `sanitizer_audit` whenever stripping occurs
+- [ ] **SAN-06**: Adversarial test corpus (≥30 scenarios) for sanitizer in CI: injection attempts, tool-call forgery, sentinel breakout
 
 ### Self-Host (HOST)
 
-- [ ] **HOST-01**: README with hardware tiers (M1/M2 16 GB → 7B model; M3/M4 36 GB+ → Gemma 4 default)
-- [ ] **HOST-02**: `.env.example` documents `DISCORD_TOKEN`, `OMLX_ENDPOINT` (default `http://localhost:8765/v1`), `OMLX_MODEL` (default `ShoeGPT`), log level
-- [ ] **HOST-03**: `python -m eldritch_dm.bootstrap` initializes DB schema + downloads SRD cache
-- [ ] **HOST-04**: `run.py` entrypoint validates env, pings inference server, launches bot
-- [ ] **HOST-05**: Test suites runnable via `pytest`: `test_database.py`, `test_local_inference.py`, `test_gameplay_cycles.py`
-- [ ] **HOST-06**: README covers macOS-primary install + Linux/CUDA "best effort" notes
+- [ ] **HOST-01**: README with prerequisites: oMLX running on `:8765`, dm20 MCP exposed, ShoeGPT model loaded, Discord bot token
+- [ ] **HOST-02**: `.env.example` documents `DISCORD_TOKEN`, `OMLX_ENDPOINT` (default `http://localhost:8765/v1`), `OMLX_MODEL` (default `ShoeGPT`), `MCP_EXECUTE_URL` (default `http://localhost:8765/v1/mcp/execute`), `ELDRITCH_DB_PATH`, log level
+- [ ] **HOST-03**: `python -m eldritch_dm.bootstrap` initializes local Discord-state SQLite schema; pings oMLX + dm20 to verify
+- [ ] **HOST-04**: `run.py` entrypoint validates env, pings oMLX, lists available dm20 tools, launches bot
+- [ ] **HOST-05**: `pyproject.toml` pins all deps; `requirements.txt` generated for non-uv users
+- [ ] **HOST-06**: Test suite runnable via `pytest`: MCP client tests (with httpx mock), sanitizer adversarial corpus, persistent-view restart drill, repository CRUD
+- [ ] **HOST-07**: README covers macOS-primary install; Linux/CUDA "best effort" notes
+- [ ] **HOST-08**: README documents launchd recipe for the Discord bot itself (parallel to existing `com.user.omlx`)
+
+### Operational (OPS)
+
+- [ ] **OPS-01**: Resume drill — kill bot mid-combat, restart, confirm turn order/HP/buttons all functional from `channel_sessions` + `dm20__get_claudmaster_session_state`
+- [ ] **OPS-02**: Circuit breaker on dm20 unreachable: bot replies to all interactions with ephemeral "DM is offline, try again shortly" embed; auto-recovers on health-check restoration
+- [ ] **OPS-03**: Per-channel rate-limit on MCP calls (max 1 mutating call per 200ms) to prevent dm20 thrashing under spam clicks
+- [ ] **OPS-04**: Graceful shutdown: cancel pending riposte timers, flush sanitizer audit, close DB
 
 ## v2 Requirements
 
 Deferred to future release.
 
-### Spell Mechanics
-- **SPELL-01**: Spell slot tracking
-- **SPELL-02**: Concentration mechanics
-- **SPELL-03**: Counterspell as a reaction
-
-### Rest & Recovery
-- **REST-01**: Short rest hit-die spend
-- **REST-02**: Long rest full recovery
-
-### Character Progression
-- **PROG-01**: Level-up flow
-- **PROG-02**: Multiclassing
+### Reactions Beyond Riposte
+- **REACT-01**: Shield (reaction to attack)
+- **REACT-02**: Counterspell
+- **REACT-03**: Hellish Rebuke
 
 ### Expanded UI
-- **EXUI-01**: Voice/TTS narration to voice channel
-- **EXUI-02**: Map/grid visuals
-- **EXUI-03**: Human-DM override dashboard
+- **EXUI-01**: Voice/TTS narration to voice channels (dm20 has `narrated`/`immersive` modes — needs Discord voice integration)
+- **EXUI-02**: Map/grid visuals (dm20 has `show_map` — needs Discord rendering layer)
+- **EXUI-03**: Per-player private DMs from the DM (`dm20__send_private_message` → Discord DM)
+- **EXUI-04**: Mixed Discord + browser party (since we bind to Party Mode, this becomes plausible)
+
+### Advanced Workflows
+- **ADV-01**: `/load_adventure` polished UX with adventure browser
+- **ADV-02**: Character sheet sync flow (`check_sheet_changes` / `approve_sheet_change`)
+- **ADV-03**: Compendium pack import/export through Discord commands
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Free-form "chat-as-DM" without state machine | Bypasses the three-brain integrity contract; reverts to ChatGPT-as-DM failure mode |
-| LLM-computed math, dice, or HP | The architectural thesis — never |
-| LLM-as-judge for rule disputes | Inconsistent rulings break trust; defer to Open5e + human table |
-| Image/map generation | Scope explosion; competes with inference for unified memory |
-| Cross-server character portability / cloud sync | Local-first; contradicts the privacy guarantee |
-| Voice / TTS narration in v1 | Wrong surface for v1; Discord text is the medium |
-| "Auto-DM mode" that plays without players | Defeats the point of the tool |
-| Unbounded narration length | Hard 150-word cap; LLM rambling is a known anti-pattern |
-| OAuth/SSO for bot access | Discord identity is the user model |
+| Own combat/dice/rules engine | dm20 + dice MCP already provide it — rebuild rejected after architectural review |
+| Own SQLite schema for characters/sessions/monsters/memory | dm20 owns `~/.omlx/dm.db`; our DB is Discord-specific only |
+| Own campaign memory / summarization | `dm20__add_session_note`, `summarize_session`, `party_knowledge` cover it |
+| Own SRD lookups | `dm20__search_rules`, `get_*_info`, `dnd__*` cover it |
+| LLM-computed math, dice, HP | The thesis — never |
+| LLM-as-judge for rule disputes | Inconsistent; defer to dm20 + human table |
+| Image/map generation | Scope; competes with inference for unified memory |
+| Cross-server character portability | Local-first |
+| Voice/TTS narration in v1 | Wrong surface for v1 |
+| OAuth/SSO | Discord identity is the user model |
+| Building our own MCP tools that overlap dm20 | If dm20 has a tool, we use it |
 
 ## Traceability
 
+Populated during roadmap creation.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 11 | Pending |
-| INFRA-02 | Phase 3 | Pending |
-| INFRA-03 | Phase 3 | Pending |
-| INFRA-04 | Phase 3 | Pending |
-| INFRA-05 | Phase 3 | Pending |
-| INFRA-06 | Phase 3 / Phase 5 | Pending |
-| INFRA-07 | Phase 11 | Pending |
-| DB-01 | Phase 1 | Pending |
-| DB-02 | Phase 1 | Pending |
-| DB-03 | Phase 1 | Pending |
-| DB-04 | Phase 1 | Pending |
-| DB-05 | Phase 1 | Pending |
-| DB-06 | Phase 1 | Pending |
-| DB-07 | Phase 1 | Pending |
-| DB-08 | Phase 1 | Pending |
-| ENG-01 | Phase 2 | Pending |
-| ENG-02 | Phase 2 | Pending |
-| ENG-03 | Phase 2 | Pending |
-| ENG-04 | Phase 2 | Pending |
-| ENG-05 | Phase 2 | Pending |
-| ENG-06 | Phase 2 | Pending |
-| ENG-07 | Phase 2 | Pending |
-| ENG-08 | Phase 2 | Pending |
-| ENG-09 | Phase 2 | Pending |
-| ENG-10 | Phase 2 | Pending |
-| ENG-11 | Phase 2 | Pending |
-| ENG-12 | Phase 2 | Pending |
-| INF-01 | Phase 3 | Pending |
-| INF-02 | Phase 3 | Pending |
-| INF-03 | Phase 3 | Pending |
-| INF-04 | Phase 3 | Pending |
-| INF-05 | Phase 3 | Pending |
-| INF-06 | Phase 3 | Pending |
-| INF-07 | Phase 3 | Pending |
-| INF-08 | Phase 3 | Pending |
-| INF-09 | Phase 3 | Pending |
-| INF-10 | Phase 3 | Pending |
-| INF-11 | Phase 3 | Pending |
-| INF-12 | Phase 3 | Pending |
-| BOT-01 | Phase 5 | Pending |
-| BOT-02 | Phase 5 | Pending |
-| BOT-03 | Phase 5 | Pending |
-| BOT-04 | Phase 5 | Pending |
-| BOT-05 | Phase 5 | Pending |
-| BOT-06 | Phase 5 | Pending |
-| BOT-07 | Phase 5 | Pending |
-| BOT-08 | Phase 5 | Pending |
-| LOBBY-01 | Phase 6 | Pending |
-| LOBBY-02 | Phase 6 | Pending |
-| LOBBY-03 | Phase 6 | Pending |
-| LOBBY-04 | Phase 6 | Pending |
-| INGEST-01 | Phase 7 | Pending |
-| INGEST-02 | Phase 7 | Pending |
-| INGEST-03 | Phase 7 | Pending |
-| INGEST-04 | Phase 7 | Pending |
-| INGEST-05 | Phase 7 | Pending |
-| INGEST-06 | Phase 7 | Pending |
-| INGEST-07 | Phase 7 | Pending |
-| INGEST-08 | Phase 7 | Pending |
-| INGEST-09 | Phase 7 | Pending |
-| EXPLORE-01 | Phase 8 | Pending |
-| EXPLORE-02 | Phase 8 | Pending |
-| EXPLORE-03 | Phase 8 | Pending |
-| EXPLORE-04 | Phase 8 | Pending |
-| EXPLORE-05 | Phase 8 | Pending |
-| EXPLORE-06 | Phase 8 | Pending |
-| EXPLORE-07 | Phase 8 | Pending |
-| COMBAT-01 | Phase 9 | Pending |
-| COMBAT-02 | Phase 9 | Pending |
-| COMBAT-03 | Phase 9 | Pending |
-| COMBAT-04 | Phase 9 | Pending |
-| COMBAT-05 | Phase 9 | Pending |
-| COMBAT-06 | Phase 9 | Pending |
-| COMBAT-07 | Phase 9 | Pending |
-| COMBAT-08 | Phase 9 | Pending |
-| COMBAT-09 | Phase 9 | Pending |
-| COMBAT-10 | Phase 10 | Pending |
-| COMBAT-11 | Phase 10 | Pending |
-| COMBAT-12 | Phase 9 | Pending |
-| COMBAT-13 | Phase 9 | Pending |
-| MEM-01 | Phase 10 | Pending |
-| MEM-02 | Phase 10 | Pending |
-| MEM-03 | Phase 10 | Pending |
-| MEM-04 | Phase 10 | Pending |
-| MEM-05 | Phase 10 | Pending |
-| MEM-06 | Phase 10 | Pending |
-| RULES-01 | Phase 10 | Pending |
-| RULES-02 | Phase 10 | Pending |
-| RULES-03 | Phase 10 | Pending |
-| RULES-04 | Phase 10 | Pending |
-| RULES-05 | Phase 10 | Pending |
-| STATE-01 | Phase 4 | Pending |
-| STATE-02 | Phase 4 | Pending |
-| STATE-03 | Phase 4 | Pending |
-| STATE-04 | Phase 4 | Pending |
-| STATE-05 | Phase 4 | Pending |
-| HOST-01 | Phase 11 | Pending |
-| HOST-02 | Phase 11 | Pending |
-| HOST-03 | Phase 11 | Pending |
-| HOST-04 | Phase 11 | Pending |
-| HOST-05 | Phase 11 | Pending |
-| HOST-06 | Phase 11 | Pending |
+| (pending re-roadmap) | — | Pending |
 
 **Coverage:**
-- v1 requirements: 87 total
-- Mapped to phases: 87 ✓
-- Unmapped: 0
-
-Note: INFRA-06 (structlog) is foundational in Phase 3 (inference client uses bound context first) and reinforced in Phase 5 (Discord interaction routing adopts the same logger), but its single owning phase is **Phase 3**.
+- v1 requirements: ~55 total
+- Mapped to phases: 0 (pending re-roadmap)
+- Unmapped: ~55 ⚠️ (resolved by gsd-roadmapper after pivot)
 
 ---
 *Requirements defined: 2026-05-21*
-*Last updated: 2026-05-21 — traceability populated by gsd-roadmapper*
+*Last updated: 2026-05-21 after MCP-hybrid pivot*
