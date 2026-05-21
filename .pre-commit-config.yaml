@@ -5,3 +5,13 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: edm001-defer-discipline
+        name: EDM001 - first await must be defer
+        entry: python -m eldritch_dm.lint.edm001
+        language: system
+        types: [python]
+        files: ^src/eldritch_dm/bot/.*\.py$
+        pass_filenames: true
