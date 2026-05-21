@@ -1,0 +1,18 @@
+{
+  "footer": {
+    "text": "🎲 ShoeGPT · EldritchDM"
+  },
+  "fields": [
+    {
+      "inline": false,
+      "name": "Join Party Mode",
+      "value": "https://dm20.local/party/abc"
+    }
+  ],
+  "flags": 0,
+  "color": 5793266,
+  "timestamp": "<TIMESTAMP>",
+  "type": "rich",
+  "description": "✅ **Alice** — Aria Swiftfoot\n✅ **Bob** — Brog the Mighty\n⌛ **Carol** — Celeste Vex\n⌛ **Dave** — no character yet",
+  "title": "⚔️ Lost Mines of Phandelver — Lobby"
+}

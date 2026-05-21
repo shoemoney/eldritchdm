@@ -1,0 +1,18 @@
+{
+  "footer": {
+    "text": "🎲 ShoeGPT · EldritchDM"
+  },
+  "fields": [
+    {
+      "inline": false,
+      "name": "Party",
+      "value": "**Alice** — 42/50 HP\n**Bob** — 30/30 HP\n**Carol** — 18/45 HP\n**Dave** — 8/12 HP"
+    }
+  ],
+  "flags": 0,
+  "color": 5763719,
+  "timestamp": "<TIMESTAMP>",
+  "type": "rich",
+  "description": "You descend into the musty cavern. Torchlight flickers off damp stone walls. The scent of goblin musk hangs heavy in the air. You hear distant chanting.",
+  "title": "🗺️ The Goblin Lair"
+}

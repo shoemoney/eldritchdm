@@ -1,0 +1,11 @@
+{
+  "footer": {
+    "text": "🎲 ShoeGPT · EldritchDM"
+  },
+  "flags": 0,
+  "color": 16705372,
+  "timestamp": "<TIMESTAMP>",
+  "type": "rich",
+  "description": "```json\n{\n  \"name\": \"Aria Swiftfoot\",\n  \"race\": \"Wood Elf\",\n  \"class\": \"Ranger\",\n  \"level\": 5,\n  \"ability_scores\": {\n    \"strength\": 12,\n    \"dexterity\": 18,\n    \"constitution\": 14,\n    \"intelligence\": 11,\n    \"wisdom\": 15,\n    \"charisma\": 10\n  },\n  \"hp\": {\n    \"current\": 42,\n    \"max\": 50\n  },\n  \"ac\": 16\n}\n```\n\n✅ Confirm or ❌ Cancel",
+  "title": "📜 Confirm Character — Alice"
+}

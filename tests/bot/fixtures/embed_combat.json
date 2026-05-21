@@ -1,0 +1,38 @@
+{
+  "footer": {
+    "text": "🎲 ShoeGPT · EldritchDM"
+  },
+  "fields": [
+    {
+      "inline": false,
+      "name": "Thorin ⏳",
+      "value": "init 20 · HP 55/55 · —"
+    },
+    {
+      "inline": false,
+      "name": "Goblin King",
+      "value": "init 18 · HP 40/60 · stunned"
+    },
+    {
+      "inline": false,
+      "name": "Aria",
+      "value": "init 15 · HP 42/50 · —"
+    },
+    {
+      "inline": false,
+      "name": "Brog",
+      "value": "init 12 · HP 30/30 · poisoned, exhausted"
+    },
+    {
+      "inline": false,
+      "name": "Cave Troll",
+      "value": "init 5 · HP 80/120 · frightened"
+    }
+  ],
+  "flags": 0,
+  "color": 15548997,
+  "timestamp": "<TIMESTAMP>",
+  "type": "rich",
+  "description": "Current turn: **Thorin**",
+  "title": "⚔️ Combat — Round 3"
+}
