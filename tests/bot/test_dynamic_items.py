@@ -62,8 +62,8 @@ class TestCustomIdConstruction:
     )
     def test_custom_id_value(self, cls, kwargs, expected_custom_id) -> None:
         instance = cls(**kwargs)
-        # The button is the first child of the DynamicItem view
-        assert instance.children[0].custom_id == expected_custom_id
+        # DynamicItem exposes the wrapped button via .item
+        assert instance.item.custom_id == expected_custom_id
 
     @pytest.mark.parametrize(
         "cls, kwargs",
@@ -76,7 +76,7 @@ class TestCustomIdConstruction:
     )
     def test_custom_id_under_100_chars(self, cls, kwargs) -> None:
         instance = cls(**kwargs)
-        cid = instance.children[0].custom_id
+        cid = instance.item.custom_id
         assert cid is not None
         assert len(cid) <= 100, f"custom_id too long: {len(cid)} chars — '{cid}'"
 
@@ -98,7 +98,7 @@ class TestRegexRoundTrip:
     async def test_from_custom_id_round_trips(self, cls, kwargs) -> None:
         # Build instance
         original = cls(**kwargs)
-        custom_id = original.children[0].custom_id
+        custom_id = original.item.custom_id
 
         # Match custom_id against template
         match = cls.template.fullmatch(custom_id)
@@ -248,12 +248,12 @@ class TestSnowflakeBoundary:
 
     def test_endturn_19digit_snowflakes_fit_100_chars(self) -> None:
         instance = EndTurnButton(channel_id=self.MAX_SNOWFLAKE, actor_id=self.MAX_SNOWFLAKE)
-        cid = instance.children[0].custom_id
+        cid = instance.item.custom_id
         assert cid is not None
         assert len(cid) <= 100, f"endturn custom_id too long: {len(cid)} chars"
 
     def test_riposte_19digit_snowflakes_fit_100_chars(self) -> None:
         instance = RiposteButton(timer_id=self.MAX_SNOWFLAKE, user_id=self.MAX_SNOWFLAKE)
-        cid = instance.children[0].custom_id
+        cid = instance.item.custom_id
         assert cid is not None
         assert len(cid) <= 100, f"riposte custom_id too long: {len(cid)} chars"
