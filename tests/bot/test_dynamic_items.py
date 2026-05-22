@@ -19,7 +19,10 @@ import pytest
 
 from eldritch_dm.bot.dynamic_items import (
     DYNAMIC_ITEM_CLASSES,
+    AttackButton,
+    CastSpellButton,
     DeclareActionButton,
+    DodgeButton,
     EndTurnButton,
     ReadyButton,
     RiposteButton,
@@ -55,8 +58,13 @@ class TestCustomIdConstruction:
         [
             (ReadyButton, {"channel_id": 123456789}, "ready:123456789"),
             (DeclareActionButton, {"channel_id": 987654321}, "declare:987654321"),
-            (EndTurnButton, {"channel_id": 111, "actor_id": 222}, "endturn:111:222"),
+            # Phase 4: EndTurnButton uses dm20 character UUID + round_n (BREAKING vs Phase 2 stub)
+            (EndTurnButton, {"channel_id": 111, "actor_id": "hero-001", "round_n": 1}, "endturn:111:hero-001:1"),
             (RiposteButton, {"timer_id": 999, "user_id": 888}, "riposte:999:888"),
+            # Phase 4: new combat buttons
+            (AttackButton, {"channel_id": 222, "actor_id": "hero-001", "round_n": 2}, "attack:222:hero-001:2"),
+            (DodgeButton, {"channel_id": 333, "actor_id": "hero-001", "round_n": 3}, "dodge:333:hero-001:3"),
+            (CastSpellButton, {"channel_id": 444, "actor_id": "wizard-001", "round_n": 4}, "cast:444:wizard-001:4"),
         ],
     )
     def test_custom_id_value(self, cls, kwargs, expected_custom_id) -> None:
@@ -69,15 +77,18 @@ class TestCustomIdConstruction:
         [
             (ReadyButton, {"channel_id": 123456789}),
             (DeclareActionButton, {"channel_id": 987654321}),
-            (EndTurnButton, {"channel_id": 111, "actor_id": 222}),
+            (EndTurnButton, {"channel_id": 111, "actor_id": "hero-001", "round_n": 1}),
             (RiposteButton, {"timer_id": 999, "user_id": 888}),
+            (AttackButton, {"channel_id": 222, "actor_id": "hero-001", "round_n": 2}),
+            (DodgeButton, {"channel_id": 333, "actor_id": "hero-001", "round_n": 3}),
+            (CastSpellButton, {"channel_id": 444, "actor_id": "wizard-001", "round_n": 4}),
         ],
     )
     def test_custom_id_under_100_chars(self, cls, kwargs) -> None:
         instance = cls(**kwargs)
         cid = instance.item.custom_id
         assert cid is not None
-        assert len(cid) <= 100, f"custom_id too long: {len(cid)} chars — '{cid}'"
+        assert len(cid) <= 100, f"custom_id too long: {len(cid)} chars -- '{cid}'"
 
 
 # ── Test 2: regex round-trip via from_custom_id ───────────────────────────────
@@ -89,8 +100,11 @@ class TestRegexRoundTrip:
         [
             (ReadyButton, {"channel_id": 42}),
             (DeclareActionButton, {"channel_id": 777}),
-            (EndTurnButton, {"channel_id": 1001, "actor_id": 2002}),
+            (EndTurnButton, {"channel_id": 1001, "actor_id": "hero-001", "round_n": 1}),
             (RiposteButton, {"timer_id": 3003, "user_id": 4004}),
+            (AttackButton, {"channel_id": 2001, "actor_id": "hero-002", "round_n": 2}),
+            (DodgeButton, {"channel_id": 3001, "actor_id": "hero-003", "round_n": 3}),
+            (CastSpellButton, {"channel_id": 4001, "actor_id": "wizard-001", "round_n": 4}),
         ],
     )
     @pytest.mark.asyncio
@@ -126,10 +140,14 @@ class TestBadCustomId:
             (ReadyButton, "ready:123:extra"),
             (DeclareActionButton, "declare:"),
             (DeclareActionButton, "ready:123"),  # wrong prefix
-            (EndTurnButton, "endturn:123"),  # missing actor_id
-            (EndTurnButton, "endturn:abc:def"),  # non-digits
+            # Phase 4: EndTurnButton requires 3-segment format: channel:actor:round
+            (EndTurnButton, "endturn:123"),  # missing actor_id and round
+            (EndTurnButton, "endturn:123:UPPER:1"),  # uppercase actor_id
             (RiposteButton, "riposte:123"),  # missing user_id
             (RiposteButton, "riposte:!@#:456"),  # non-digits
+            (AttackButton, "attack:123:UPPER:1"),  # uppercase actor_id
+            (AttackButton, "attack:123"),  # missing segments
+            (DodgeButton, "dodge:123:UPPERCASE:1"),  # uppercase
         ],
     )
     def test_bad_custom_id_does_not_match(self, cls, bad_id) -> None:
@@ -147,8 +165,10 @@ class TestBadCustomId:
 #   - test_dynamic_items_declare_real.py (DeclareActionButton)
 
 
+# Phase 4: EndTurnButton is promoted to real callback (no longer a stub).
+# AttackButton/DodgeButton/CastSpellButton also real callbacks.
+# Only RiposteButton remains a Phase 5 stub.
 _STUB_CLASSES = [
-    (EndTurnButton, {"channel_id": 30, "actor_id": 40}),
     (RiposteButton, {"timer_id": 50, "user_id": 60}),
 ]
 
@@ -214,11 +234,20 @@ class TestStubCallback:
 
 
 class TestDynamicItemClassesTuple:
-    def test_has_four_classes(self) -> None:
-        assert len(DYNAMIC_ITEM_CLASSES) == 4
+    def test_has_seven_classes(self) -> None:
+        """Phase 4 Plan 02 adds AttackButton, DodgeButton, CastSpellButton."""
+        assert len(DYNAMIC_ITEM_CLASSES) == 7
 
     def test_contains_expected_classes(self) -> None:
-        expected = {ReadyButton, DeclareActionButton, EndTurnButton, RiposteButton}
+        expected = {
+            ReadyButton,
+            DeclareActionButton,
+            EndTurnButton,
+            AttackButton,
+            DodgeButton,
+            CastSpellButton,
+            RiposteButton,
+        }
         assert set(DYNAMIC_ITEM_CLASSES) == expected
 
 
@@ -231,7 +260,10 @@ class TestSnowflakeBoundary:
     MAX_SNOWFLAKE = 10**19 - 1  # 19 digits: 9999999999999999999
 
     def test_endturn_19digit_snowflakes_fit_100_chars(self) -> None:
-        instance = EndTurnButton(channel_id=self.MAX_SNOWFLAKE, actor_id=self.MAX_SNOWFLAKE)
+        # Phase 4: actor_id is now a dm20 UUID (lowercase+dash), not a snowflake int.
+        # Test with a typical UUID to verify 100-char limit.
+        uuid_actor = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        instance = EndTurnButton(channel_id=self.MAX_SNOWFLAKE, actor_id=uuid_actor, round_n=999)
         cid = instance.item.custom_id
         assert cid is not None
         assert len(cid) <= 100, f"endturn custom_id too long: {len(cid)} chars"

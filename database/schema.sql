@@ -60,8 +60,26 @@ CREATE TABLE IF NOT EXISTS sanitizer_audit (
     ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- combat_conditions: local tracking for dm20-shimmed conditions (e.g. dodging).
+-- dm20 has no built-in "dodging" condition (04-RESEARCH.md Q2 finding).
+-- This table stores bot-side condition timers; expires_round clears on dodger's
+-- next turn start. The LLM receives "X is dodging" in the narrative context;
+-- v1 dodge is narrative-only (no mechanical to-hit modification in combat_action).
+-- Phase 5 will wire disadvantage to incoming attacks when dm20 supports it.
+CREATE TABLE IF NOT EXISTS combat_conditions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id TEXT NOT NULL,
+    character_id TEXT NOT NULL,
+    condition_kind TEXT NOT NULL,        -- 'dodging' for v1; expand later
+    expires_round INTEGER NOT NULL,      -- cleared at start of dodger next turn
+    applied_round INTEGER NOT NULL,
+    applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(channel_id) REFERENCES channel_sessions(channel_id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_views_channel ON persistent_views(channel_id);
 CREATE INDEX IF NOT EXISTS idx_riposte_channel ON riposte_timers(channel_id);
 CREATE INDEX IF NOT EXISTS idx_riposte_pending_deadline
     ON riposte_timers(status, deadline_ts) WHERE status='pending';
+CREATE INDEX IF NOT EXISTS idx_conditions_channel_active ON combat_conditions(channel_id, character_id, condition_kind);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON sanitizer_audit(ts);

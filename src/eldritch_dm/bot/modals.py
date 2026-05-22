@@ -21,12 +21,14 @@ separate score fields. Parser and serializer live here as module-level helpers.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 import discord
 from discord import ui
 
+from eldritch_dm.bot.warnings import WarningKind, send_warning
 from eldritch_dm.ingest.schema import AbilityScores
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -406,3 +408,104 @@ class OptionalFieldsModal(_CapEnforcedModal, title=MODAL_TITLE_OPTIONAL):
             "alignment": self.alignment_field.value or None,
         }
         await self._on_submit_cb(interaction, raw)
+
+
+# ── WeaponSelectModal ──────────────────────────────────────────────────────────
+
+# Validation regexes (T-04-11 field-level injection rejection):
+#   weapon:    alphanumeric, spaces, apostrophes, plus signs only
+#   target_id: lowercase alphanumeric and hyphens only (dm20 UUID format)
+_WEAPON_VALID_RE = re.compile(r"^[a-zA-Z0-9 '+]+$")
+_TARGET_ID_VALID_RE = re.compile(r"^[a-z0-9-]+$")
+
+
+class WeaponSelectModal(_CapEnforcedModal, title="Attack: Select Weapon & Target"):
+    """Modal for selecting weapon and target in the attack flow (D-18).
+
+    Two TextInput components (well under the 5-component Discord cap):
+      1. weapon:    Name of the weapon to use (max 80 chars).
+      2. target_id: dm20 character UUID of the target (max 80 chars).
+
+    The on_submit_cb receives ``{"weapon": str, "target_id": str}`` after
+    field validation. Malformed fields trigger INVALID_ACTION (T-04-11).
+
+    Validation rules (T-04-11 -- structured fields, NOT free-prose):
+      weapon:    r'^[a-zA-Z0-9 \\'+]+$'  (alphanumeric + space + apostrophe + plus)
+      target_id: r'^[a-z0-9-]+$'          (lowercase + digits + hyphen)
+
+    Args:
+        on_submit_cb: Async callable ``(payload: dict) -> None`` called after
+                      validation with ``{"weapon": str, "target_id": str}``.
+    """
+
+    def __init__(
+        self,
+        *,
+        on_submit_cb: Callable[[dict[str, Any]], Awaitable[None]],
+    ) -> None:
+        super().__init__()
+        self._on_submit_cb = on_submit_cb
+
+        # Field 1: Weapon name
+        self.weapon_field = ui.TextInput(
+            label="Weapon",
+            placeholder="e.g. Longsword, Hand Axe, Fireball",
+            max_length=80,
+            style=discord.TextStyle.short,
+            required=True,
+        )
+        self.add_item(self.weapon_field)
+
+        # Field 2: Target ID (dm20 character UUID)
+        self.target_field = ui.TextInput(
+            label="Target ID",
+            placeholder="e.g. goblin-king-001 (dm20 character id)",
+            max_length=80,
+            style=discord.TextStyle.short,
+            required=True,
+        )
+        self.add_item(self.target_field)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:  # noqa: EDM001 — modal submit responds directly
+        """Validate fields and dispatch to on_submit_cb.
+
+        Validation (T-04-11):
+          weapon:    alphanumeric + space + apostrophe + plus only.
+          target_id: lowercase + digits + hyphen only.
+
+        On validation failure: send INVALID_ACTION warning; do NOT call callback.
+        """
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        weapon = self.weapon_field.value or ""
+        target_id = self.target_field.value or ""
+
+        # Validate weapon field
+        if not _WEAPON_VALID_RE.match(weapon):
+            await send_warning(
+                interaction,
+                WarningKind.INVALID_ACTION,
+                reason=(
+                    "Weapon name contains invalid characters. "
+                    "Use alphanumeric, spaces, apostrophes, and plus signs only."
+                ),
+            )
+            return
+
+        # Validate target_id field
+        if not _TARGET_ID_VALID_RE.match(target_id):
+            await send_warning(
+                interaction,
+                WarningKind.INVALID_ACTION,
+                reason=(
+                    "Target ID contains invalid characters. "
+                    "Use lowercase letters, digits, and hyphens only."
+                ),
+            )
+            return
+
+        payload: dict[str, Any] = {
+            "weapon": weapon,
+            "target_id": target_id,
+        }
+        await self._on_submit_cb(payload)
