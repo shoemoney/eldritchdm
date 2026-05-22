@@ -82,7 +82,7 @@
 - [x] **COMBAT-08**: 8-player Discord load test: combat embed updates 4× per round, zero 429 rate-limit errors
 - [ ] **COMBAT-09**: Riposte detection: on monster attack resolution where target is eligible (Fighter/Battle Master, Rogue Swashbuckler — verified via `dm20__validate_character_rules`) and target has `has_reaction=true`, bot surfaces timed Riposte button
 - [ ] **COMBAT-10**: Riposte button persists 8s with `deadline_ts` in `riposte_timers`; on click, bot calls `dm20__combat_action(reaction=true, weapon=primary)` (or shim if dm20 lacks reaction flag) — only target player can click
-- [ ] **COMBAT-11**: Riposte timer survives bot restart — `riposte_timers` row drives a background task that cleans expired buttons on restart and any time before expiry
+- [x] **COMBAT-11**: Riposte timer survives bot restart — `riposte_timers` row drives a background task that cleans expired buttons on restart and any time before expiry (Phase 5 Plan 02 — RiposteSweeper + OPS-01 resume drill)
 - [x] **COMBAT-12**: Combat end detected from dm20 state transition; bot returns to EXPLORATION embed
 
 ### Sanitization & Safety (SAN)
@@ -107,7 +107,7 @@
 
 ### Operational (OPS)
 
-- [ ] **OPS-01**: Resume drill — kill bot mid-combat, restart, confirm turn order/HP/buttons all functional from `channel_sessions` + `dm20__get_claudmaster_session_state`
+- [x] **OPS-01**: Resume drill — kill bot mid-combat, restart, confirm turn order/HP/buttons all functional from `channel_sessions` + `dm20__get_claudmaster_session_state` (Phase 5 Plan 02 — 6-test integration drill at tests/integration/test_riposte_restart.py)
 - [ ] **OPS-02**: Circuit breaker on dm20 unreachable: bot replies to all interactions with ephemeral "DM is offline, try again shortly" embed; auto-recovers on health-check restoration
 - [x] **OPS-03**: Per-channel rate-limit on MCP calls (max 1 mutating call per 200ms) to prevent dm20 thrashing under spam clicks
 - [x] **OPS-04**: Graceful shutdown: cancel pending riposte timers, flush sanitizer audit, close DB

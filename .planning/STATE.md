@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-05-22T10:34:43.274Z"
+last_updated: "2026-05-22T11:20:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 0
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-22 (Phase 5 Plan 01 COMPLETE — Riposte + MonsterDriver wired, _maybe_surface_riposte seam deleted, COMBAT-09 + COMBAT-10 satisfied; 798 tests passing default)
+**Last updated:** 2026-05-22 (Phase 5 Plan 02 COMPLETE — RiposteSweeper + SessionLocks + OPS-01 resume drill; PLAN-02-LOCK-SEAM replaced; COMBAT-11 + OPS-01 functionally satisfied; 826 tests passing default)
 **Milestone:** v1.0
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -41,7 +41,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 2 | Discord Scaffold + Persistent Views | ✅ Complete (3/3 plans, 284 tests) |
 | 3 | Lobby + Character Ingest | ✅ Complete (3/3 plans, 469 tests) |
 | 4 | Gameplay — Exploration + Combat (Party Mode) | ✅ Complete (3/3 plans, 730 tests inc. load-gated) |
-| 5 | Reactions + Self-Host Polish | 🔄 In progress (1/3 plans, 798 tests) |
+| 5 | Reactions + Self-Host Polish | 🔄 In progress (2/3 plans, 826 tests) |
 
 ## Blockers / Concerns
 
@@ -85,8 +85,14 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - Phase 5 pc_classes table: subclass persisted at ingest because dm20 get_character text omits subclass (RESEARCH Q2)
 - Phase 5 Riposte button is public message + permission gate (NOT ephemeral) — ephemeral followups die at 15 min and break COMBAT-11 restart-survival
 - Phase 5 deadline recompute AFTER channel.send (RESEARCH Pitfall 1) — TTL not consumed by Discord API latency
-- Phase 5 PLAN-02-LOCK-SEAM marker convention: deliberate one-line docstring marker in handle_riposte_click for Plan 02's executor to grep
+- Phase 5 PLAN-02-LOCK-SEAM marker convention: deliberate one-line docstring marker in handle_riposte_click for Plan 02's executor to grep (REPLACED in Plan 02 by real session_locks.lock_for wrapper)
 - Phase 5 dependency-inject send_warning + WarningKind + button_factory into gameplay/reactions so import-linter contract "gameplay must not import bot or ingest" stays KEPT
+- Phase 5 Plan 02 D-A: SessionLocks lives under gameplay/ (not bot/) per the import-linter contract; same reasoning extends to RiposteSweeper. Both are gameplay synchronization primitives, not Discord primitives.
+- Phase 5 Plan 02 D-B: RiposteSweeper.stop() CANCELS (does not flush) in-flight mark_expired calls — clean shutdown semantics; pending rows survive across restart and get cleaned up on the next bot's first sweep
+- Phase 5 Plan 02 D-C: mark_expired SQL is conditional (WHERE id=? AND status='pending') — race-loser's UPDATE is a 0-row no-op, belt-and-suspenders correctness alongside the shared lock
+- Phase 5 Plan 02 D-D: handle_riposte_click does TWO repo.get() per click — pre-lock to discover channel_id (lock key is per-channel), under-lock for authoritative status read after sweeper may have flipped status
+- Phase 5 Plan 02 D-E: Discord message delete moved OUTSIDE the lock on the success path — HTTP latency must not stall click-vs-sweeper serialization
+- Phase 5 Plan 02 D-F: setup_hook orders sweeper.start() AFTER rehydrate_persistent_views — DynamicItems must be registered before sweeper-triggered Discord interactions could route
 - Dodge v1 shim: combat_conditions table + apply_effect("dodging"); expires_round = applied_round + 1
 - Cross-cog helpers on EldritchBot: close_exploration_coalescer_for / close_combat_coalescer_for avoid cog-to-cog circular imports
 - _PARAM_REMAP in setup_hook.py bridges regex group names (round) to __init__ params (round_n) for combat buttons
@@ -112,6 +118,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 04-gameplay-exploration-combat | 02 | 180 | 3 | 17 |
 | 04-gameplay-exploration-combat | 03 | 90 | 3 | 5 |
 | 05-reactions-self-host-polish | 01 | 70 | 3 | 27 |
+| 05-reactions-self-host-polish | 02 | 35 | 2 | 12 |
 
 ## Recent History
 
@@ -136,3 +143,4 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-22: Phase 4 Plan 03 COMPLETE — 8-actor combat load test (RUN_LOAD=1, virtual clock, 5 rounds × 8 actors × 4 events, assertions A-G hold); restart-mid-combat drill (D-35, 6 tests); Rule 1 fixes in CombatConditionsRepo (double-start + duplicate-insert bugs found by first non-mocked integration test); 8 new tests; 728 default + 2 load-gated
 - 2026-05-22: PHASE 4 COMPLETE — orchestrator + combat + load proof + closure; EXPLORE-01..07, COMBAT-01..08, COMBAT-12, OPS-03 satisfied; Phase 5 Riposte seam documented in AttackButton._maybe_surface_riposte (no-op); cursor advances to 05-reactions-self-host-polish
 - 2026-05-22: Phase 5 Plan 01 COMPLETE — Wave 0 schema (consumed_in_round ALTER + pc_classes table), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click), MonsterDriver (random target per D-B), RiposteButton.callback promoted from Phase 2 stub, _maybe_surface_riposte DELETED (D-A, atomic commit 1d2edc8); COMBAT-09 + COMBAT-10 functionally satisfied; PLAN-02-LOCK-SEAM marker at src/eldritch_dm/gameplay/reactions.py:280; 64 new tests; 798 default passing
+- 2026-05-22: Phase 5 Plan 02 COMPLETE — gameplay/session_locks (namespaced asyncio.Lock registry), gameplay/riposte_sweeper (RESEARCH Pattern 4 background task), PLAN-02-LOCK-SEAM marker REPLACED by real session_locks.lock_for wrapper at reactions.py:345, conditional mark_expired SQL, setup_hook starts sweeper AFTER rehydration + close() stops sweeper FIRST in OPS-04 chain, OPS-01 resume drill (6 tests in test_riposte_restart.py, 0.20s wall-clock); COMBAT-11 + OPS-01 functionally satisfied; 28 net new tests; 826 default passing; zero new pip deps

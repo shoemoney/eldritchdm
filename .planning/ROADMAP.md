@@ -103,7 +103,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   5. Full test suite green: MCP-client mocked tests, sanitizer adversarial corpus, repository round-trip, persistent-view restart drill, 4-player concurrent write stress, 8-player combat load — all pass; CI lint enforces defer discipline
 **Plans**:
 - [x] 01-PLAN-riposte-and-monster-driver.md — Wave 0 schema (consumed_in_round ALTER + pc_classes), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click + PLAN-02-LOCK-SEAM marker), MonsterDriver (random target per D-B), RiposteButton.callback promoted to real, _maybe_surface_riposte DELETED (D-A); COMBAT-09 + COMBAT-10 functionally satisfied; 64 new tests, 798 total — COMPLETE (70 min)
-- [ ] 02-PLAN-sweeper-and-restart-survival.md — background sweeper marks expired timers, per-channel asyncio.Lock wrapping handle_riposte_click + sweeper, restart-survival OPS-01 drill (COMBAT-11)
+- [x] 02-PLAN-sweeper-and-restart-survival.md — SessionLocks namespaced registry (gameplay/session_locks.py), RiposteSweeper background task (gameplay/riposte_sweeper.py — RESEARCH Pattern 4), PLAN-02-LOCK-SEAM marker REPLACED by real session_locks.lock_for wrapper at reactions.py:345, conditional mark_expired SQL, setup_hook orders sweeper AFTER rehydration + close() stops sweeper FIRST in OPS-04 chain, 6-test OPS-01 resume drill (test_riposte_restart.py); COMBAT-11 + OPS-01 functionally satisfied; 28 net new tests, 826 total — COMPLETE (35 min)
 - [ ] 03-PLAN-self-host-polish-and-closure.md — README, .env.example, bootstrap CLI, run.py, launchd recipe, REQUIREMENTS [x] sweep, Phase 5 closure
 
 ## Traceability
