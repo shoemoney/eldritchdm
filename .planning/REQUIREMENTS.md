@@ -62,13 +62,13 @@
 
 ### Exploration State (EXPLORE)
 
-- [ ] **EXPLORE-01**: Each room renders `room_embed` + `[ 💬 Declare Action ]` persistent button
-- [ ] **EXPLORE-02**: Action button opens text modal (500-char cap); submission posts a Party Mode action via the dm20 queue
-- [ ] **EXPLORE-03**: Bot polls `dm20__party_pop_action` (or subscribes if WS); on action, calls `dm20__party_thinking("ShoeGPT consults the ancient scrolls…")` and shows Discord "thinking" indicator
-- [ ] **EXPLORE-04**: For combat-relevant turns, bot calls `dm20__party_get_prefetch(turn_id, outcome, roll, damage, target_hp)` for narrative speedup
-- [ ] **EXPLORE-05**: Narrative returned via `dm20__party_resolve_action` → rendered in Discord embed
-- [ ] **EXPLORE-06**: Action-batching: when multiple players have unresolved actions, bot waits up to 30s or until all party members have submitted before resolving, producing a single batched narrative
-- [ ] **EXPLORE-07**: Combat trigger detected from dm20's game state transition → bot switches view to combat embed
+- [x] **EXPLORE-01**: Each room renders `room_embed` + `[ 💬 Declare Action ]` persistent button
+- [x] **EXPLORE-02**: Action button opens text modal (500-char cap); submission posts a Party Mode action via the dm20 queue
+- [x] **EXPLORE-03**: Bot polls `dm20__party_pop_action` (or subscribes if WS); on action, calls `dm20__party_thinking("ShoeGPT consults the ancient scrolls…")` and shows Discord "thinking" indicator
+- [x] **EXPLORE-04**: For combat-relevant turns, bot calls `dm20__party_get_prefetch(turn_id, outcome, roll, damage, target_hp)` for narrative speedup
+- [x] **EXPLORE-05**: Narrative returned via `dm20__party_resolve_action` → rendered in Discord embed
+- [x] **EXPLORE-06**: Action-batching: when multiple players have unresolved actions, bot waits up to 30s or until all party members have submitted before resolving, producing a single batched narrative
+- [x] **EXPLORE-07**: Combat trigger detected from dm20's game state transition → bot switches view to combat embed
 
 ### Combat State (COMBAT)
 
@@ -79,7 +79,7 @@
 - [x] **COMBAT-05**: Attack → weapon select modal → `dm20__combat_action(action="attack", weapon=..., target=...)`; narrative resolved via party-mode flow
 - [x] **COMBAT-06**: Dodge → `dm20__apply_effect(target=self, effect="dodging")` (verify dm20 supports this; else shim via condition); ends turn
 - [x] **COMBAT-07**: End Turn → `dm20__next_turn`
-- [ ] **COMBAT-08**: 8-player Discord load test: combat embed updates 4× per round, zero 429 rate-limit errors
+- [x] **COMBAT-08**: 8-player Discord load test: combat embed updates 4× per round, zero 429 rate-limit errors
 - [ ] **COMBAT-09**: Riposte detection: on monster attack resolution where target is eligible (Fighter/Battle Master, Rogue Swashbuckler — verified via `dm20__validate_character_rules`) and target has `has_reaction=true`, bot surfaces timed Riposte button
 - [ ] **COMBAT-10**: Riposte button persists 8s with `deadline_ts` in `riposte_timers`; on click, bot calls `dm20__combat_action(reaction=true, weapon=primary)` (or shim if dm20 lacks reaction flag) — only target player can click
 - [ ] **COMBAT-11**: Riposte timer survives bot restart — `riposte_timers` row drives a background task that cleans expired buttons on restart and any time before expiry
@@ -109,7 +109,7 @@
 
 - [ ] **OPS-01**: Resume drill — kill bot mid-combat, restart, confirm turn order/HP/buttons all functional from `channel_sessions` + `dm20__get_claudmaster_session_state`
 - [ ] **OPS-02**: Circuit breaker on dm20 unreachable: bot replies to all interactions with ephemeral "DM is offline, try again shortly" embed; auto-recovers on health-check restoration
-- [ ] **OPS-03**: Per-channel rate-limit on MCP calls (max 1 mutating call per 200ms) to prevent dm20 thrashing under spam clicks
+- [x] **OPS-03**: Per-channel rate-limit on MCP calls (max 1 mutating call per 200ms) to prevent dm20 thrashing under spam clicks
 - [x] **OPS-04**: Graceful shutdown: cancel pending riposte timers, flush sanitizer audit, close DB
 
 ## v2 Requirements

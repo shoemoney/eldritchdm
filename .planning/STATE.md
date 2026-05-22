@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-05-22T03:58:41.926Z"
+last_updated: "2026-05-22T07:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 4
   total_plans: 0
-  completed_plans: 11
-  percent: 0
+  completed_plans: 12
+  percent: 80
 ---
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-22 (Phase 4 Plan 02 COMPLETE — CombatCog + turn gatekeeping + orchestrator cadence, 726 tests passing)
+**Last updated:** 2026-05-22 (Phase 4 COMPLETE — orchestrator + combat + 8-actor load test + restart drill, 728 tests passing default + 2 load-gated)
 **Milestone:** v1.0
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -23,7 +23,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 4 — Gameplay — Exploration + Combat (Party Mode)
+**Current focus:** Phase 5 — Reactions + Self-Host Polish (Riposte timed UI, README, bootstrap, run.py, launchd recipe)
 
 ## Architecture (post-pivot)
 
@@ -40,8 +40,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 1 | MCP Client + Local State | ✅ Complete (3/3 plans, 177 tests) |
 | 2 | Discord Scaffold + Persistent Views | ✅ Complete (3/3 plans, 284 tests) |
 | 3 | Lobby + Character Ingest | ✅ Complete (3/3 plans, 469 tests) |
-| 4 | Gameplay — Exploration + Combat (Party Mode) | 🔄 In Progress (2/3 plans) |
-| 5 | Reactions + Self-Host Polish | ⚪ Not Started |
+| 4 | Gameplay — Exploration + Combat (Party Mode) | ✅ Complete (3/3 plans, 730 tests inc. load-gated) |
+| 5 | Reactions + Self-Host Polish | 🔄 Next |
 
 ## Blockers / Concerns
 
@@ -83,6 +83,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - Cross-cog helpers on EldritchBot: close_exploration_coalescer_for / close_combat_coalescer_for avoid cog-to-cog circular imports
 - _PARAM_REMAP in setup_hook.py bridges regex group names (round) to __init__ params (round_n) for combat buttons
 - attrs-before-super pattern in combat DynamicItems: set self.channel_id/actor_id/round_n BEFORE super().__init__() (discord.py accesses custom_id during init)
+- RUN_LOAD=1 gate for 8-actor combat load test: mirrors Phase 1 RUN_STRESS=1 convention; nightly/contributor opt-in via env var
+- Virtual-clock injection (clock=clock.now, sleep=clock.advance) threaded through ChannelRateLimiter + ChannelEditBudget + EmbedCoalescer for deterministic sub-second load simulation
+- CombatConditionsRepo._connect() returns UNSTARTED Connection — callers do `async with self._connect()` (Rule 1 fix: prior `async with await self._connect()` double-started the Thread)
+- CombatConditionsRepo.insert() does DELETE-by-triple + single INSERT (Rule 1 fix: prior INSERT ON CONFLICT + INSERT OR REPLACE pattern created duplicate rows because schema has no UNIQUE on (channel_id, character_id, condition_kind))
 
 ## Performance Metrics
 
@@ -98,6 +102,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 03-lobby-character-ingest | 02 | 90 | 4 | 14 |
 | 03-lobby-character-ingest | 03 | 85 | 5 | 12 |
 | 04-gameplay-exploration-combat | 02 | 180 | 3 | 17 |
+| 04-gameplay-exploration-combat | 03 | 90 | 3 | 5 |
 
 ## Recent History
 
@@ -119,3 +124,5 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-22: PHASE 3 COMPLETE — all 3 plans done, LOBBY-01..04 + INGEST-01..11 satisfied, import-linter 6 contracts KEPT
 - 2026-05-22: Phase 4 Plan 01 COMPLETE — PartyModeOrchestrator + ExplorationCog + DeclareActionModal + embed rendering; 58 new tests
 - 2026-05-22: Phase 4 Plan 02 COMPLETE — CombatCog + combat buttons + dodge shim + turn gatekeeping + orchestrator cadence + integration tests; 257 new tests; 726 total passing
+- 2026-05-22: Phase 4 Plan 03 COMPLETE — 8-actor combat load test (RUN_LOAD=1, virtual clock, 5 rounds × 8 actors × 4 events, assertions A-G hold); restart-mid-combat drill (D-35, 6 tests); Rule 1 fixes in CombatConditionsRepo (double-start + duplicate-insert bugs found by first non-mocked integration test); 8 new tests; 728 default + 2 load-gated
+- 2026-05-22: PHASE 4 COMPLETE — orchestrator + combat + load proof + closure; EXPLORE-01..07, COMBAT-01..08, COMBAT-12, OPS-03 satisfied; Phase 5 Riposte seam documented in AttackButton._maybe_surface_riposte (no-op); cursor advances to 05-reactions-self-host-polish
