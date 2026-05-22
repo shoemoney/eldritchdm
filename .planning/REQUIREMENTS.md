@@ -7,13 +7,13 @@
 
 ### MCP & Local State (MCP)
 
-- [ ] **MCP-01**: Async MCP client posts to `http://localhost:8765/v1/mcp/execute` with `{tool_name, arguments}` payload
-- [ ] **MCP-02**: `httpx.AsyncClient` with timeouts (connect=2s, read=30s, write=5s) and tenacity retry on transient errors
-- [ ] **MCP-03**: Typed wrapper functions for every dm20 tool we use (campaign, character, combat, party-mode, claudmaster, library) — generated or hand-written, but type-checked
-- [ ] **MCP-04**: Error mapping: dm20 tool errors surface as structured exceptions with tool_name + arg snapshot for logging
-- [ ] **MCP-05**: Health-check ping (`fetch__fetch` GET `:8765/v1/models`) every 60s; circuit-breaker trips after 3 consecutive failures; surface "DM is offline" embed
+- [x] **MCP-01**: Async MCP client posts to `http://localhost:8765/v1/mcp/execute` with `{tool_name, arguments}` payload
+- [x] **MCP-02**: `httpx.AsyncClient` with timeouts (connect=2s, read=30s, write=5s) and tenacity retry on transient errors
+- [x] **MCP-03**: Typed wrapper functions for every dm20 tool we use (campaign, character, combat, party-mode, claudmaster, library) — generated or hand-written, but type-checked
+- [x] **MCP-04**: Error mapping: dm20 tool errors surface as structured exceptions with tool_name + arg snapshot for logging
+- [x] **MCP-05**: Health-check ping (`fetch__fetch` GET `:8765/v1/models`) every 60s; circuit-breaker trips after 3 consecutive failures; surface "DM is offline" embed
 - [x] **MCP-06**: `structlog` JSON logging binds `channel_id`, `campaign_name`, `session_id`, `tool_name` on every MCP call
-- [ ] **MCP-07**: Per-channel `asyncio.Lock` around MCP calls that mutate dm20 state (prevents concurrent `combat_action` clobbering each other)
+- [x] **MCP-07**: Per-channel `asyncio.Lock` around MCP calls that mutate dm20 state (prevents concurrent `combat_action` clobbering each other)
 
 ### Local Discord-State Persistence (LOC)
 
@@ -25,7 +25,7 @@
   - `sanitizer_audit` (id PK, channel_id, user_id, raw_input, stripped_tokens, redacted_output, ts)
 - [x] **LOC-03**: WAL + `busy_timeout=5000` + `BEGIN IMMEDIATE` for writes
 - [x] **LOC-04**: Single-writer asyncio queue for `eldritch.sqlite3` writes
-- [ ] **LOC-05**: Repositories per table using `aiosqlite` and pydantic v2 frozen models
+- [x] **LOC-05**: Repositories per table using `aiosqlite` and pydantic v2 frozen models
 - [x] **LOC-06**: `bootstrap.py` creates schema idempotently on startup
 
 ### Discord Scaffold (BOT)
@@ -88,11 +88,11 @@
 ### Sanitization & Safety (SAN)
 
 - [ ] **SAN-01**: All player free-text (modals, chat) passes through `sanitize_player_input(raw) -> SanitizedInput` before reaching any MCP call
-- [ ] **SAN-02**: Sanitizer strips control tokens: `<tool_call>`, `<|im_start|>`, `<|im_end|>`, `SYSTEM:`, `ASSISTANT:`, `<player_action>`, `</player_action>`
-- [ ] **SAN-03**: 500-char hard cap on modal input; over-cap truncates with a flag
-- [ ] **SAN-04**: Sanitizer wraps output in `<player_action speaker="..." user_id="...">…</player_action>` for downstream consumption
+- [x] **SAN-02**: Sanitizer strips control tokens: `<tool_call>`, `<|im_start|>`, `<|im_end|>`, `SYSTEM:`, `ASSISTANT:`, `<player_action>`, `</player_action>`
+- [x] **SAN-03**: 500-char hard cap on modal input; over-cap truncates with a flag
+- [x] **SAN-04**: Sanitizer wraps output in `<player_action speaker="..." user_id="...">…</player_action>` for downstream consumption
 - [ ] **SAN-05**: Audit row written to `sanitizer_audit` whenever stripping occurs
-- [ ] **SAN-06**: Adversarial test corpus (≥30 scenarios) for sanitizer in CI: injection attempts, tool-call forgery, sentinel breakout
+- [x] **SAN-06**: Adversarial test corpus (≥30 scenarios) for sanitizer in CI: injection attempts, tool-call forgery, sentinel breakout
 
 ### Self-Host (HOST)
 
