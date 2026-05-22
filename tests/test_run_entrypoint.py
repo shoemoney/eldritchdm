@@ -103,6 +103,11 @@ def test_run_offline_start_skips_preflight(
 
     monkeypatch.setattr(bot_mod, "EldritchBot", _FakeBot)
 
+    # Prevent SIGTERM handler installation from leaking into the rest of
+    # the pytest session — main() would otherwise override pytest's own
+    # signal handling and cause downstream tests to hang on shutdown.
+    monkeypatch.setattr(run, "_install_sigterm_handler", lambda: None)
+
     code = run.main([])
     assert code == 0
     assert preflight_calls == [], "preflight must be skipped when ELDRITCH_ALLOW_OFFLINE_START=1"
@@ -142,24 +147,30 @@ def test_run_missing_discord_token_fails(
 # ──────────────────────────────────────────────────────────────────────────────
 # Test 4: SIGTERM handler installed and raises KeyboardInterrupt
 # ──────────────────────────────────────────────────────────────────────────────
-def test_sigterm_handler_raises_keyboard_interrupt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_sigterm_handler_raises_keyboard_interrupt() -> None:
     run = _load_run_module()
-
-    # Install the handler manually (normally main() does this); verify it
-    # raises KeyboardInterrupt when fired.
-    run._install_sigterm_handler()
-
     import signal as _signal
 
-    handler = _signal.getsignal(_signal.SIGTERM)
-    assert callable(handler), "SIGTERM must have a callable handler installed"
+    # Capture the pre-test handler so we can restore it. This matters because
+    # pytest runs in a single process; leaking our SIGTERM handler into the
+    # rest of the test session would override pytest's own signal handling.
+    previous_handler = _signal.getsignal(_signal.SIGTERM)
+    try:
+        # Install the handler manually (normally main() does this).
+        run._install_sigterm_handler()
 
-    with pytest.raises(KeyboardInterrupt):
-        # Invoke the handler directly (cannot easily send SIGTERM to self
-        # inside pytest without disrupting the runner).
-        handler(_signal.SIGTERM, None)
+        handler = _signal.getsignal(_signal.SIGTERM)
+        assert callable(handler), "SIGTERM must have a callable handler installed"
+        assert handler is not previous_handler, "handler should have been replaced"
+
+        with pytest.raises(KeyboardInterrupt):
+            # Invoke the handler directly (cannot easily send SIGTERM to self
+            # inside pytest without disrupting the runner).
+            handler(_signal.SIGTERM, None)
+    finally:
+        # Restore the pre-test handler so subsequent tests / pytest hooks
+        # are not affected by our installation.
+        _signal.signal(_signal.SIGTERM, previous_handler)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

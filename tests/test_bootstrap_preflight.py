@@ -12,10 +12,6 @@ Covers the 14 behaviors from the plan:
 
 from __future__ import annotations
 
-import asyncio
-import os
-import subprocess
-import sys
 import tomllib
 from pathlib import Path
 from unittest.mock import AsyncMock, patch

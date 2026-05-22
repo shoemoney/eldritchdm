@@ -16,7 +16,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
 - [x] **Phase 2: Discord Scaffold + Persistent Views** — discord.py bot, slash command tree, DynamicItem `custom_id`s, embed coalescer, defer discipline, restart-drill infrastructure
 - [x] **Phase 3: Lobby + Character Ingest** — `/start_game` + `/load_adventure`, ready-check, D&D Beyond import, OCR/PDF pipeline for paper sheets, manual-review modal
 - [x] **Phase 4: Gameplay — Exploration + Combat (Party Mode)** — Bind to dm20 Party Mode queue, action batching, combat embed, turn gatekeeping by Discord user_id, dodge, 8-player load proof
-- [ ] **Phase 5: Reactions + Self-Host Polish** — Timed Riposte button with restart-survival, README, `.env.example`, bootstrap, `run.py`, launchd recipe, full test suite
+- [x] **Phase 5: Reactions + Self-Host Polish** — Timed Riposte button with restart-survival, README, `.env.example`, bootstrap, `run.py`, launchd recipe, full test suite
 
 ## Phase Details
 
@@ -96,15 +96,15 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
 **Depends on**: Phase 4 (combat works)
 **Requirements**: COMBAT-09, COMBAT-10, COMBAT-11, HOST-01, HOST-02, HOST-03, HOST-04, HOST-05, HOST-06, HOST-07, HOST-08, OPS-01
 **Success Criteria** (what must be TRUE):
-  1. Riposte detection: when a monster's attack misses an eligible PC (Fighter/BM, Rogue/SC) with `has_reaction=true`, an 8s timed button appears for that PC only; `riposte_timers` row created with `deadline_ts`
-  2. Riposte execution: click → `dm20__combat_action(reaction=true, weapon=primary)` (or documented shim); only target player can click; expiry cleans the button
-  3. Restart-survival drill: kill bot during an active riposte window, restart, button is still clickable until its `deadline_ts`; expired timers auto-cleaned on restart
-  4. README walks a new user from "I have oMLX + dm20 + a Discord bot token" to "I am playing D&D in 10 minutes"; `.env.example` documents every var; `bootstrap.py` provisions the local DB and pings oMLX
-  5. Full test suite green: MCP-client mocked tests, sanitizer adversarial corpus, repository round-trip, persistent-view restart drill, 4-player concurrent write stress, 8-player combat load — all pass; CI lint enforces defer discipline
+  1. Riposte detection: when a monster's attack misses an eligible PC (**Battle Master Fighter RAW only** per D-C; Swashbuckler removed) with `has_reaction=true`, an 8s timed button appears for that PC only; `riposte_timers` row created with `deadline_ts` ✓ delivered by Plan 01
+  2. Riposte execution: click → `dm20__combat_action(reaction=true, weapon=primary)` (or documented shim); only target player can click; expiry cleans the button ✓ delivered by Plan 01
+  3. Restart-survival drill: kill bot during an active riposte window, restart, button is still clickable until its `deadline_ts`; expired timers auto-cleaned on restart ✓ delivered by Plan 02
+  4. README walks a new user from "I have oMLX + dm20 + a Discord bot token" to "I am playing D&D in 10 minutes"; `.env.example` documents every var; `bootstrap.py` provisions the local DB and pings oMLX ✓ delivered by Plan 03
+  5. Full test suite green: MCP-client mocked tests, sanitizer adversarial corpus, repository round-trip, persistent-view restart drill, 4-player concurrent write stress, 8-player combat load — all pass; CI lint enforces defer discipline ✓ delivered cumulatively across Plans 01+02+03
 **Plans**:
 - [x] 01-PLAN-riposte-and-monster-driver.md — Wave 0 schema (consumed_in_round ALTER + pc_classes), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click + PLAN-02-LOCK-SEAM marker), MonsterDriver (random target per D-B), RiposteButton.callback promoted to real, _maybe_surface_riposte DELETED (D-A); COMBAT-09 + COMBAT-10 functionally satisfied; 64 new tests, 798 total — COMPLETE (70 min)
 - [x] 02-PLAN-sweeper-and-restart-survival.md — SessionLocks namespaced registry (gameplay/session_locks.py), RiposteSweeper background task (gameplay/riposte_sweeper.py — RESEARCH Pattern 4), PLAN-02-LOCK-SEAM marker REPLACED by real session_locks.lock_for wrapper at reactions.py:345, conditional mark_expired SQL, setup_hook orders sweeper AFTER rehydration + close() stops sweeper FIRST in OPS-04 chain, 6-test OPS-01 resume drill (test_riposte_restart.py); COMBAT-11 + OPS-01 functionally satisfied; 28 net new tests, 826 total — COMPLETE (35 min)
-- [ ] 03-PLAN-self-host-polish-and-closure.md — README, .env.example, bootstrap CLI, run.py, launchd recipe, REQUIREMENTS [x] sweep, Phase 5 closure
+- [x] 03-PLAN-self-host-polish-and-closure.md — src/eldritch_dm/bootstrap.py (3-stage preflight, exit codes 0/1/2/3 ✓ HOST-03), run.py (--check-only, --no-preflight, SIGTERM handler ✓ HOST-04), .env.example audit (MCP_RATE_LIMIT_MS added; OMLX_CACHE_STRATEGY orphan resolved ✓ HOST-02), pyproject [project.scripts] + [project.urls] ✓ HOST-05, docs/launchd.plist.example + scripts/install-launchd.sh + uninstall ✓ HOST-08, docs/eldritch-dm.service.example (Linux best-effort ✓ HOST-07), docs/dm20-troubleshooting.md + docs/character-ingest-formats.md, README expansion (First Session in 10 Minutes + Troubleshooting + Self-Hosting + Running as a Service + Known Limitations + License & Third-Party AGPL note ✓ HOST-01), REQUIREMENTS.md COMBAT-09 wording corrected per D-C, all Phase 5 reqs ticked [x]; 29 net new tests — COMPLETE
 
 ## Traceability
 

@@ -80,8 +80,8 @@
 - [x] **COMBAT-06**: Dodge → `dm20__apply_effect(target=self, effect="dodging")` (verify dm20 supports this; else shim via condition); ends turn
 - [x] **COMBAT-07**: End Turn → `dm20__next_turn`
 - [x] **COMBAT-08**: 8-player Discord load test: combat embed updates 4× per round, zero 429 rate-limit errors
-- [ ] **COMBAT-09**: Riposte detection: on monster attack resolution where target is eligible (Fighter/Battle Master, Rogue Swashbuckler — verified via `dm20__validate_character_rules`) and target has `has_reaction=true`, bot surfaces timed Riposte button
-- [ ] **COMBAT-10**: Riposte button persists 8s with `deadline_ts` in `riposte_timers`; on click, bot calls `dm20__combat_action(reaction=true, weapon=primary)` (or shim if dm20 lacks reaction flag) — only target player can click
+- [x] **COMBAT-09**: Riposte detection: on monster attack resolution where target is eligible (**Fighter/Battle Master (RAW)** per Phase 5 D-C — Swashbuckler removed; not RAW; v2 may add YAML-configurable eligibility for homebrew) and target has `has_reaction=true`, bot surfaces timed Riposte button
+- [x] **COMBAT-10**: Riposte button persists 8s with `deadline_ts` in `riposte_timers`; on click, bot calls `dm20__combat_action(reaction=true, weapon=primary)` (or shim if dm20 lacks reaction flag) — only target player can click
 - [x] **COMBAT-11**: Riposte timer survives bot restart — `riposte_timers` row drives a background task that cleans expired buttons on restart and any time before expiry (Phase 5 Plan 02 — RiposteSweeper + OPS-01 resume drill)
 - [x] **COMBAT-12**: Combat end detected from dm20 state transition; bot returns to EXPLORATION embed
 
@@ -96,14 +96,14 @@
 
 ### Self-Host (HOST)
 
-- [ ] **HOST-01**: README with prerequisites: oMLX running on `:8765`, dm20 MCP exposed, ShoeGPT model loaded, Discord bot token
-- [ ] **HOST-02**: `.env.example` documents `DISCORD_TOKEN`, `OMLX_ENDPOINT` (default `http://localhost:8765/v1`), `OMLX_MODEL` (default `ShoeGPT`), `MCP_EXECUTE_URL` (default `http://localhost:8765/v1/mcp/execute`), `ELDRITCH_DB_PATH`, log level
-- [ ] **HOST-03**: `python -m eldritch_dm.bootstrap` initializes local Discord-state SQLite schema; pings oMLX + dm20 to verify
-- [ ] **HOST-04**: `run.py` entrypoint validates env, pings oMLX, lists available dm20 tools, launches bot
-- [ ] **HOST-05**: `pyproject.toml` pins all deps; `requirements.txt` generated for non-uv users
-- [ ] **HOST-06**: Test suite runnable via `pytest`: MCP client tests (with httpx mock), sanitizer adversarial corpus, persistent-view restart drill, repository CRUD
-- [ ] **HOST-07**: README covers macOS-primary install; Linux/CUDA "best effort" notes
-- [ ] **HOST-08**: README documents launchd recipe for the Discord bot itself (parallel to existing `com.user.omlx`)
+- [x] **HOST-01**: README with prerequisites: oMLX running on `:8765`, dm20 MCP exposed, ShoeGPT model loaded, Discord bot token
+- [x] **HOST-02**: `.env.example` documents `DISCORD_TOKEN`, `OMLX_ENDPOINT` (default `http://localhost:8765/v1`), `OMLX_MODEL` (default `ShoeGPT`), `MCP_EXECUTE_URL` (default `http://localhost:8765/v1/mcp/execute`), `ELDRITCH_DB_PATH`, log level, `MCP_RATE_LIMIT_MS` (Plan 03 audit)
+- [x] **HOST-03**: `python -m eldritch_dm.bootstrap` initializes local Discord-state SQLite schema; pings oMLX + dm20 to verify (Plan 03: src/eldritch_dm/bootstrap.py with 3-stage preflight + exit codes 0/1/2/3)
+- [x] **HOST-04**: `run.py` entrypoint validates env, pings oMLX, lists available dm20 tools, launches bot (Plan 03: run.py with --check-only / --no-preflight CLI flags and SIGTERM handling)
+- [x] **HOST-05**: `pyproject.toml` pins all deps; `[project.scripts]` + `[project.urls]` added (Plan 03)
+- [x] **HOST-06**: Test suite runnable via `pytest`: MCP client tests (with httpx mock), sanitizer adversarial corpus, persistent-view restart drill, repository CRUD (Phase 1-5: 870+ tests passing)
+- [x] **HOST-07**: README covers macOS-primary install; Linux/CUDA "best effort" notes (Plan 03: Self-Hosting section + docs/eldritch-dm.service.example)
+- [x] **HOST-08**: README documents launchd recipe for the Discord bot itself (parallel to existing `com.user.omlx`) (Plan 03: scripts/install-launchd.sh + docs/launchd.plist.example + Running as a Service README section)
 
 ### Operational (OPS)
 

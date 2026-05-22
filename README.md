@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#-license)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-optimized-black.svg?logo=apple)](https://www.apple.com/mac/)
-[![Status](https://img.shields.io/badge/status-pre--alpha-orange.svg)](#-roadmap)
+[![Status](https://img.shields.io/badge/status-v1.0--ready-green.svg)](#-roadmap)
 
 **Created with ♥ by [Jeremy Schoemaker](https://shoemoney.com)** — open source, MIT-licensed, contributions welcome. 🤝
 
@@ -27,7 +27,7 @@
 
 ✨ **The differentiator:** EldritchDM adds Discord-native affordances that no AI-DM product currently ships:
 
-- ⚔️ **Timed reactive Riposte button** — when a monster misses your Battle Master, a private 8-second button appears just for you. Click to counter-strike. Survives bot restarts. Pure D&D magic.
+- ⚔️ **Timed reactive Riposte button** — when a monster misses your Battle Master Fighter, an 8-second button appears in the channel; only the targeted PC's Discord user can click it. Click to counter-strike. Survives bot restarts. Pure D&D magic.
 - 🔒 **Turn gatekeeping by Discord user ID** — only the current actor can click action buttons. Try out of turn? Ephemeral "❌ Not your turn yet."
 - 📸 **Photo & PDF character ingest** — got a scanned sheet from a printed PDF or a phone snap of handwritten stats? OCR pipeline ingests it.
 - 🌐 **D&D Beyond URL import** — paste a public character URL, done.
@@ -49,14 +49,18 @@ cd eldritchdm
 cp .env.example .env
 $EDITOR .env   # ✏️ paste your Discord bot token, confirm oMLX URL
 
-# 4️⃣ Bootstrap the local DB + verify dependencies
-python -m eldritch_dm.persistence.bootstrap
+# 4️⃣ Bootstrap the local DB + verify dependencies (3-stage preflight)
+python -m eldritch_dm.bootstrap
 
-# 5️⃣ Run
-python run.py
+# 5️⃣ Run — choose any of these three equivalent paths:
+python run.py                # project-root entrypoint (preferred for self-host)
+python -m eldritch_dm.bot    # module entrypoint (Phase 1-4 muscle memory)
+eldritch-dm                  # PATH-installed CLI from `pip install -e .`
 ```
 
 🎉 Now invite the bot to a Discord server, type `/start_game` in a channel, and let the dice fall.
+
+> 💡 **First time?** Jump to [First Session in 10 Minutes](#-first-session-in-10-minutes) for a step-by-step walkthrough.
 
 ---
 
@@ -224,26 +228,72 @@ The full annotated template lives in [`.env.example`](.env.example).
 
 ---
 
-## 🧪 First-Time Walkthrough — Your First Session
+## 🧪 First Session in 10 Minutes
 
-1. 🆕 **Invite the bot** to a Discord server you own. Give it the `bot` + `applications.commands` scopes plus permissions for *Send Messages*, *Embed Links*, *Use External Emojis*, and *Read Message History*.
-2. 💬 **Pick a text channel** that'll be your "table." One channel = one campaign.
-3. 🎬 `/start_game name:"The Cursed Vault"` — this:
-   - Creates a new dm20 campaign 🗂️
-   - Starts a Claudmaster autonomous-DM session 🧙
-   - Spins up dm20's Party Mode server (HTTP/WS on `PARTY_MODE_PORT`) 🌐
-   - Posts a lobby embed with a QR code (for any browser-mode players) and a Discord "Join" button
-4. 📜 (Optional) `/load_adventure CoS` to load *Curse of Strahd*. Other supported IDs: `LMoP`, `HotDQ`, `PotA`, `OotA`, `ToA`, `WDH`, `WDMM`, `BGDIA`.
-5. 🧙‍♂️ Each player loads a character:
-   - **D&D Beyond import:** `/upload_character_url <https://www.dndbeyond.com/characters/12345>` (character must be set to public on DDB)
-   - **Photo or PDF:** `/upload_character_file` and attach. OCR extracts the text, oMLX translates to JSON, you get a confirmation modal to review and tweak before saving.
-   - **Manual entry:** just answer the modal questions.
-6. ✅ Everyone clicks the **Ready** button. Lobby transitions to **EXPLORATION**.
-7. 💬 ShoeGPT describes the opening scene. Each player clicks `[ 💬 Declare Action ]`, types what they want to do (max 500 chars), and submits.
-8. 🎲 The bot batches actions, sends them to ShoeGPT through dm20's Party Mode queue, narrates the result. Combat triggers automatically when warranted.
-9. ⚔️ In combat, the bot enforces turn order — only the current actor's Discord ID can click `[⚔️ Attack]`, `[🛡️ Dodge]`, etc. Out-of-turn clicks get a private "❌ Not your turn yet."
-10. 🗡️ When a monster misses an eligible PC, that PC gets a private 8-second `[ ↩️ Riposte ]` button. Click to counter-strike. If you don't click, the button quietly disappears.
-11. 💾 You can `Ctrl+C` the bot any time. Run `python run.py` again later — everything resumes exactly where it left off. Memory, HP, turn order, even the timed buttons. 🎩✨
+Got oMLX + dm20 already running? You can go from "fresh clone" to "rolling initiative" in about 10 minutes. Step-by-step:
+
+**Minute 0-2 — Invite the bot.** In the [Discord Developer Portal](https://discord.com/developers/applications), create an application, copy the bot token into `.env`, and use the OAuth2 URL generator to invite it. Required scopes: `bot` + `applications.commands`. Required permissions: *Send Messages*, *Embed Links*, *Use External Emojis*, *Read Message History*. Paste the generated URL in a browser, pick your server.
+
+**Minute 2-3 — Start the bot.**
+
+```bash
+python -m eldritch_dm.bootstrap   # 3-stage preflight (schema, oMLX, dm20)
+python run.py                     # actually start
+```
+
+If preflight exits non-zero, see [Troubleshooting](#-troubleshooting). Stuck on `EXIT_DM20_NOT_LOADED`? `docs/dm20-troubleshooting.md` has the recipe.
+
+**Minute 3-4 — Open the table.** Pick the Discord text channel you want as your "table" (one channel = one campaign).
+
+```text
+/start_game name: The Cursed Vault
+```
+
+This creates a dm20 campaign + Claudmaster session + Party Mode server, and posts a lobby embed with QR code and Ready button. *Optional:* `/load_adventure id: CoS` to load *Curse of Strahd*. Other adventure IDs: `LMoP`, `HotDQ`, `PotA`, `OotA`, `ToA`, `WDH`, `WDMM`, `BGDIA`.
+
+**Minute 4-7 — Each player loads a character.** Three paths, fastest first:
+
+```text
+/upload_character_url url: https://www.dndbeyond.com/characters/12345
+```
+
+(D&D Beyond — character must be set to Public on DDB. ~3-5s round-trip.)
+
+```text
+/upload_character_file file: <attached PNG/JPG/PDF>
+```
+
+(Photo or PDF — OCR + oMLX schema translation + review modal. ~6-15s. See `docs/character-ingest-formats.md` for the full format support matrix and confidence-gating rules.)
+
+Or click "Enter manually" in any confirmation modal to type fields directly (homebrew-friendly).
+
+**Minute 7-8 — Ready up.** Everyone clicks the **Ready** button on the lobby embed. Once the last person is ready, the lobby transitions to **EXPLORATION** and the bot signals Claudmaster.
+
+**Minute 8-9 — Play.** ShoeGPT opens with the first room's description. Each player clicks `[ 💬 Declare Action ]`, types what they want to do (max 500 chars per the sanitizer), and submits. The bot batches actions within a 30s window, ships them to ShoeGPT via dm20's Party Mode queue, and renders the narrative.
+
+**Minute 9-10 — Roll initiative.** When combat triggers, the embed swaps to the combat view (turn order, HP/AC, conditions). Only the current actor's Discord user can click `[⚔️ Attack]`, `[🛡️ Dodge]`, `[⏭️ End Turn]`. Out-of-turn clicks get an ephemeral `❌ Not your turn yet.`
+
+When a monster's attack *misses* an eligible PC — a **Battle Master Fighter** with their reaction available (see [Known Limitations](#-known-limitations-v1) for the v1 RAW-only scope) — an 8-second `[ ↩️ Riposte ]` button appears for that PC. Click to counter-strike. Don't click, the button quietly disappears (and survives a bot restart in between — see [Self-Hosting](#-self-hosting)).
+
+**Minute 10 — Profit.** You're playing D&D with an AI DM that never lies about HP. Hit `Ctrl+C` whenever you need to stop. `python run.py` again later — everything resumes exactly where it left off: memory, HP, turn order, even the timed buttons. 🎩✨
+
+---
+
+## 🧪 First-Time Walkthrough — Reference
+
+The same flow as above, condensed to a numbered checklist for the second-time-around:
+
+1. Invite the bot with `bot` + `applications.commands` scopes.
+2. Pick a text channel. **One channel = one campaign.**
+3. `/start_game name:"..."`.
+4. (Optional) `/load_adventure id:CoS`.
+5. Players load characters via `/upload_character_url`, `/upload_character_file`, or the manual-entry modal.
+6. Everyone clicks **Ready**.
+7. Players click `[ 💬 Declare Action ]` and submit modals.
+8. Bot batches and resolves via Party Mode + Claudmaster.
+9. Combat enforces turn order by Discord user_id.
+10. Monster misses → eligible PC gets the 8s Riposte button.
+11. `Ctrl+C` / restart → everything resumes.
 
 ---
 
@@ -299,7 +349,7 @@ Other Discord disciplines:
 
 ### 🗡️ The Riposte Magic (`src/eldritch_dm/combat/riposte.py`)
 
-This is the most fun piece. When dm20 resolves a monster's attack as a miss against an eligible PC (Fighter/Battle Master or Rogue/Swashbuckler) who has a reaction available, EldritchDM:
+This is the most fun piece. When dm20 resolves a monster's attack as a miss against an eligible PC (**Battle Master Fighter** by RAW — see [Known Limitations](#-known-limitations-v1) for the v1 scope; v2 plans to make eligibility YAML-configurable for homebrew) who has their reaction available, EldritchDM:
 
 1. Inserts a row in `riposte_timers` with `deadline_ts = now() + RIPOSTE_TTL_SECONDS`
 2. Posts an ephemeral message visible only to that PC's user, containing the `[ ↩️ Riposte Counter-strike ]` button
@@ -314,17 +364,19 @@ It's the kind of thing every D&D player wishes their VTT had. 🥹
 
 ## 🗺️ Roadmap
 
-EldritchDM is in pre-alpha. Here's where we're going, in 5 phases:
+EldritchDM v1 is feature-complete. Here's the 5-phase history:
 
 | Phase | Name | What ships | Status |
 |---|---|---|---|
-| 1️⃣ | MCP Client + Local State | Async MCP wrapper, local SQLite, sanitizer | 🔵 In progress |
-| 2️⃣ | Discord Scaffold + Persistent Views | Bot, slash commands, embed coalescer, restart-survival | ⚪ Not started |
-| 3️⃣ | Lobby + Character Ingest | `/start_game`, DDB import, OCR/PDF pipeline | ⚪ Not started |
-| 4️⃣ | Gameplay (Exploration + Combat) | Party Mode binding, action batching, turn gatekeeping, 8-player load | ⚪ Not started |
-| 5️⃣ | Reactions + Self-Host Polish | Riposte timed UI, README, tests, launchd recipe | ⚪ Not started |
+| 1️⃣ | MCP Client + Local State | Async MCP wrapper, local SQLite, sanitizer | ✅ Complete |
+| 2️⃣ | Discord Scaffold + Persistent Views | Bot, slash commands, embed coalescer, restart-survival | ✅ Complete |
+| 3️⃣ | Lobby + Character Ingest | `/start_game`, DDB import, OCR/PDF pipeline | ✅ Complete |
+| 4️⃣ | Gameplay (Exploration + Combat) | Party Mode binding, action batching, turn gatekeeping, 8-player load | ✅ Complete |
+| 5️⃣ | Reactions + Self-Host Polish | Riposte timed UI, restart-survival sweeper, README, launchd recipe | ✅ Complete |
 
 📜 Full details in [`.planning/ROADMAP.md`](.planning/ROADMAP.md) and [`.planning/REQUIREMENTS.md`](.planning/REQUIREMENTS.md). Planning artifacts are committed alongside the code — open them up to see *why* every decision was made. 🔍
+
+**v2 deferred:** YAML-configurable Riposte eligibility (Swashbuckler, homebrew), smart Claudmaster-driven monster targeting, additional reactions (Shield, Counterspell, Hellish Rebuke per REACT-01/02/03), voice/TTS narration, map/grid visuals.
 
 ---
 
@@ -375,9 +427,13 @@ Before you open a PR:
 
 ---
 
-## 📜 License
+## 📜 License & Third-Party
 
-MIT © 2026 Jeremy Schoemaker — see [LICENSE](LICENSE). Use it, fork it, sell it, run it on a beach somewhere. Just don't claim you invented the dice. 🎲
+**EldritchDM itself is MIT.** © 2026 Jeremy Schoemaker — see [LICENSE](LICENSE). Use it, fork it, sell it, run it on a beach somewhere. Just don't claim you invented the dice. 🎲
+
+**Third-party license caveat — PyMuPDF (AGPL-3.0):** The primary PDF parser used for character-sheet ingest is [PyMuPDF (`fitz`)](https://pymupdf.readthedocs.io/), which is AGPL-3.0. For **self-hosting** (the typical use case of running EldritchDM on your own machine for friends) this is fine — the AGPL only kicks in when you distribute or operate a network-accessible service. If you intend to fork EldritchDM and deploy it as a *closed-source* hosted service, swap to the MIT-licensed `pypdf` fallback (the bot ships both as runtime dependencies) by setting `EXTRA_PDF_LIB=pypdf` (planned for v2) or by hand-editing the ingest pipeline. The dual-stack design exists precisely for this license-boundary case.
+
+All other Python dependencies are permissive-licensed (MIT / Apache / BSD). See `pyproject.toml` for the full pinned list.
 
 ---
 
@@ -441,6 +497,87 @@ Open `eldritch.sqlite3` and run `SELECT COUNT(*) FROM persistent_views;`. If it 
 
 dm20's Party Mode HTTP server defaults to `:8080`. If something else owns that port (`lsof -i :8080`), set `PARTY_MODE_PORT=8081` (or any free port) in `.env` and restart.
 
+> 📖 **Deeper diagnostics:** [`docs/dm20-troubleshooting.md`](docs/dm20-troubleshooting.md) maps preflight exit codes (0/1/2/3) to specific fixes; [`docs/character-ingest-formats.md`](docs/character-ingest-formats.md) covers every supported character-sheet format and their failure modes.
+
+---
+
+## 🏠 Self-Hosting
+
+EldritchDM is **macOS-primary, Linux best-effort**. The reference rig is an Apple Silicon Mac running oMLX + dm20 supervised by launchd. Linux self-hosters can run the Discord half but will need a remote macOS host for oMLX (or substitute Ollama 0.19+ with the MLX backend).
+
+| Platform | oMLX / dm20 | OCR | Supervision | Status |
+| -------- | ----------- | --- | ----------- | ------ |
+| macOS (Apple Silicon) | ✅ Native `mlx-lm` | ✅ `ocrmac` (Apple Vision) | ✅ launchd (`scripts/install-launchd.sh`) | **Primary** |
+| Linux (CUDA / CPU) | ⚠️ Ollama 0.19+ MLX backend, OR remote oMLX | ✅ `easyocr` (`pip install '.[linux-ocr]'`) | ✅ systemd user unit (`docs/eldritch-dm.service.example`) | **Best-effort** |
+| Intel Mac | ❌ `mlx-lm` requires Apple Silicon | ✅ `ocrmac` | ✅ launchd | Not supported in v1 |
+| Windows | ❌ no `mlx-lm` wheels | ⚠️ WSL only | — | Not supported in v1 |
+
+**Three equivalent ways to start the bot** (whichever fits your muscle memory):
+
+```bash
+python run.py                  # project-root entrypoint — preferred for self-host
+python -m eldritch_dm.bot      # module entrypoint — Phase 1-4 muscle memory
+eldritch-dm                    # CLI from `pip install -e .` — shortest
+```
+
+**Recommended layout:**
+
+```text
+~/Services/DiscordDM/           # project root
+├── .env                        # mode 0600, contains DISCORD_TOKEN
+├── run.py                      # entrypoint
+├── eldritch.sqlite3            # local Discord-state DB (small)
+├── eldritch-dm.log             # stdout, when supervised
+└── eldritch-dm.err             # stderr, when supervised
+```
+
+The bot's local SQLite (`eldritch.sqlite3`) is small — kilobytes per session. **dm20's gameplay DB lives separately** at `~/.omlx/dm.db`; that one is owned by dm20 and is the canonical D&D state.
+
+---
+
+## 🚀 Running as a Service
+
+You almost certainly want the bot to auto-restart on crash and survive reboot. Pick your OS:
+
+### 🍎 macOS (launchd)
+
+```bash
+# From the project root:
+bash scripts/install-launchd.sh
+
+# Verify:
+launchctl list | grep eldritch
+
+# Tail logs:
+tail -f eldritch-dm.log
+
+# Stop / uninstall:
+bash scripts/uninstall-launchd.sh
+```
+
+`install-launchd.sh` substitutes `{PROJECT_DIR}` placeholders in [`docs/launchd.plist.example`](docs/launchd.plist.example) with `$PWD`, copies the rendered plist to `~/Library/LaunchAgents/com.shoemoney.eldritch-dm.plist`, and `launchctl bootstrap`s it. The script is **idempotent** — running it again `bootout`s the previous instance first.
+
+**KeepAlive semantics:** the example plist uses dict-form `KeepAlive` with `SuccessfulExit=false` + `ThrottleInterval=10`. Translation: "restart on crash or non-zero exit, but NOT on a clean `launchctl bootout`; wait 10s between restarts." This prevents a bad `DISCORD_TOKEN` from causing an infinite restart storm. If you want the user's parity model (`com.user.omlx` uses plain `KeepAlive=true` for unconditional supervision), replace the `<dict>…</dict>` with `<true/>` in the rendered plist.
+
+**Dry-run mode:** `DRY_RUN=1 bash scripts/install-launchd.sh` renders + validates the plist to a tempfile without touching `~/Library/LaunchAgents`. Useful for CI smoke + plist-syntax debugging.
+
+### 🐧 Linux (systemd, best-effort)
+
+```bash
+mkdir -p ~/.config/systemd/user
+sed "s|{PROJECT_DIR}|$PWD|g" docs/eldritch-dm.service.example \
+  > ~/.config/systemd/user/eldritch-dm.service
+systemctl --user daemon-reload
+systemctl --user enable --now eldritch-dm
+
+# Tail logs:
+journalctl --user -u eldritch-dm -f
+```
+
+See [`docs/eldritch-dm.service.example`](docs/eldritch-dm.service.example). This is **best-effort** — the dm20 + oMLX half of the stack is macOS-only, so a Linux self-hoster needs either a remote oMLX host or a swap-in like Ollama 0.19+ with MLX backend.
+
+> ⚠️ **Never put `DISCORD_TOKEN` (or any secret) in the plist or systemd unit.** LaunchAgent plists are world-readable on macOS; systemd unit files default to mode 0644. Secrets MUST come from a runtime-loaded `.env` (mode `0600`) via `run.py` → `Settings()`. The user's existing `com.user.omlx.plist` follows the same posture (no secrets in the plist).
+
 ---
 
 ## 🚧 Known Limitations & v1 Non-Goals
@@ -468,6 +605,16 @@ v1 runs as one `python run.py` process talking to one local oMLX. There is no cl
 ### The mechanically-honest contract is non-negotiable
 
 If you're hoping to "let ShoeGPT just decide HP for vibes" — that PR will be rejected. The whole project exists because the LLM-decides-everything approach produces incoherent D&D. The bot **never** computes game math; every mechanical effect routes through a dm20 MCP tool call. This is the load-bearing wall.
+
+### v1 design choices worth flagging
+
+These aren't bugs — they're conscious design decisions documented here so self-hosters know what they're getting:
+
+- **🗡️ Riposte eligibility is strict 5e RAW** — only **Battle Master Fighters** trigger the timed Riposte button (per Phase 5 D-C). Earlier planning mentioned Swashbuckler, but Swashbuckler does not have Riposte by RAW — it has Fancy Footwork (not a reaction) and Rakish Audacity (initiative bonus). v2 plans to add a YAML-configurable eligibility table so homebrew tables can opt Swashbuckler / Brute / etc. back in. See `src/eldritch_dm/gameplay/reactions.py` for the eligibility set.
+- **📢 The Riposte button is a public message, not an ephemeral followup** — only the targeted PC's Discord user can click it (permission gated in the callback), but the button is visible to the whole channel. This is *intentional*: ephemeral followups die at 15 min and cannot be re-edited from a fresh bot process, so they break the COMBAT-11 restart-survival contract. The tradeoff is one channel-message-per-riposte; v2 may swap to per-user DMs.
+- **🔒 `DISCORD_TOKEN` MUST NOT live in the launchd plist (or systemd unit)** — LaunchAgent plists are world-readable on macOS by default. The example `docs/launchd.plist.example` deliberately contains zero secrets; `DISCORD_TOKEN` comes from `.env` (recommend `chmod 600 .env`) loaded at runtime by `Settings()`. The user's existing `com.user.omlx.plist` follows the same posture.
+- **🧠 `OMLX_MODEL` mismatch is a soft warning, not a fatal error** — preflight emits `WARN` if the configured model isn't currently loaded in oMLX, but does not exit. Self-hosters who load a non-`ShoeGPT` model intentionally aren't blocked by the gate.
+- **📦 Upgrading from Phase 4 deployments** — Plan 05-01 introduces a `pc_classes` table for subclass persistence at character ingest. Phase 4 characters that were ingested without subclass data will pass eligibility checks only after re-ingest (or after a manual `INSERT INTO pc_classes` row). Most self-hosters won't hit this because Phase 5 is the v1 release and there are no "Phase 4 deployments" in the wild.
 
 ---
 

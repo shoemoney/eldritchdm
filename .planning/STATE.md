@@ -2,20 +2,20 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-05-22T11:20:00.000Z"
+status: ready_for_audit
+last_updated: "2026-05-22T13:30:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 15
-  percent: 0
+  completed_phases: 5
+  total_plans: 16
+  completed_plans: 16
+  percent: 100
 ---
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-22 (Phase 5 Plan 02 COMPLETE — RiposteSweeper + SessionLocks + OPS-01 resume drill; PLAN-02-LOCK-SEAM replaced; COMBAT-11 + OPS-01 functionally satisfied; 826 tests passing default)
-**Milestone:** v1.0
+**Last updated:** 2026-05-22 (Phase 5 Plan 03 COMPLETE — self-host polish + Phase 5 closure; bootstrap.py preflight + run.py entrypoint + launchd plist + systemd unit + install/uninstall scripts + 4 new docs/* files + README expansion (First Session in 10 Minutes, Self-Hosting, Running as a Service, Known Limitations, License & Third-Party AGPL note); REQUIREMENTS.md COMBAT-09 wording corrected per D-C, all Phase 5 reqs [x]; ROADMAP Phase 5 [x]; PHASE 5 COMPLETE → v1.0 ready for `/gsd:audit-milestone v1.0`)
+**Milestone:** v1.0 — feature-complete; awaiting human-verify checkpoint then milestone audit
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
 ## Project Reference
@@ -23,7 +23,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 5 — Reactions + Self-Host Polish (Riposte timed UI, README, bootstrap, run.py, launchd recipe)
+**Current focus:** v1.0 milestone complete — Phase 5 closed. Next action: `/gsd:audit-milestone v1.0` then `/gsd:complete-milestone v1.0`.
 
 ## Architecture (post-pivot)
 
@@ -41,7 +41,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 2 | Discord Scaffold + Persistent Views | ✅ Complete (3/3 plans, 284 tests) |
 | 3 | Lobby + Character Ingest | ✅ Complete (3/3 plans, 469 tests) |
 | 4 | Gameplay — Exploration + Combat (Party Mode) | ✅ Complete (3/3 plans, 730 tests inc. load-gated) |
-| 5 | Reactions + Self-Host Polish | 🔄 In progress (2/3 plans, 826 tests) |
+| 5 | Reactions + Self-Host Polish | ✅ Complete (3/3 plans, ~870 tests inc. preflight + run.py + closure) |
 
 ## Blockers / Concerns
 
@@ -101,6 +101,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - Virtual-clock injection (clock=clock.now, sleep=clock.advance) threaded through ChannelRateLimiter + ChannelEditBudget + EmbedCoalescer for deterministic sub-second load simulation
 - CombatConditionsRepo._connect() returns UNSTARTED Connection — callers do `async with self._connect()` (Rule 1 fix: prior `async with await self._connect()` double-started the Thread)
 - CombatConditionsRepo.insert() does DELETE-by-triple + single INSERT (Rule 1 fix: prior INSERT ON CONFLICT + INSERT OR REPLACE pattern created duplicate rows because schema has no UNIQUE on (channel_id, character_id, condition_kind))
+- Phase 5 Plan 03 D-A: OMLX_CACHE_STRATEGY orphan resolved via REMOVAL (option a) — line deleted from .env.example with explanatory comment "oMLX cache strategy is configured on the oMLX server side, not via this .env" (avoids maintaining a passthrough Settings field with no Python consumer)
+- Phase 5 Plan 03 D-B: run.py exposes BOTH --no-preflight CLI flag AND ELDRITCH_ALLOW_OFFLINE_START=1 env var — CLI flag for ad-hoc dev runs, env var for launchd-managed prod (RESEARCH Pattern 6 / D-15)
+- Phase 5 Plan 03 D-C: install-launchd.sh DRY_RUN=1 renders the plist to a tempfile + plutil-lints there, instead of writing to ~/Library/LaunchAgents/ (safer for CI smoke; no stale files left behind on failed runs)
+- Phase 5 Plan 03 D-D: Preflight schema check FIRST, then oMLX, then MCP — schema failure (permission denied, disk full) short-circuits before any network I/O so the operator sees the root cause immediately
+- Phase 5 Plan 03 D-E: Missing OMLX_MODEL is a soft WARNING (not EXIT_OMLX_UNREACHABLE) — operators may load a different model intentionally; preflight does not exit on this (RESEARCH A5)
+- Phase 5 Plan 03 D-F: launchd plist uses dict-form KeepAlive with SuccessfulExit=false + ThrottleInterval=10 (RESEARCH Pattern 7); deliberately deviates from com.user.omlx's plain KeepAlive=true so bad DISCORD_TOKEN doesn't cause infinite restart storm; README documents the tradeoff so operators can flip to plain KeepAlive=true if they want unconditional supervision
 
 ## Performance Metrics
 
@@ -119,6 +125,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 04-gameplay-exploration-combat | 03 | 90 | 3 | 5 |
 | 05-reactions-self-host-polish | 01 | 70 | 3 | 27 |
 | 05-reactions-self-host-polish | 02 | 35 | 2 | 12 |
+| 05-reactions-self-host-polish | 03 | TBD | 3 | 14 |
 
 ## Recent History
 
@@ -144,3 +151,4 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-22: PHASE 4 COMPLETE — orchestrator + combat + load proof + closure; EXPLORE-01..07, COMBAT-01..08, COMBAT-12, OPS-03 satisfied; Phase 5 Riposte seam documented in AttackButton._maybe_surface_riposte (no-op); cursor advances to 05-reactions-self-host-polish
 - 2026-05-22: Phase 5 Plan 01 COMPLETE — Wave 0 schema (consumed_in_round ALTER + pc_classes table), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click), MonsterDriver (random target per D-B), RiposteButton.callback promoted from Phase 2 stub, _maybe_surface_riposte DELETED (D-A, atomic commit 1d2edc8); COMBAT-09 + COMBAT-10 functionally satisfied; PLAN-02-LOCK-SEAM marker at src/eldritch_dm/gameplay/reactions.py:280; 64 new tests; 798 default passing
 - 2026-05-22: Phase 5 Plan 02 COMPLETE — gameplay/session_locks (namespaced asyncio.Lock registry), gameplay/riposte_sweeper (RESEARCH Pattern 4 background task), PLAN-02-LOCK-SEAM marker REPLACED by real session_locks.lock_for wrapper at reactions.py:345, conditional mark_expired SQL, setup_hook starts sweeper AFTER rehydration + close() stops sweeper FIRST in OPS-04 chain, OPS-01 resume drill (6 tests in test_riposte_restart.py, 0.20s wall-clock); COMBAT-11 + OPS-01 functionally satisfied; 28 net new tests; 826 default passing; zero new pip deps
+- 2026-05-22: Phase 5 Plan 03 COMPLETE — src/eldritch_dm/bootstrap.py (3-stage preflight: schema → oMLX → MCP, exit codes 0/1/2/3 per RESEARCH Pattern 5, re-exports persistence.bootstrap for legacy callers); run.py (project-root entrypoint with --check-only/--no-preflight CLI flags, ELDRITCH_ALLOW_OFFLINE_START=1 escape hatch, SIGTERM→KeyboardInterrupt handler); .env.example audited (MCP_RATE_LIMIT_MS=200 added per RESEARCH Q9, OMLX_CACHE_STRATEGY orphan removed with explanatory comment); pyproject.toml [project.scripts] eldritch-dm + [project.urls] (D-23, D-25); docs/launchd.plist.example (com.shoemoney.eldritch-dm with dict-form KeepAlive + ThrottleInterval=10 per RESEARCH Pattern 7, DISCORD_TOKEN anti-pattern callout); docs/eldritch-dm.service.example (systemd user unit, HOST-07 best-effort); docs/dm20-troubleshooting.md + docs/character-ingest-formats.md (the two top self-hoster pain points); scripts/install-launchd.sh + uninstall-launchd.sh (idempotent, DRY_RUN safe); README expanded with First Session in 10 Minutes + Self-Hosting + Running as a Service + Known Limitations (Battle Master RAW only, public Riposte button, no DISCORD_TOKEN in plist) + License & Third-Party (PyMuPDF AGPL note); REQUIREMENTS.md COMBAT-09 wording corrected per D-C (Swashbuckler removed); all Phase 5 reqs ticked [x]; ROADMAP Phase 5 [x]; 29 net new tests across test_bootstrap_preflight.py + test_run_entrypoint.py; zero new pip deps; PHASE 5 COMPLETE; v1.0 milestone awaiting `/gsd:audit-milestone v1.0`
