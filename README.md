@@ -50,7 +50,7 @@ cp .env.example .env
 $EDITOR .env   # ✏️ paste your Discord bot token, confirm oMLX URL
 
 # 4️⃣ Bootstrap the local DB + verify dependencies
-python -m eldritch_dm.bootstrap
+python -m eldritch_dm.persistence.bootstrap
 
 # 5️⃣ Run
 python run.py
@@ -181,7 +181,7 @@ cp .env.example .env
 $EDITOR .env
 
 # 8) Initialize local DB
-python -m eldritch_dm.bootstrap
+python -m eldritch_dm.persistence.bootstrap
 
 # 9) Launch the bot
 python run.py
@@ -378,6 +378,96 @@ Before you open a PR:
 ## 📜 License
 
 MIT © 2026 Jeremy Schoemaker — see [LICENSE](LICENSE). Use it, fork it, sell it, run it on a beach somewhere. Just don't claim you invented the dice. 🎲
+
+---
+
+## 🩺 Troubleshooting
+
+Things break. Here's how to read the smoke signals and put the fire out. 🔥
+
+### 🔌 "DM is offline" or every interaction says "try again in a moment"
+
+The circuit breaker tripped — three consecutive oMLX health pings failed. Check, in order:
+
+1. 🧠 Is oMLX actually running? `curl -s http://localhost:8765/v1/models | jq .` should return a JSON object listing `ShoeGPT`. If it hangs or errors, oMLX is down.
+2. 🍎 On the reference rig: `launchctl list | grep omlx` and `launchctl kickstart -k gui/$(id -u)/com.user.omlx` to bounce the launchd service.
+3. 📜 Tail oMLX's own log (`~/Library/Logs/omlx.log` or wherever your launchd plist points it) — an OOM kill or a malformed model load shows up here.
+4. ⏱️ If oMLX *is* up but slow, the bot will recover on the next successful ping (default every 60s, see `OMLX_HEALTH_INTERVAL`). The circuit breaker re-closes on the first success.
+
+### 🛠️ Bot connects but slash commands say "interaction failed" or `dm20__*` tool calls return errors
+
+The MCP gateway is reachable but dm20 isn't loaded into oMLX. Verify:
+
+```bash
+curl -s http://localhost:8765/v1/mcp/tools | jq '. | length'   # expect ≥ 116
+curl -s http://localhost:8765/v1/mcp/tools | jq '.[].name' | grep dm20__ | wc -l   # expect ≥ 97
+```
+
+If those numbers are low, the `mcp` SDK isn't installed into oMLX's virtualenv — see `~/.claude/memory/omlx_mcp_setup.md` for the exact pip-install incantation. Restart oMLX after fixing.
+
+### 🤖 `discord.LoginFailure: Improper token has been passed`
+
+Your `DISCORD_TOKEN` is wrong, regenerated, or you copied a Client Secret instead of a Bot Token. Go to the [Discord Developer Portal](https://discord.com/developers/applications) → your app → **Bot** tab → **Reset Token**, paste the new value into `.env`, restart.
+
+### 🪟 Slash commands don't appear in Discord
+
+Two flavors:
+
+- **Globally registered, not propagated yet** — global commands take up to an hour to appear on the first publish. For dev, sync to a single guild (`COPY_GLOBAL_TO_GUILD_ID` in `.env`) for instant updates.
+- **Bot lacks `applications.commands` scope** — re-invite with the OAuth2 URL generator and tick *both* `bot` *and* `applications.commands`.
+
+### 📡 You see HTTP 429 spam in logs
+
+The embed coalescer is supposed to keep edits ≤1/sec per message. If you're seeing 429s anyway: drop `EMBED_EDIT_RATE_LIMIT` to `0.5`, then file a bug report with the channel ID and a 30-second log window — the coalescer is meant to make this impossible.
+
+### 🔒 `sqlite3.OperationalError: database is locked`
+
+You shouldn't see this — the single-writer queue exists precisely to prevent it. If you do:
+
+1. ⚠️ You have a second process touching `eldritch.sqlite3` (another `python run.py`, a forgotten REPL, a SQLite browser GUI with a write transaction held open). Close it.
+2. 💾 Make sure WAL is enabled: `sqlite3 eldritch.sqlite3 'PRAGMA journal_mode;'` should print `wal`. If it prints `delete`, your DB file predates the WAL migration — run `python -m eldritch_dm.persistence.bootstrap` again.
+
+### 📸 Character sheet OCR returns garbage or empty text
+
+- 🍎 **macOS**: `ocrmac` uses Apple's Vision framework. It needs macOS 10.15+. Confirm with `python -c "import ocrmac; print(ocrmac.__version__)"`. Re-shoot the sheet with even lighting and no glare — Vision is excellent on printed text, mediocre on bad lighting.
+- 🐧 **Linux**: the fallback path uses EasyOCR which downloads ~64 MB of weights on first run. If the first character ingest hangs forever, EasyOCR is downloading — let it finish, then try again.
+- 📄 **PDF specifically**: if a PDF returns blank text, it's a *scanned image* PDF (no text layer). PyMuPDF will rasterize it and re-route through OCR automatically; this takes longer (5-15s vs <1s for digital PDFs).
+
+### 🔁 Bot restarted mid-combat and buttons don't work
+
+Open `eldritch.sqlite3` and run `SELECT COUNT(*) FROM persistent_views;`. If it returns 0, no views were ever persisted — that's a bug, please file an issue. If it returns >0 but buttons are inert, the `setup_hook` failed to re-register them. Set `LOG_LEVEL=DEBUG` and look for `view_registry: re-registering` log lines on startup.
+
+### 🚪 Port conflict on `:8080` (Party Mode)
+
+dm20's Party Mode HTTP server defaults to `:8080`. If something else owns that port (`lsof -i :8080`), set `PARTY_MODE_PORT=8081` (or any free port) in `.env` and restart.
+
+---
+
+## 🚧 Known Limitations & v1 Non-Goals
+
+EldritchDM is a focused tool. To ship the bot that actually works, v1 says "no" to a lot of tempting features. **None of these are forever — they're just not v1.**
+
+### What v1 does *not* support
+
+- 👤 **Human-DM override mode.** ShoeGPT is the DM, full stop. There's no "I want to DM and have the bot just be a dice roller" toggle in v1. (Backlog idea: a `/handoff_dm` flag that puts ShoeGPT into narration-only mode and lets a human resolve mechanics.)
+- 🧵 **Multiple simultaneous campaigns in one channel.** One Discord channel = one campaign. Switching campaigns in a channel requires `/end_game` first.
+- 🌐 **Cross-guild parties.** A party is bound to one Discord guild. Browser-mode players via Party Mode QR can join from outside the guild, but Discord-native players cannot.
+- 🎭 **Voice channels / TTS narration.** Text only. The bot does not join voice. (Backlog: pipe narration into an ElevenLabs-compatible TTS, gate behind a self-hoster opt-in.)
+- 🖼️ **Generated battle maps or token grids.** No images of the map, no token positions. Combat is theater-of-the-mind with a turn tracker embed. (Backlog: token positions in dm20 ARE tracked — surfacing them as an image is a v2 feature.)
+- 🎚️ **Difficulty sliders or rule variants.** v1 plays standard 5e SRD. Optional/variant rules (flanking, gritty realism, lingering injuries) are dm20's call to support; the bot doesn't add a UI for them.
+- 🛒 **Marketplace adventures / paid content.** Only the eight supported adventure IDs listed in the walkthrough (`LMoP`, `CoS`, `HotDQ`, `PotA`, `OotA`, `ToA`, `WDH`, `WDMM`, `BGDIA`) plus whatever dm20 ships natively. No store, no DLC.
+- 🌍 **Hosted SaaS version.** This is *local-first* by design. There is no `eldritchdm.com` and there won't be — you run your own bot, on your own machine, with your own token.
+- 🔐 **Multi-tenant isolation.** The bot assumes a single self-hoster running for friends. Don't put it on a public Discord server with strangers and expect billing/quota/abuse-prevention features — they don't exist.
+- 📱 **Native mobile clients.** Discord is the only client. Party Mode's HTTP/WS server works in a mobile browser if you really need it, but there's no iOS/Android app.
+- 🧪 **Custom homebrew classes/races/items via UI.** Homebrew goes through dm20's content authoring, not a slash command. (Backlog: `/homebrew_class` modal that wraps dm20's content API.)
+
+### Single-process, single-machine
+
+v1 runs as one `python run.py` process talking to one local oMLX. There is no clustering, no horizontal scale, no Redis, no message broker. If you want to run two bots for two friend groups, run two checkouts on two ports with two `.env` files. That's the supported scale-out story.
+
+### The mechanically-honest contract is non-negotiable
+
+If you're hoping to "let ShoeGPT just decide HP for vibes" — that PR will be rejected. The whole project exists because the LLM-decides-everything approach produces incoherent D&D. The bot **never** computes game math; every mechanical effect routes through a dm20 MCP tool call. This is the load-bearing wall.
 
 ---
 
