@@ -7,12 +7,22 @@ lower-level schema bootstrap in :mod:`eldritch_dm.persistence.bootstrap`
 and runs a 3-stage preflight check against the operator's local
 infrastructure (oMLX + dm20 + SQLite schema).
 
+**Token-free contract:** preflight does NOT require ``DISCORD_TOKEN`` to be
+set. It only checks the local infrastructure (SQLite schema, oMLX endpoint,
+dm20 MCP tools). This is what self-hosters need verified BEFORE pasting a
+real bot token into ``.env``. Token enforcement lives at the boundary that
+actually calls Discord — ``run.py`` and ``eldritch_dm.bot.__main__``.
+
 Exit codes (per RESEARCH Pattern 5):
 
 * ``0`` (``EXIT_OK``)              — every stage passed
 * ``1`` (``EXIT_OMLX_UNREACHABLE``) — oMLX `/v1/models` HTTP call failed
 * ``2`` (``EXIT_DM20_NOT_LOADED``) — MCP tools list returned 0 dm20__* entries
 * ``3`` (``EXIT_SCHEMA_FAIL``)     — local SQLite schema apply raised
+* ``4`` (``EXIT_MISSING_TOKEN``)   — ``run.py`` (or bot ``__main__``) invoked
+  without ``DISCORD_TOKEN`` set. Never emitted by ``preflight()`` itself —
+  reserved for the bot-launch boundary in ``run.py`` and
+  ``eldritch_dm.bot.__main__``.
 
 Schema check runs FIRST so that schema failures short-circuit before any
 network I/O. Missing OMLX_MODEL is a soft WARNING (not a fatal error)
@@ -37,6 +47,7 @@ from eldritch_dm.persistence.bootstrap import bootstrap
 
 __all__ = [
     "EXIT_DM20_NOT_LOADED",
+    "EXIT_MISSING_TOKEN",
     "EXIT_OK",
     "EXIT_OMLX_UNREACHABLE",
     "EXIT_SCHEMA_FAIL",
@@ -50,6 +61,10 @@ EXIT_OK = 0
 EXIT_OMLX_UNREACHABLE = 1
 EXIT_DM20_NOT_LOADED = 2
 EXIT_SCHEMA_FAIL = 3
+# EXIT_MISSING_TOKEN is reserved for the bot-launch boundary in run.py /
+# eldritch_dm.bot.__main__ — preflight() itself never returns this. Lives
+# here so the exit-code namespace stays in one place for tests and docs.
+EXIT_MISSING_TOKEN = 4
 
 
 def _eprint(msg: str) -> None:
@@ -79,9 +94,7 @@ async def preflight() -> int:
         log.info("preflight_schema_ok", path=settings.eldritch_db_path)
     except Exception as exc:  # noqa: BLE001 — preflight must catch everything
         log.error("preflight_schema_failed", error=str(exc))
-        _eprint(
-            f"❌ Schema bootstrap failed at {settings.eldritch_db_path!s}: {exc}"
-        )
+        _eprint(f"❌ Schema bootstrap failed at {settings.eldritch_db_path!s}: {exc}")
         return EXIT_SCHEMA_FAIL
 
     # ── 2. oMLX /v1/models ────────────────────────────────────────────────────
@@ -177,10 +190,7 @@ async def preflight() -> int:
             mcp_tools_url=str(settings.mcp_tools_url),
             error=str(exc),
         )
-        _eprint(
-            f"❌ MCP tools endpoint unreachable at {settings.mcp_tools_url!s}: "
-            f"{exc}"
-        )
+        _eprint(f"❌ MCP tools endpoint unreachable at {settings.mcp_tools_url!s}: {exc}")
         return EXIT_DM20_NOT_LOADED
     except Exception as exc:  # noqa: BLE001 — JSON parse, etc.
         log.error("preflight_dm20_not_loaded", error=str(exc))
