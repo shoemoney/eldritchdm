@@ -19,9 +19,10 @@ Abandoned states:
   - discord.Forbidden (lost permissions) → abandon silently
   - discord.HTTPException (transient errors, 429, 5xx) → log, continue (loop retries)
 
-Phase 2 note: ChannelEditBudget is stubbed as None for per-message limiting.
-Phase 4 will pass a shared budget to prevent per-channel rate-limit collisions
-(see RESEARCH.md Pitfall 4).
+Phase 4 note: ChannelEditBudget is now fully implemented (replacing Phase 2 stub).
+Pass a shared budget instance to each EmbedCoalescer for a given Discord channel to
+prevent the 5-edits/5s per-channel limit from being hit by multiple coalescers
+(see RESEARCH.md Pitfall 4, Phase 4 Plan 01).
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from __future__ import annotations
 import asyncio
 import math
 import time
+from collections import deque
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
@@ -41,14 +43,95 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
+# Discord's per-channel rate limit: 5 edits per 5 seconds (verified Phase 2 RESEARCH)
+_CHANNEL_EDIT_LIMIT = 5
+_CHANNEL_WINDOW_SECONDS = 5.0
+
 
 class ChannelEditBudget:
-    """Stub for Phase 4 per-channel rate-limit budget.
+    """Per-channel Discord edit-rate budget (5 edits / 5 seconds per channel).
 
-    Phase 2 leaves this unused (None). Phase 4 will implement a token-bucket
-    semaphore and pass it to each EmbedCoalescer for a given channel to prevent
-    the 5-edits/5s per-channel limit from being hit by multiple coalescers.
+    Shared across all EmbedCoalescer instances for the same Discord channel.
+    When 5 edits have already occurred within the last 5 seconds, the 6th
+    acquire() call awaits until the oldest edit falls outside the window.
+
+    Clock and sleep are injectable for deterministic testing.
+
+    Args:
+        channel_id: Discord channel snowflake string (for logging).
+        limit: Maximum edits in the window (default 5, matching Discord's limit).
+        window_seconds: Rolling window in seconds (default 5.0, matching Discord's limit).
+        clock: Monotonic clock callable (injectable for testing).
+        sleep: Async sleep callable (injectable for testing).
+
+    Usage::
+
+        budget = ChannelEditBudget(channel_id="123456789")
+        await budget.acquire(message_id="987654321")  # may await if budget exhausted
+        await message.edit(embed=embed)
     """
+
+    def __init__(
+        self,
+        channel_id: str = "",
+        *,
+        limit: int = _CHANNEL_EDIT_LIMIT,
+        window_seconds: float = _CHANNEL_WINDOW_SECONDS,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ) -> None:
+        self._channel_id = channel_id
+        self._limit = limit
+        self._window_seconds = window_seconds
+        self._clock = clock
+        self._sleep = sleep
+        # Timestamps of recent edits (oldest first)
+        self._edit_times: deque[float] = deque()
+        self._lock = asyncio.Lock()
+        self._logger = log.bind(channel_id=channel_id, component="ChannelEditBudget")
+
+    def _evict_stale(self, now: float) -> None:
+        """Remove timestamps older than the window from the deque."""
+        cutoff = now - self._window_seconds
+        while self._edit_times and self._edit_times[0] <= cutoff:
+            self._edit_times.popleft()
+
+    async def acquire(self, message_id: str | int = "") -> None:
+        """Acquire a budget token for one Discord message edit.
+
+        Awaits until a token is available within the per-channel rolling window.
+        Never raises; blocks if the budget is exhausted.
+
+        Args:
+            message_id: The Discord message snowflake (for logging only).
+        """
+        async with self._lock:
+            while True:
+                now = self._clock()
+                self._evict_stale(now)
+
+                if len(self._edit_times) < self._limit:
+                    # Budget available — record this edit and proceed
+                    self._edit_times.append(now)
+                    self._logger.debug(
+                        "channel_edit_budget_acquired",
+                        message_id=str(message_id),
+                        edits_in_window=len(self._edit_times),
+                    )
+                    return
+
+                # Budget exhausted — compute wait until oldest edit falls out
+                oldest = self._edit_times[0]
+                wait = (oldest + self._window_seconds) - now
+                if wait > 0.0:
+                    self._logger.debug(
+                        "channel_edit_budget_waiting",
+                        message_id=str(message_id),
+                        wait_ms=round(wait * 1000, 1),
+                        edits_in_window=len(self._edit_times),
+                    )
+                    await self._sleep(wait)
+                # Re-evaluate after sleep (lock held throughout)
 
 
 class EmbedCoalescer:
@@ -161,6 +244,11 @@ class EmbedCoalescer:
             # Clear pending BEFORE the await to avoid losing concurrent updates
             # (any update during edit will re-set _dirty, next loop picks it up)
             self._pending = None
+
+            # Phase 4: per-channel budget check (5 edits/5s Discord limit).
+            # Must acquire BEFORE the message.edit call.
+            if self._channel_budget is not None:
+                await self._channel_budget.acquire(self._message.id)
 
             try:
                 await self._message.edit(embed=embed, view=view)

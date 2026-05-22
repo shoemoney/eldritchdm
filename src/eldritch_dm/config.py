@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     # ── dm20 Party Mode ───────────────────────────────────────────────────────
     party_mode_port: PositiveInt = 8080
     party_poll_interval_ms: PositiveInt = 250
+    # MCP rate limit: minimum ms between mutating MCP calls per channel (OPS-03)
+    mcp_rate_limit_ms: PositiveInt = 200
 
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False

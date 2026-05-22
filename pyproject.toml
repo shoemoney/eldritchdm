@@ -75,6 +75,28 @@ ignore = [
 "tests/ingest/test_ocr.py" = ["E501"]
 "tests/ingest/test_schema.py" = ["B017"]
 "tests/ingest/test_pipeline.py" = ["E501"]
+# Bot cog tests: long mock patch paths and assertion messages exceed 100 chars (E501).
+"tests/bot/cogs/test_ingest.py" = ["E501"]
+"tests/bot/test_modals.py" = ["E501"]
+"tests/bot/test_qr.py" = ["E501"]
+"tests/integration/test_phase3_smoke.py" = ["E501"]
+# EDM001 corpus: intentionally broken/undefined names are the point of the corpus
+"tests/bot/_edm001_corpus/**" = ["F821"]
+"tests/bot/_edm001_corpus/*.py" = ["F821"]
+# Gameplay test files: long mock chains and assertion messages may exceed 100 chars
+"tests/gameplay/test_rate_limit.py" = ["E501"]
+"tests/gameplay/test_exploration_batch.py" = ["E501"]
+"tests/gameplay/test_party_mode.py" = ["E501"]
+"tests/bot/test_channel_edit_budget.py" = ["E501"]
+"tests/bot/cogs/test_exploration_cog.py" = ["E501"]
+"tests/bot/test_dynamic_items_declare_real.py" = ["E501"]
+# Pre-existing E501 in test files from Plans 01+02
+"tests/bot/test_bot_lifecycle.py" = ["E501"]
+"tests/bot/test_coalescer.py" = ["E501", "F841"]
+"tests/bot/test_dynamic_items_real.py" = ["E501"]
+"tests/bot/cogs/test_lobby.py" = ["E501"]
+"tests/bot/test_setup_hook.py" = ["E501"]
+"tests/bot/test_restart_drill.py" = ["B011", "E501"]
 
 # ── pytest ───────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
@@ -169,5 +191,15 @@ source_modules = [
   "eldritch_dm.mcp",
   "eldritch_dm.persistence",
   "eldritch_dm.safety",
+  "eldritch_dm.gameplay",
 ]
 forbidden_modules = ["eldritch_dm.bot"]
+
+[[tool.importlinter.contracts]]
+name = "gameplay must not import bot or ingest"
+type = "forbidden"
+source_modules = ["eldritch_dm.gameplay"]
+forbidden_modules = [
+  "eldritch_dm.bot",
+  "eldritch_dm.ingest",
+]
