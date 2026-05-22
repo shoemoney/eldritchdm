@@ -72,18 +72,18 @@
 
 ### Combat State (COMBAT)
 
-- [ ] **COMBAT-01**: On combat start (`dm20__start_combat`), bot reads `dm20__get_game_state` for initiative order, renders combat embed
-- [ ] **COMBAT-02**: Combat embed shows turn order, HP/AC, conditions; supports 8+ initiative rows; refreshed via coalescer
-- [ ] **COMBAT-03**: Action buttons `[⚔️ Attack]`, `[🧙 Cast Spell]`, `[🛡️ Dodge]`, `[⏭️ End Turn]` rendered with `custom_id` including current actor's user_id
-- [ ] **COMBAT-04**: Turn gatekeeper validates clicker's Discord user_id == current actor (mapped via `channel_sessions` + `dm20__get_character.player_id`); else ephemeral warning
-- [ ] **COMBAT-05**: Attack → weapon select modal → `dm20__combat_action(action="attack", weapon=..., target=...)`; narrative resolved via party-mode flow
-- [ ] **COMBAT-06**: Dodge → `dm20__apply_effect(target=self, effect="dodging")` (verify dm20 supports this; else shim via condition); ends turn
-- [ ] **COMBAT-07**: End Turn → `dm20__next_turn`
+- [x] **COMBAT-01**: On combat start (`dm20__start_combat`), bot reads `dm20__get_game_state` for initiative order, renders combat embed
+- [x] **COMBAT-02**: Combat embed shows turn order, HP/AC, conditions; supports 8+ initiative rows; refreshed via coalescer
+- [x] **COMBAT-03**: Action buttons `[⚔️ Attack]`, `[🧙 Cast Spell]`, `[🛡️ Dodge]`, `[⏭️ End Turn]` rendered with `custom_id` including current actor's user_id
+- [x] **COMBAT-04**: Turn gatekeeper validates clicker's Discord user_id == current actor (mapped via `channel_sessions` + `dm20__get_character.player_id`); else ephemeral warning
+- [x] **COMBAT-05**: Attack → weapon select modal → `dm20__combat_action(action="attack", weapon=..., target=...)`; narrative resolved via party-mode flow
+- [x] **COMBAT-06**: Dodge → `dm20__apply_effect(target=self, effect="dodging")` (verify dm20 supports this; else shim via condition); ends turn
+- [x] **COMBAT-07**: End Turn → `dm20__next_turn`
 - [ ] **COMBAT-08**: 8-player Discord load test: combat embed updates 4× per round, zero 429 rate-limit errors
 - [ ] **COMBAT-09**: Riposte detection: on monster attack resolution where target is eligible (Fighter/Battle Master, Rogue Swashbuckler — verified via `dm20__validate_character_rules`) and target has `has_reaction=true`, bot surfaces timed Riposte button
 - [ ] **COMBAT-10**: Riposte button persists 8s with `deadline_ts` in `riposte_timers`; on click, bot calls `dm20__combat_action(reaction=true, weapon=primary)` (or shim if dm20 lacks reaction flag) — only target player can click
 - [ ] **COMBAT-11**: Riposte timer survives bot restart — `riposte_timers` row drives a background task that cleans expired buttons on restart and any time before expiry
-- [ ] **COMBAT-12**: Combat end detected from dm20 state transition; bot returns to EXPLORATION embed
+- [x] **COMBAT-12**: Combat end detected from dm20 state transition; bot returns to EXPLORATION embed
 
 ### Sanitization & Safety (SAN)
 

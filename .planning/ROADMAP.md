@@ -15,7 +15,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
 - [x] **Phase 1: MCP Client + Local State** — Async MCP wrapper to dm20 at oMLX, local Discord-state SQLite (WAL, repositories), sanitizer pipeline
 - [x] **Phase 2: Discord Scaffold + Persistent Views** — discord.py bot, slash command tree, DynamicItem `custom_id`s, embed coalescer, defer discipline, restart-drill infrastructure
 - [x] **Phase 3: Lobby + Character Ingest** — `/start_game` + `/load_adventure`, ready-check, D&D Beyond import, OCR/PDF pipeline for paper sheets, manual-review modal
-- [ ] **Phase 4: Gameplay — Exploration + Combat (Party Mode)** — Bind to dm20 Party Mode queue, action batching, combat embed, turn gatekeeping by Discord user_id, dodge, 8-player load proof
+- [~] **Phase 4: Gameplay — Exploration + Combat (Party Mode)** — Bind to dm20 Party Mode queue, action batching, combat embed, turn gatekeeping by Discord user_id, dodge, 8-player load proof (2/3 plans complete)
 - [ ] **Phase 5: Reactions + Self-Host Polish** — Timed Riposte button with restart-survival, README, `.env.example`, bootstrap, `run.py`, launchd recipe, full test suite
 
 ## Phase Details
@@ -84,7 +84,10 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   4. Turn gatekeeping verified: a non-active player clicking an action button receives an ephemeral "❌ Not your turn"; the active player's click dispatches to dm20
   5. Attack flow: weapon select modal → `dm20__combat_action(action="attack", weapon=..., target=...)` → narrative back via party mode; Dodge calls `apply_effect`; End Turn calls `next_turn`
   6. 8-player load test: synthetic 8-actor combat with 4× embed updates/round runs for 5 rounds with zero Discord 429 errors and zero `database is locked`
-**Plans**: TBD
+**Plans**:
+- [x] 01-PLAN-orchestrator-and-exploration.md — PartyModeOrchestrator (poll loop, state-change dispatch), ExplorationCog (DeclareAction modal, coalescer integration, /status diagnostics), enriched exploration embed — COMPLETE (58 tests, 13 files, 90 min)
+- [x] 02-PLAN-combat-cog-and-turn-gatekeeping.md — combat_conditions table, CombatCog (state-change wiring, embed refresh), AttackButton + DodgeButton + EndTurnButton + CastSpellButton (4 persistent combat buttons), WeaponSelectModal, TurnGatekeeper, dodge shim, asyncio.gather state dispatch, COMBAT cadence=1 — COMPLETE (257 tests, 17 files, 180 min)
+- [ ] 03-PLAN-load-test-and-closure.md — 8-player load test, 5-round sustained combat, rate-limit validation, Phase 4 closure
 
 ### Phase 5: Reactions + Self-Host Polish
 **Goal**: The Riposte timed UI is functional and survives restart; the project is documented, tested, and self-hostable end-to-end by a user with oMLX/dm20 already running

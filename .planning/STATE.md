@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-05-22T01:08:33Z"
+last_updated: "2026-05-22T03:58:41.926Z"
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 60
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 11
+  percent: 0
 ---
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-22 (Phase 3 COMPLETE — IngestCog + modals + QR + smoke test, 469 tests passing)
+**Last updated:** 2026-05-22 (Phase 4 Plan 02 COMPLETE — CombatCog + turn gatekeeping + orchestrator cadence, 726 tests passing)
 **Milestone:** v1.0
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -40,13 +40,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 1 | MCP Client + Local State | ✅ Complete (3/3 plans, 177 tests) |
 | 2 | Discord Scaffold + Persistent Views | ✅ Complete (3/3 plans, 284 tests) |
 | 3 | Lobby + Character Ingest | ✅ Complete (3/3 plans, 469 tests) |
-| 4 | Gameplay — Exploration + Combat (Party Mode) | ⚪ Not Started |
+| 4 | Gameplay — Exploration + Combat (Party Mode) | 🔄 In Progress (2/3 plans) |
 | 5 | Reactions + Self-Host Polish | ⚪ Not Started |
 
 ## Blockers / Concerns
 
 - [ ] Verify dm20 supports concurrent multi-campaign sessions in one process (Phase 1 spike)
-- [ ] Verify dm20 has a "dodging" condition / `apply_effect` semantics suitable for our Dodge action (Phase 4)
+- [x] Verify dm20 has a "dodging" condition / `apply_effect` semantics suitable for our Dodge action (Phase 4) — resolved: shim uses combat_conditions table + apply_effect("dodging")
 - [ ] Verify dm20 models reactions (`has_reaction`) natively; if not, design the shim (Phase 5)
 - [ ] Confirm `dm20__party_pop_action` returns immediately when queue empty (we may need polling cadence vs WS)
 
@@ -76,6 +76,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - Confidence threshold 0.6: >= 0.6 → CharacterReviewModal (prefilled); < 0.6 → CharacterEntryModal
 - player_id=str(interaction.user.id) persisted on dm20__create_character for Phase 4 turn gatekeeping
 - Non-ephemeral lobby update: lobby_message_id from dm20_party_token JSON; missing key = graceful skip
+- _get_poll_cadence: COMBAT returns 1 (every tick), EXPLORATION returns _combat_check_every_n (default 4)
+- asyncio.gather(return_exceptions=True) for state_change callbacks: one cog raising doesn't block others
+- AttackButton._maybe_surface_riposte is Phase 5 seam: no-op in Phase 4; RiposteCog hooks here
+- Dodge v1 shim: combat_conditions table + apply_effect("dodging"); expires_round = applied_round + 1
+- Cross-cog helpers on EldritchBot: close_exploration_coalescer_for / close_combat_coalescer_for avoid cog-to-cog circular imports
+- _PARAM_REMAP in setup_hook.py bridges regex group names (round) to __init__ params (round_n) for combat buttons
+- attrs-before-super pattern in combat DynamicItems: set self.channel_id/actor_id/round_n BEFORE super().__init__() (discord.py accesses custom_id during init)
 
 ## Performance Metrics
 
@@ -90,6 +97,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 03-lobby-character-ingest | 01 | 120 | 4 | 16 |
 | 03-lobby-character-ingest | 02 | 90 | 4 | 14 |
 | 03-lobby-character-ingest | 03 | 85 | 5 | 12 |
+| 04-gameplay-exploration-combat | 02 | 180 | 3 | 17 |
 
 ## Recent History
 
@@ -109,3 +117,5 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-22: Phase 3 Plan 02 COMPLETE — OCR/PDF ingest pipeline, oMLX schema translation, IngestResult with confidence scoring; 82 new tests
 - 2026-05-22: Phase 3 Plan 03 COMPLETE — IngestCog (3 upload commands), CharacterReviewModal + CharacterEntryModal (5-component cap), _ModalLaunchView 2-step pattern, QR helper extracted; 55 new tests; 469 total passing
 - 2026-05-22: PHASE 3 COMPLETE — all 3 plans done, LOBBY-01..04 + INGEST-01..11 satisfied, import-linter 6 contracts KEPT
+- 2026-05-22: Phase 4 Plan 01 COMPLETE — PartyModeOrchestrator + ExplorationCog + DeclareActionModal + embed rendering; 58 new tests
+- 2026-05-22: Phase 4 Plan 02 COMPLETE — CombatCog + combat buttons + dodge shim + turn gatekeeping + orchestrator cadence + integration tests; 257 new tests; 726 total passing
