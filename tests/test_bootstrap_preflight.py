@@ -95,9 +95,7 @@ async def test_preflight_omlx_unreachable(
     omlx_models_url = f"{str(settings.omlx_endpoint).rstrip('/')}/models"
 
     with respx.mock(assert_all_called=False) as respx_mock:
-        respx_mock.get(omlx_models_url).mock(
-            side_effect=httpx.ConnectError("connection refused")
-        )
+        respx_mock.get(omlx_models_url).mock(side_effect=httpx.ConnectError("connection refused"))
         code = await bootstrap_mod.preflight()
 
     captured = capsys.readouterr()
@@ -211,9 +209,7 @@ def test_main_calls_sys_exit_with_preflight_code(
     monkeypatch.setattr(bootstrap_mod, "preflight", _fake_preflight)
 
     # Avoid configure_logging side effects in CI
-    monkeypatch.setattr(
-        "eldritch_dm.logging.configure_logging", lambda **kwargs: None
-    )
+    monkeypatch.setattr("eldritch_dm.logging.configure_logging", lambda **kwargs: None)
 
     bootstrap_mod.main()
 
@@ -233,14 +229,10 @@ def test_env_example_has_mcp_rate_limit_ms() -> None:
     # Must be tagged 🧪 (developer/advanced) per the .env.example legend
     # Find context around the line
     lines = env_example.splitlines()
-    idx = next(
-        i for i, line in enumerate(lines) if line.startswith("MCP_RATE_LIMIT_MS")
-    )
+    idx = next(i for i, line in enumerate(lines) if line.startswith("MCP_RATE_LIMIT_MS"))
     # Look at the 5 lines immediately preceding for the 🧪 tag
     preceding = "\n".join(lines[max(0, idx - 8) : idx])
-    assert "🧪" in preceding, (
-        "MCP_RATE_LIMIT_MS should be tagged 🧪 in its comment block"
-    )
+    assert "🧪" in preceding, "MCP_RATE_LIMIT_MS should be tagged 🧪 in its comment block"
     # Must mention OPS-03 or rate-limit context
     assert ("OPS-03" in preceding) or ("rate" in preceding.lower()), (
         "MCP_RATE_LIMIT_MS comment must reference OPS-03 or rate-limit context"
@@ -257,14 +249,10 @@ def test_env_example_resolves_omlx_cache_strategy_orphan() -> None:
     # Option (a) was chosen: the OMLX_CACHE_STRATEGY assignment line must
     # NOT be present, OR (if present) a Settings field MUST back it.
     # We verify by checking that no assignment line exists.
-    lines = [
-        line for line in env_example.splitlines() if line.startswith("OMLX_CACHE_STRATEGY=")
-    ]
+    lines = [line for line in env_example.splitlines() if line.startswith("OMLX_CACHE_STRATEGY=")]
     # The pre-Phase-5 .env.example had `# OMLX_CACHE_STRATEGY=` (commented out).
     # Removal means there are no live or commented OMLX_CACHE_STRATEGY assignments.
-    commented_lines = [
-        line for line in env_example.splitlines() if "OMLX_CACHE_STRATEGY=" in line
-    ]
+    commented_lines = [line for line in env_example.splitlines() if "OMLX_CACHE_STRATEGY=" in line]
     assert len(lines) == 0, (
         "OMLX_CACHE_STRATEGY= active assignment must be removed (orphan; not in Settings)"
     )
@@ -339,3 +327,138 @@ def test_pyproject_dependencies_pinned() -> None:
     pin_operators = ("==", ">=", "~=", "<=", "<", ">")
     unpinned = [d for d in deps if not any(op in d for op in pin_operators)]
     assert not unpinned, f"Unpinned dependencies (HOST-05): {unpinned!r}"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 15: EXIT_MISSING_TOKEN constant exists and equals 4 (D-26)
+# ──────────────────────────────────────────────────────────────────────────────
+def test_exit_missing_token_constant() -> None:
+    """The bot-launch boundary in run.py / eldritch_dm.bot.__main__ uses
+    this constant; preflight() itself never returns it.
+    """
+    from eldritch_dm.bootstrap import EXIT_MISSING_TOKEN
+
+    assert EXIT_MISSING_TOKEN == 4
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 16: preflight() runs token-free — D-26 core promise.
+#
+# This is the new-self-hoster onramp: step 4 of the README quickstart
+# (verify dependencies) must succeed BEFORE step 5 (paste your bot token).
+# Reproduces the exact failure mode user-reported: unset DISCORD_TOKEN +
+# no .env file → preflight must still emit the four structured-log lines
+# in order and return EXIT_OK.
+# ──────────────────────────────────────────────────────────────────────────────
+@pytest.mark.asyncio
+async def test_preflight_runs_without_discord_token(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from eldritch_dm import bootstrap as bootstrap_mod
+    from eldritch_dm.config import Settings, get_settings
+
+    # Pre-condition: DISCORD_TOKEN is unset; no .env file in the test CWD.
+    get_settings.cache_clear()
+    monkeypatch.delenv("DISCORD_TOKEN", raising=False)
+    monkeypatch.delenv("DISCORD_APPLICATION_ID", raising=False)
+    monkeypatch.delenv("DISCORD_GUILD_IDS", raising=False)
+    monkeypatch.setenv("ELDRITCH_DB_PATH", str(tmp_path / "eldritch.sqlite3"))
+
+    # Sanity check the preconditions we care about:
+    # Settings() instantiates successfully with discord_token=None.
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.discord_token is None, "Settings must accept missing DISCORD_TOKEN (D-26 contract)"
+
+    omlx_models_url = f"{str(s.omlx_endpoint).rstrip('/')}/models"
+
+    with respx.mock(assert_all_called=False) as respx_mock:
+        respx_mock.get(omlx_models_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": [{"id": "ShoeGPT"}]},
+            )
+        )
+        respx_mock.get(str(s.mcp_tools_url)).mock(
+            return_value=httpx.Response(
+                200,
+                json=[{"name": "dm20__create_campaign"}],
+            )
+        )
+        code = await bootstrap_mod.preflight()
+
+    assert code == bootstrap_mod.EXIT_OK, (
+        f"preflight must succeed without DISCORD_TOKEN. got {code}"
+    )
+    get_settings.cache_clear()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 17: `python -m eldritch_dm.bootstrap` as subprocess works token-free.
+#
+# Integration-flavored regression: invoke the canonical README command in a
+# subprocess with DISCORD_TOKEN unset and no .env file, mock the HTTP layer
+# via a side-effect file that the child can find... actually, the cleanest
+# approach: let the schema check fail intentionally (no DB path it can
+# write to) to confirm we reach preflight() at all and emit a FRIENDLY
+# error instead of a pydantic traceback.
+# ──────────────────────────────────────────────────────────────────────────────
+def test_bootstrap_subprocess_no_traceback_without_token(
+    tmp_path: Path,
+) -> None:
+    import os
+    import subprocess
+    import sys
+
+    # Run from an empty CWD so the project's .env file isn't auto-loaded
+    # by pydantic-settings.
+    workdir = tmp_path / "empty_cwd"
+    workdir.mkdir(exist_ok=True)
+
+    env = os.environ.copy()
+    env.pop("DISCORD_TOKEN", None)
+    # Point at a writable temp DB so schema bootstrap succeeds — that way
+    # the test focuses purely on the token-free contract, not on schema.
+    env["ELDRITCH_DB_PATH"] = str(tmp_path / "preflight_subprocess.sqlite3")
+    # Point oMLX / MCP at an unreachable port so we get a clean
+    # EXIT_OMLX_UNREACHABLE (1) instead of either EXIT_OK (depends on
+    # oMLX being live) or a hang. The point of THIS test is "no
+    # ValidationError" — exit code 1 is fine here.
+    env["OMLX_ENDPOINT"] = "http://127.0.0.1:1/v1"
+    env["MCP_EXECUTE_URL"] = "http://127.0.0.1:1/v1/mcp/execute"
+    env["MCP_TOOLS_URL"] = "http://127.0.0.1:1/v1/mcp/tools"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "eldritch_dm.bootstrap"],
+        env=env,
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    combined = result.stdout + result.stderr
+
+    # The whole point: no pydantic traceback should ever appear.
+    assert "Traceback" not in combined, (
+        f"`python -m eldritch_dm.bootstrap` leaked a traceback when "
+        f"DISCORD_TOKEN was unset. D-26 was supposed to fix this. "
+        f"Combined output:\n{combined}"
+    )
+    assert "ValidationError" not in combined, (
+        f"`python -m eldritch_dm.bootstrap` emitted a pydantic ValidationError "
+        f"when DISCORD_TOKEN was unset. D-26 was supposed to fix this. "
+        f"Combined output:\n{combined}"
+    )
+    # We expect oMLX-unreachable (1) because the endpoint we set is bogus.
+    # The structured log line for the schema stage must still appear,
+    # proving preflight got past the (now-removed) token gate.
+    assert "preflight_schema_ok" in combined, (
+        f"expected preflight_schema_ok to appear (proves we reached "
+        f"preflight without dying on missing token). Got:\n{combined}"
+    )
+    # Friendly stderr from oMLX-unreachable branch.
+    assert "oMLX" in combined, f"expected oMLX-unreachable diagnostic. Got:\n{combined}"
+    assert result.returncode == 1, (
+        f"expected EXIT_OMLX_UNREACHABLE=1 (bogus endpoint). Got "
+        f"{result.returncode}. Combined output:\n{combined}"
+    )

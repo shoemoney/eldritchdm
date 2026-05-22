@@ -30,13 +30,45 @@ class TestDefaultsLoad:
 
 
 class TestMissingToken:
-    """Missing DISCORD_TOKEN must raise ValidationError."""
+    """Missing DISCORD_TOKEN does NOT raise (D-26).
 
-    def test_missing_discord_token_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    discord_token is Optional[str] = None in Settings so preflight
+    (`python -m eldritch_dm.bootstrap`, `run.py --check-only`) can validate
+    oMLX / dm20 / SQLite without a token. Token enforcement lives at the
+    bot-launch boundary in `run.py` and `eldritch_dm.bot.__main__`.
+    """
+
+    def test_missing_discord_token_yields_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
         get_settings.cache_clear()
         monkeypatch.delenv("DISCORD_TOKEN", raising=False)
         # Ensure no .env file with a token is picked up — override env_file
-        with pytest.raises(ValidationError, match="discord_token"):
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
+        assert settings.discord_token is None
+        # Other defaults still load — preflight needs them.
+        assert settings.eldritch_db_path.endswith("eldritch.sqlite3")
+        assert str(settings.omlx_endpoint).startswith("http://localhost:8765")
+        get_settings.cache_clear()
+
+    def test_blank_discord_token_yields_blank(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Empty-string DISCORD_TOKEN (operator pasted nothing) still
+        validates at the Settings layer; bot-launch boundary handles it.
+        """
+        get_settings.cache_clear()
+        monkeypatch.setenv("DISCORD_TOKEN", "")
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
+        # Empty string is preserved as-is; run.py's strip-then-truthy check
+        # treats it as missing.
+        assert settings.discord_token == ""
+        get_settings.cache_clear()
+
+    def test_malformed_other_field_still_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Removing token-required-ness does not weaken validation on
+        OTHER fields. A bogus DISCORD_APPLICATION_ID still raises.
+        """
+        get_settings.cache_clear()
+        monkeypatch.delenv("DISCORD_TOKEN", raising=False)
+        monkeypatch.setenv("DISCORD_APPLICATION_ID", "not-an-int")
+        with pytest.raises(ValidationError, match="discord_application_id"):
             Settings(_env_file=None)  # type: ignore[call-arg]
         get_settings.cache_clear()
 

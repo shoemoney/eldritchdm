@@ -75,9 +75,7 @@ def test_run_check_only_returns_preflight_exit_code(
 # ──────────────────────────────────────────────────────────────────────────────
 # Test 2: ELDRITCH_ALLOW_OFFLINE_START=1 skips preflight
 # ──────────────────────────────────────────────────────────────────────────────
-def test_run_offline_start_skips_preflight(
-    tmp_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_offline_start_skips_preflight(tmp_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     run = _load_run_module()
     from eldritch_dm import bootstrap as bootstrap_mod
     from eldritch_dm.bot import bot as bot_mod
@@ -115,13 +113,19 @@ def test_run_offline_start_skips_preflight(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Test 3: Missing DISCORD_TOKEN raises ValidationError; exit non-zero,
-#         stderr names the missing field.
+# Test 3: Missing DISCORD_TOKEN → friendly error, exit 4, NO traceback (D-26).
+#
+# Before D-26, this test asserted "any non-zero exit + 'discord_token' substring"
+# because the old behavior was a raw pydantic ValidationError traceback. The
+# new contract is stricter:
+#   * exact exit code 4 (EXIT_MISSING_TOKEN)
+#   * stderr mentions DISCORD_TOKEN and points at .env.example
+#   * NO Python traceback ever reaches the operator
 # ──────────────────────────────────────────────────────────────────────────────
-def test_run_missing_discord_token_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # Run in a subprocess so we get a real `Settings()` failure.
+def test_run_missing_discord_token_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from eldritch_dm.bootstrap import EXIT_MISSING_TOKEN
+
+    # Run in a subprocess so we get the real exit code + stderr.
     env = os.environ.copy()
     env.pop("DISCORD_TOKEN", None)
     env["ELDRITCH_DB_PATH"] = str(tmp_path / "eldritch.sqlite3")
@@ -138,10 +142,60 @@ def test_run_missing_discord_token_fails(
         text=True,
         timeout=20,
     )
-    assert result.returncode != 0
-    # pydantic v2 ValidationError stringifies with "discord_token" in the message
     combined = result.stdout + result.stderr
-    assert "discord_token" in combined.lower() or "DISCORD_TOKEN" in combined
+    assert result.returncode == EXIT_MISSING_TOKEN, (
+        f"expected exit code {EXIT_MISSING_TOKEN} (EXIT_MISSING_TOKEN), "
+        f"got {result.returncode}. Combined output:\n{combined}"
+    )
+    # Friendly stderr must reference DISCORD_TOKEN and .env.example
+    assert "DISCORD_TOKEN" in combined, f"stderr must mention DISCORD_TOKEN. Got:\n{combined}"
+    assert ".env" in combined, (
+        f"stderr must point self-hosters at .env / .env.example. Got:\n{combined}"
+    )
+    # No raw pydantic ValidationError traceback — the whole point of D-26.
+    assert "Traceback" not in combined, (
+        f"a Python traceback leaked to the operator. D-26 demands a friendly "
+        f"error instead. Combined output:\n{combined}"
+    )
+    assert "pydantic" not in combined.lower(), (
+        f"pydantic internals must not appear in operator-facing output. Got:\n{combined}"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test 3b: `run.py --check-only` works WITHOUT DISCORD_TOKEN (D-26).
+#
+# This is the core promise of the README quickstart: step 4 (verify
+# dependencies) must succeed BEFORE step 5 (paste your bot token).
+# ──────────────────────────────────────────────────────────────────────────────
+def test_run_check_only_works_without_discord_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = _load_run_module()
+    from eldritch_dm import bootstrap as bootstrap_mod
+    from eldritch_dm.config import get_settings
+
+    # Clear cached Settings so the unset DISCORD_TOKEN takes effect.
+    get_settings.cache_clear()
+    monkeypatch.delenv("DISCORD_TOKEN", raising=False)
+    monkeypatch.delenv("DISCORD_APPLICATION_ID", raising=False)
+    monkeypatch.delenv("DISCORD_GUILD_IDS", raising=False)
+
+    captured: list[int] = []
+
+    async def _fake_preflight() -> int:
+        captured.append(1)
+        return bootstrap_mod.EXIT_OK
+
+    monkeypatch.setattr(bootstrap_mod, "preflight", _fake_preflight)
+
+    code = run.main(["--check-only"])
+    assert code == bootstrap_mod.EXIT_OK, (
+        f"--check-only must succeed without DISCORD_TOKEN (D-26). got {code}"
+    )
+    assert captured == [1], "preflight should have been invoked once"
+
+    get_settings.cache_clear()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -207,9 +261,7 @@ def test_plist_validates_with_plutil() -> None:
         text=True,
         timeout=5,
     )
-    assert result.returncode == 0, (
-        f"plutil -lint failed: {result.stdout} {result.stderr}"
-    )
+    assert result.returncode == 0, f"plutil -lint failed: {result.stdout} {result.stderr}"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -244,9 +296,7 @@ def test_plist_structure() -> None:
                 elif value_elem.tag == "dict":
                     out[key] = _to_dict(value_elem)
                 elif value_elem.tag == "array":
-                    out[key] = [
-                        c.text for c in list(value_elem) if c.tag == "string"
-                    ]
+                    out[key] = [c.text for c in list(value_elem) if c.tag == "string"]
                 i += 2
             else:
                 i += 1
@@ -343,9 +393,7 @@ def test_install_launchd_script() -> None:
         text=True,
         timeout=15,
     )
-    assert result.returncode == 0, (
-        f"DRY_RUN install-launchd.sh failed: {result.stderr}"
-    )
+    assert result.returncode == 0, f"DRY_RUN install-launchd.sh failed: {result.stderr}"
     assert "[DRY_RUN]" in result.stdout
 
 
@@ -359,9 +407,7 @@ def test_uninstall_launchd_script() -> None:
     assert content.startswith("#!/usr/bin/env bash")
     assert "launchctl bootout" in content
     # Syntax-only check (not actually running, since it would touch real launchd):
-    result = subprocess.run(
-        ["bash", "-n", str(UNINSTALL_SH)], capture_output=True, text=True
-    )
+    result = subprocess.run(["bash", "-n", str(UNINSTALL_SH)], capture_output=True, text=True)
     assert result.returncode == 0
 
 
@@ -394,9 +440,7 @@ def test_troubleshooting_docs_substantive() -> None:
 def test_troubleshooting_docs_frontmatter() -> None:
     for doc in (DM20_DOC, INGEST_DOC):
         content = doc.read_text(encoding="utf-8")
-        assert content.startswith("---\n"), (
-            f"{doc.name} must start with YAML frontmatter delimiter"
-        )
+        assert content.startswith("---\n"), f"{doc.name} must start with YAML frontmatter delimiter"
         # Extract the frontmatter block
         match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
         assert match is not None, f"{doc.name} frontmatter not parseable"
