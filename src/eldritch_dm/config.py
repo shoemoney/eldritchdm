@@ -33,7 +33,13 @@ class Settings(BaseSettings):
     )
 
     # ── Discord ──────────────────────────────────────────────────────────────
-    discord_token: str
+    # discord_token is Optional so preflight (`python -m eldritch_dm.bootstrap`,
+    # `python run.py --check-only`) can validate oMLX / dm20 / SQLite WITHOUT
+    # a token in env. The token is required only by code paths that actually
+    # contact Discord — `run.py` main() and `eldritch_dm.bot.__main__` validate
+    # it at the moment they're about to call `bot.run(...)`. See Phase 5
+    # Plan 03 fix: preflight-requires-token (D-26).
+    discord_token: str | None = None
     discord_application_id: int | None = None
     # CSV of guild IDs; use `guild_ids_list` property to parse
     discord_guild_ids: str = ""
