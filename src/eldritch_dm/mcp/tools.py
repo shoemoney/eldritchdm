@@ -176,23 +176,26 @@ async def stop_party_mode(
 
 async def party_pop_action(
     client: MCPClient,
-    *,
-    campaign_name: str,
 ) -> dict[str, Any]:
-    """Pop the next queued player action in party mode."""
-    return await client.call("dm20__party_pop_action", campaign_name=campaign_name)
+    """Pop the next queued player action in party mode.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    Returns immediately: {"empty": True, "pending": 0} when queue is empty.
+    """
+    return await client.call("dm20__party_pop_action")
 
 
 async def party_thinking(
     client: MCPClient,
     *,
-    campaign_name: str,
     message: str,
 ) -> dict[str, Any]:
-    """Broadcast a 'DM is thinking...' message in party mode."""
+    """Broadcast a 'DM is thinking...' message in party mode.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    """
     return await client.call(
         "dm20__party_thinking",
-        campaign_name=campaign_name,
         message=message,
     )
 
@@ -239,11 +242,13 @@ async def party_resolve_action(
 async def start_combat(
     client: MCPClient,
     *,
-    campaign_name: str,
     encounter: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Start a combat encounter."""
-    kwargs: dict[str, Any] = {"campaign_name": campaign_name}
+    """Start a combat encounter.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    """
+    kwargs: dict[str, Any] = {}
     if encounter is not None:
         kwargs["encounter"] = encounter
     return await client.call("dm20__start_combat", **kwargs)
@@ -251,37 +256,39 @@ async def start_combat(
 
 async def end_combat(
     client: MCPClient,
-    *,
-    campaign_name: str,
 ) -> dict[str, Any]:
-    """End the current combat encounter."""
-    return await client.call("dm20__end_combat", campaign_name=campaign_name)
+    """End the current combat encounter.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    """
+    return await client.call("dm20__end_combat")
 
 
 async def next_turn(
     client: MCPClient,
-    *,
-    campaign_name: str,
 ) -> dict[str, Any]:
-    """Advance to the next combatant's turn."""
-    return await client.call("dm20__next_turn", campaign_name=campaign_name)
+    """Advance to the next combatant's turn.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    """
+    return await client.call("dm20__next_turn")
 
 
 async def combat_action(
     client: MCPClient,
     *,
-    campaign_name: str,
     action: str,
     **extra: Any,
 ) -> dict[str, Any]:
     """Perform a combat action.
 
-    Known extra kwargs: weapon, target, reaction, spell, modifier.
-    Passed through as-is to dm20.
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    Known extra kwargs: attacker, target, action_type, weapon_or_spell, damage_dice,
+    damage_type, save_ability, half_on_save, spell_dc.
+    Returns formatted text narration — NOT JSON. Re-fetch get_game_state for HP.
     """
     return await client.call(
         "dm20__combat_action",
-        campaign_name=campaign_name,
         action=action,
         **extra,
     )
@@ -290,15 +297,16 @@ async def combat_action(
 async def apply_effect(
     client: MCPClient,
     *,
-    campaign_name: str,
     target: str,
     effect: str,
     **extra: Any,
 ) -> dict[str, Any]:
-    """Apply a status effect to a target."""
+    """Apply a status effect to a target.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    """
     return await client.call(
         "dm20__apply_effect",
-        campaign_name=campaign_name,
         target=target,
         effect=effect,
         **extra,
@@ -308,14 +316,15 @@ async def apply_effect(
 async def remove_effect(
     client: MCPClient,
     *,
-    campaign_name: str,
     target: str,
     effect: str,
 ) -> dict[str, Any]:
-    """Remove a status effect from a target."""
+    """Remove a status effect from a target.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    """
     return await client.call(
         "dm20__remove_effect",
-        campaign_name=campaign_name,
         target=target,
         effect=effect,
     )
@@ -326,11 +335,13 @@ async def remove_effect(
 
 async def get_game_state(
     client: MCPClient,
-    *,
-    campaign_name: str,
 ) -> dict[str, Any]:
-    """Get the current game state for a campaign."""
-    return await client.call("dm20__get_game_state", campaign_name=campaign_name)
+    """Get the current game state.
+
+    dm20 operates on a process-global storage singleton — no campaign_name arg.
+    Returns formatted markdown text (not JSON). Parse with gameplay.game_state_parser.
+    """
+    return await client.call("dm20__get_game_state")
 
 
 async def get_claudmaster_session_state(
@@ -435,6 +446,37 @@ async def list_characters(
     Phase 3: used by ReadyButton to verify the ready user is on the roster.
     """
     return await client.call("dm20__list_characters", campaign_name=campaign_name)
+
+
+async def get_character(
+    client: MCPClient,
+    *,
+    name_or_id: str,
+) -> dict[str, Any]:
+    """Get a player character by name or ID.
+
+    Returns character data including player_name (Discord user_id) for turn gatekeeping.
+    Returns an error-indicating dict if not found (check `result.get("error")`).
+
+    Phase 4: used by turn gatekeeper to validate interaction.user.id matches actor.
+    """
+    return await client.call("dm20__get_character", name_or_id=name_or_id)
+
+
+async def get_npc(
+    client: MCPClient,
+    *,
+    name_or_id: str,
+) -> dict[str, Any]:
+    """Get a non-player character (monster/NPC) by name or ID.
+
+    dm20 stores NPCs separately from player characters (storage.get_npc).
+    Used by the orchestrator to detect monster turns: if get_character returns
+    an error, try get_npc — if found, it's a monster turn (bot drives it).
+
+    Phase 4: used in PartyModeOrchestrator._drive_current_turn to detect NPC turns.
+    """
+    return await client.call("dm20__get_npc", name_or_id=name_or_id)
 
 
 async def get_class_info(
@@ -590,4 +632,7 @@ TOOL_TO_FUNCTION: dict[str, Callable[..., Awaitable[dict[str, Any]]]] = {
     "dm20__player_action": player_action,
     "dm20__get_party_status": get_party_status,
     "dm20__load_adventure": load_adventure,
+    # Phase 4 additions
+    "dm20__get_character": get_character,
+    "dm20__get_npc": get_npc,
 }
