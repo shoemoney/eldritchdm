@@ -17,10 +17,10 @@ Footer (D-16): every embed includes ``🎲 ShoeGPT · EldritchDM`` + timestamp.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import IntEnum
-from typing import Sequence
 
 import discord
 
@@ -91,7 +91,7 @@ def lobby_embed(
         A :class:`discord.Embed` with LOBBY color.
     """
     lines = [
-        f"{'✅' if p.ready else '⌛'} **{p.display_name}** — {p.character_name or 'no character yet'}"
+        f"{'✅' if p.ready else '⌛'} **{p.display_name}** — {p.character_name or 'no character yet'}"  # noqa: E501
         for p in players
     ]
     player_block = "\n".join(lines) if lines else "*No players yet.*"
@@ -203,19 +203,32 @@ def combat_embed(
     *,
     round_n: int,
     current_actor: str,
-    initiative: Sequence[tuple[str, int, int, int, list[str]]],
+    initiative: Sequence[tuple],
 ) -> discord.Embed:
     """Render the combat turn-order embed.
+
+    Accepts EITHER:
+      - 6-tuple (v2, preferred): ``(name, initiative_roll, hp_cur, hp_max, ac, conditions)``
+      - 5-tuple (v1, legacy):    ``(name, initiative_roll, hp_cur, hp_max, conditions)``
+
+    For 5-tuple callers, ``ac`` defaults to 10 (backward-compat shim; see
+    Phase 4 Plan 02 SUMMARY for migration notes). The shim exists because
+    Plan 02 adds AC-inline rendering (D-13) while existing test snapshots
+    and call sites used the 5-tuple form from Phase 2.
 
     Args:
         round_n: Current combat round number.
         current_actor: Display name of the actor whose turn it is.
-        initiative: Sequence of
-            ``(name, initiative_roll, hp_cur, hp_max, conditions)`` tuples
-            sorted by initiative descending.
+        initiative: Sequence of 6-tuples ``(name, initiative_roll, hp_cur, hp_max, ac, conditions)``
+            OR legacy 5-tuples ``(name, initiative_roll, hp_cur, hp_max, conditions)``,
+            sorted by initiative descending. Max 25 rows (Discord embed field limit).
 
     Returns:
         A :class:`discord.Embed` with COMBAT color.
+
+    Turn markers (D-14):
+        ▶️  — current actor's turn
+        ▫️  — all other combatants
     """
     embed = discord.Embed(
         title=f"⚔️ Combat — Round {round_n}",
@@ -223,12 +236,24 @@ def combat_embed(
         color=int(EmbedColor.COMBAT),
     )
 
-    for name, init, hp_cur, hp_max, conditions in initiative:
-        marker = " ⏳" if name == current_actor else ""
+    for row in initiative:
+        # Normalize: detect 5-tuple vs 6-tuple by length
+        if len(row) == 6:  # type: ignore[arg-type]
+            name, init, hp_cur, hp_max, ac, conditions = row  # type: ignore[misc]
+        else:
+            # Legacy 5-tuple: (name, init, hp_cur, hp_max, conditions)
+            name, init, hp_cur, hp_max, conditions = row  # type: ignore[misc]
+            ac = 10  # backward-compat default (documented shim)
+
+        marker = "▶️" if name == current_actor else "▫️"
         cond_str = ", ".join(conditions) if conditions else "—"
+
+        # D-13 field title format: {marker} {name} ({hp}/{max} HP, AC {ac})
+        field_title = f"{marker} {name} ({hp_cur}/{hp_max} HP, AC {ac})"
+
         embed.add_field(
-            name=f"{name}{marker}",
-            value=f"init {init} · HP {hp_cur}/{hp_max} · {cond_str}",
+            name=field_title,
+            value=f"Initiative {init} · {cond_str}",
             inline=False,
         )
 

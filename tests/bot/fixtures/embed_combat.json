@@ -5,28 +5,28 @@
   "fields": [
     {
       "inline": false,
-      "name": "Thorin ⏳",
-      "value": "init 20 · HP 55/55 · —"
+      "name": "▶️ Thorin (55/55 HP, AC 10)",
+      "value": "Initiative 20 · —"
     },
     {
       "inline": false,
-      "name": "Goblin King",
-      "value": "init 18 · HP 40/60 · stunned"
+      "name": "▫️ Goblin King (40/60 HP, AC 10)",
+      "value": "Initiative 18 · stunned"
     },
     {
       "inline": false,
-      "name": "Aria",
-      "value": "init 15 · HP 42/50 · —"
+      "name": "▫️ Aria (42/50 HP, AC 10)",
+      "value": "Initiative 15 · —"
     },
     {
       "inline": false,
-      "name": "Brog",
-      "value": "init 12 · HP 30/30 · poisoned, exhausted"
+      "name": "▫️ Brog (30/30 HP, AC 10)",
+      "value": "Initiative 12 · poisoned, exhausted"
     },
     {
       "inline": false,
-      "name": "Cave Troll",
-      "value": "init 5 · HP 80/120 · frightened"
+      "name": "▫️ Cave Troll (80/120 HP, AC 10)",
+      "value": "Initiative 5 · frightened"
     }
   ],
   "flags": 0,
