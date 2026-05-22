@@ -326,9 +326,29 @@ class ReadyButton(
             # All roster players have readied up → EXPLORATION transition
             bound_log.info("ready_button_all_ready_transition")
 
+            channel_id_str = str(self.channel_id)
             await channel_sessions_repo.set_state(
-                str(self.channel_id), ChannelState.EXPLORATION
+                channel_id_str, ChannelState.EXPLORATION
             )
+
+            # G-1 (v1.0 audit closure): start the orchestrator task for the
+            # channel. Without this, a cold-start /start_game → all-ready
+            # lifetime leaves the channel in EXPLORATION with no orchestrator
+            # task running — the entire EXPLORE-01..07 + COMBAT-01..12 loop
+            # is silently inert until the bot restarts (setup_hook's RESUME
+            # loop is the only other start path). Mirrors bot.py:343.
+            orchestrator = getattr(bot, "orchestrator", None)
+            if orchestrator is not None:
+                try:
+                    await orchestrator.start_orchestrator_for_channel(
+                        channel_id=channel_id_str,
+                        campaign_name=session.campaign_name,
+                        session_id=session.claudmaster_session_id or "",
+                    )
+                except Exception:  # noqa: BLE001
+                    bound_log.exception("ready_button_start_orchestrator_failed")
+            else:
+                bound_log.warning("ready_button_orchestrator_missing")
 
             # Signal Claudmaster (best-effort; suppress errors to not block the transition)
             try:
