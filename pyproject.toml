@@ -23,6 +23,18 @@ dependencies = [
   "segno>=1.6,<2.0",
 ]
 
+# Console-script entry point so `pip install -e .` exposes the bot on PATH
+# as `eldritch-dm` (D-23). Equivalent to `python -m eldritch_dm.bot`.
+[project.scripts]
+eldritch-dm = "eldritch_dm.bot.__main__:main"
+
+# Project URLs surface in `pip show` and on PyPI. (D-25)
+# TODO confirm repo URL once the repo is published — placeholder for now.
+[project.urls]
+Homepage = "https://github.com/shoemoney/EldritchDM"
+Repository = "https://github.com/shoemoney/EldritchDM"
+Issues = "https://github.com/shoemoney/EldritchDM/issues"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0,<9.0",
