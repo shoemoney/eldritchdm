@@ -14,6 +14,7 @@ land in Phases 3-5 in their own cogs.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import discord
 from discord.ext import commands
@@ -29,7 +30,9 @@ from eldritch_dm.mcp.rate_limit import ChannelRateLimiter
 from eldritch_dm.persistence import ChannelSessionRepo, WriterQueue
 from eldritch_dm.persistence.bootstrap import bootstrap
 from eldritch_dm.persistence.models import ChannelState
+from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
+from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
 
 log = get_logger(__name__)
 
@@ -73,6 +76,11 @@ class EldritchBot(commands.Bot):
         self.rate_limiter: ChannelRateLimiter | None = None
         self.batch_coordinator: BatchCoordinator | None = None
         self.orchestrator: PartyModeOrchestrator | None = None
+        # Phase 5 Plan 01 gameplay subsystems — initialized in setup_hook
+        self.pc_classes: PCClassesRepo | None = None
+        self.riposte_timers: RiposteTimerRepo | None = None
+        self.riposte_timers_repo: RiposteTimerRepo | None = None
+        self.monster_driver: Any = None
         # Per-channel edit budget instances — keyed by channel_id string
         self._channel_edit_budgets: dict[str, ChannelEditBudget] = {}
 
@@ -121,6 +129,25 @@ class EldritchBot(commands.Bot):
                 await coalescer.close()
             except Exception:  # noqa: BLE001
                 log.warning("close_combat_coalescer_error", channel_id=channel_id)
+
+    async def current_round_for_channel(self, channel_id: str) -> int:
+        """Return the current dm20 combat round number.
+
+        Phase 5 Plan 01: used by RiposteButton.callback's `handle_riposte_click`
+        to label the consumed reaction. No caching in v1 (Riposte clicks are
+        rare); Plan 02 may add a tiny LRU/TTL cache if profiling shows a hotspot.
+
+        Returns 0 when no combat is active OR when the parse fails (defensive).
+        """
+        from eldritch_dm.gameplay.game_state_parser import parse_game_state  # noqa: PLC0415
+        from eldritch_dm.mcp import tools as mcp_tools  # noqa: PLC0415
+
+        try:
+            raw = await mcp_tools.get_game_state(self.mcp)
+            text = raw if isinstance(raw, str) else str(raw)
+            return parse_game_state(text).round_number
+        except Exception:  # noqa: BLE001
+            return 0
 
     def get_channel_edit_budget(self, channel_id: str) -> ChannelEditBudget:
         """Return (or create) the per-channel ChannelEditBudget.
@@ -213,11 +240,65 @@ class EldritchBot(commands.Bot):
         self.batch_coordinator = BatchCoordinator(
             window_seconds=float(settings.explore_batch_window_seconds),
         )
+
+        # (e3b) Phase 5 Plan 01 — pc_classes + riposte_timers repos + MonsterDriver
+        self.pc_classes = PCClassesRepo(db_path=settings.eldritch_db_path)
+        self.riposte_timers_repo = RiposteTimerRepo(
+            settings.eldritch_db_path, self.writer_queue
+        )
+        # Convenience alias used by RiposteButton.callback (interaction.client.riposte_timers)
+        self.riposte_timers = self.riposte_timers_repo
+
+        from eldritch_dm.bot.dynamic_items import RiposteButton  # noqa: PLC0415
+        from eldritch_dm.gameplay.monster_driver import MonsterDriver  # noqa: PLC0415
+
+        def _riposte_button_factory(timer_id: int, user_id: int) -> discord.ui.Item:
+            return RiposteButton(timer_id=timer_id, user_id=user_id)
+
+        async def _default_monster_state_provider(
+            channel_id: str, campaign_name: str
+        ) -> dict[str, Any]:
+            """Default state provider: parse get_game_state.
+
+            Plan 02 may replace this with the richer CombatCog state. For Plan 01
+            we synthesize a minimal dict from the parser plus a roster lookup.
+            """
+            from eldritch_dm.gameplay.game_state_parser import (  # noqa: PLC0415
+                parse_game_state,
+            )
+            from eldritch_dm.mcp import tools as mcp_tools  # noqa: PLC0415
+
+            raw = await mcp_tools.get_game_state(self.mcp)
+            text = raw if isinstance(raw, str) else str(raw)
+            parsed = parse_game_state(text)
+            # We don't yet have a fast (name → character_id, user_id) lookup;
+            # caller (CombatCog) overrides this provider with a richer one.
+            # Default: return an empty pcs list — driver will warn + next_turn.
+            return {"round_number": parsed.round_number, "pcs": []}
+
+        def _channel_resolver(channel_id: str) -> Any:
+            try:
+                return self.get_channel(int(channel_id))
+            except (TypeError, ValueError):
+                return None
+
+        self.monster_driver = MonsterDriver(
+            mcp=self.mcp,
+            rate_limiter=self.rate_limiter,
+            pc_classes_repo=self.pc_classes,
+            riposte_timers_repo=self.riposte_timers_repo,
+            button_factory=_riposte_button_factory,
+            state_provider=_default_monster_state_provider,
+            channel_resolver=_channel_resolver,
+            ttl_seconds=settings.riposte_ttl_seconds,
+        )
+
         self.orchestrator = PartyModeOrchestrator(
             mcp=self.mcp,
             rate_limiter=self.rate_limiter,
             batch_coordinator=self.batch_coordinator,
             channel_sessions=self.channel_sessions_repo,
+            monster_driver=self.monster_driver,
         )
 
         # (f) Load cogs

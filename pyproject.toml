@@ -101,6 +101,10 @@ ignore = [
 "tests/bot/cogs/test_lobby.py" = ["E501"]
 "tests/bot/test_setup_hook.py" = ["E501"]
 "tests/bot/test_restart_drill.py" = ["B011", "E501"]
+# Phase 5 Plan 01: the PLAN-02-LOCK-SEAM marker in reactions.handle_riposte_click
+# is one continuous docstring line so Plan 02's executor can grep it. Wrapping it
+# would hide the marker from grep and silently break the handoff between Plans.
+"src/eldritch_dm/gameplay/reactions.py" = ["E501"]
 
 # ── pytest ───────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]

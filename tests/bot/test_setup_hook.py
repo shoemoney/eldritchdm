@@ -92,6 +92,82 @@ async def test_build_view_for_row_known_class(view_class, custom_id, expected_cl
 # ── Test 2: build_view_for_row — unknown class → None ────────────────────────
 
 
+class TestPhase5SetupHookWiring:
+    """Phase 5 Plan 01 Task 3: pc_classes + monster_driver wired into setup_hook."""
+
+    @pytest.mark.asyncio
+    async def test_riposte_button_in_dynamic_item_classes(self) -> None:
+        """Regression: setup_hook continues to register RiposteButton."""
+        from eldritch_dm.bot.setup_hook import _get_dynamic_item_classes
+
+        class_map = _get_dynamic_item_classes()
+        assert "RiposteButton" in class_map
+
+    @pytest.mark.asyncio
+    async def test_setup_hook_constructs_pc_classes_and_monster_driver(
+        self, bot_factory
+    ) -> None:
+        bot = await bot_factory()
+        try:
+            from eldritch_dm.gameplay.monster_driver import MonsterDriver
+            from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
+
+            assert isinstance(bot.pc_classes, PCClassesRepo), (
+                f"Expected bot.pc_classes to be PCClassesRepo, got {type(bot.pc_classes)}"
+            )
+            assert isinstance(bot.monster_driver, MonsterDriver), (
+                f"Expected bot.monster_driver to be MonsterDriver, got "
+                f"{type(bot.monster_driver)}"
+            )
+        finally:
+            await bot.close()
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_has_monster_driver(self, bot_factory) -> None:
+        bot = await bot_factory()
+        try:
+            assert bot.orchestrator is not None
+            # Internal — but Plan 02 sweeper will need the same handle
+            assert getattr(bot.orchestrator, "_monster_driver", None) is not None
+        finally:
+            await bot.close()
+
+    @pytest.mark.asyncio
+    async def test_riposte_button_param_remap_absent(self) -> None:
+        """RiposteButton regex captures (timer_id, user_id) which already match
+        __init__ param names — no entry needed in _PARAM_REMAP."""
+        from eldritch_dm.bot.setup_hook import _PARAM_REMAP
+
+        assert "RiposteButton" not in _PARAM_REMAP, (
+            f"_PARAM_REMAP must not have RiposteButton — regex groups match "
+            f"__init__ params directly. Found: {_PARAM_REMAP}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_riposte_button_click_routes_correctly_after_restart(self) -> None:
+        """build_view_for_row produces a View whose child has matching custom_id."""
+        from datetime import datetime
+
+        from eldritch_dm.bot.setup_hook import build_view_for_row
+        from eldritch_dm.persistence.models import PersistentView
+
+        row = PersistentView(
+            custom_id="riposte:42:99",
+            view_class="RiposteButton",
+            message_id="999",
+            channel_id="111",
+            payload={},
+            created_at=datetime(2026, 1, 1),
+        )
+        view = build_view_for_row(row)
+        assert view is not None
+        children = view.children
+        assert len(children) == 1
+        child = children[0]
+        # The custom_id round-trips through reconstruction
+        assert child.custom_id == "riposte:42:99"
+
+
 @pytest.mark.asyncio
 async def test_build_view_for_row_unknown_class(caplog):
     """Unknown view_class returns None and logs a warning; does not raise."""

@@ -37,8 +37,8 @@ Phase 5 Plan 01.
 from __future__ import annotations
 
 import random
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
 import discord
 

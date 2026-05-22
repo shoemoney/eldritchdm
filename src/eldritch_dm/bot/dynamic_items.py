@@ -779,7 +779,7 @@ class AttackButton(
                 await rate_limiter.acquire(channel_id_str)
 
             try:
-                mech_result = await mcp_tools.combat_action(
+                await mcp_tools.combat_action(
                     bot.mcp,
                     action="attack",
                     attacker=actor_id,

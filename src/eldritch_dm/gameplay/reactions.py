@@ -49,9 +49,10 @@ Phase 5 Plan 01.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 import discord
 
@@ -277,6 +278,7 @@ async def handle_riposte_click(
     """Run the gate-and-dispatch sequence for a RiposteButton click.
 
     PLAN-02-LOCK-SEAM: replace status check with `async with session_locks.acquire("riposte", channel_id):` wrapper
+
     Plan 02 will wrap the read-then-mark sequence below in a per-channel
     asyncio.Lock so concurrent clicks (or a race with the background sweeper)
     cannot double-consume the same row. Plan 01 ships the correctness path
