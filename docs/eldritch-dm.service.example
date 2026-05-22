@@ -1,0 +1,48 @@
+# EldritchDM — systemd user unit (Linux best-effort, HOST-07).
+#
+# This unit is BEST-EFFORT. EldritchDM's reference rig is macOS (Apple
+# Silicon) with mlx-lm + ocrmac, both of which are macOS-only. Linux
+# self-hosters can run the Discord bot half here, but must either:
+#   - run oMLX on a remote macOS host and point OMLX_ENDPOINT at it, OR
+#   - use Ollama 0.19+ with the MLX backend as a drop-in replacement
+#     (different `omlx` semantics — see CLAUDE.md "Stack Patterns").
+#
+# Install (one-time):
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|{PROJECT_DIR}|$PWD|g" docs/eldritch-dm.service.example \
+#     > ~/.config/systemd/user/eldritch-dm.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now eldritch-dm
+#
+# Inspect:
+#   systemctl --user status eldritch-dm
+#   journalctl --user -u eldritch-dm -f
+#
+# Uninstall:
+#   systemctl --user disable --now eldritch-dm
+#   rm ~/.config/systemd/user/eldritch-dm.service
+#
+# Same posture as the launchd plist: DISCORD_TOKEN must come from a
+# runtime-loaded .env (mode 0600), NEVER from EnvironmentFile= on a
+# world-readable path. The systemd unit references no secrets.
+
+[Unit]
+Description=EldritchDM — Discord D&D bot (ShoeGPT)
+Documentation=https://github.com/shoemoney/EldritchDM
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={PROJECT_DIR}
+ExecStart=/usr/bin/env python3 {PROJECT_DIR}/run.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:{PROJECT_DIR}/eldritch-dm.log
+StandardError=append:{PROJECT_DIR}/eldritch-dm.err
+Environment="LOG_FORMAT=json"
+# Cold-start escape hatch — see README "Running as a Service".
+Environment="ELDRITCH_ALLOW_OFFLINE_START=1"
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  EldritchDM launchd plist (RESEARCH Pattern 7 — HOST-08 / D-Discretion).
+
+  IMPORTANT: This file is an EXAMPLE. The {PROJECT_DIR} tokens are substituted
+  with $PWD by scripts/install-launchd.sh at install time. If you copy this
+  by hand, replace every {PROJECT_DIR} with the absolute path to your
+  EldritchDM checkout.
+
+  ⚠️  DO NOT put DISCORD_TOKEN (or any other secret) in this file.
+       LaunchAgent plists are world-readable by default. Secrets MUST come
+       from a runtime-loaded .env (mode 0600) via run.py → Settings(). The
+       user's existing com.user.omlx.plist intentionally has no secrets
+       either — same posture.
+
+  KeepAlive semantics:
+       The block below uses *dict-form* KeepAlive with SuccessfulExit=false
+       and Crashed=true. This means: restart on crash or non-zero exit, but
+       NOT on a clean `launchctl bootout`. The intent is to avoid a tight
+       restart-storm on a bad DISCORD_TOKEN (the bot exits non-zero quickly,
+       launchd waits ThrottleInterval=10s before retry, operator sees the
+       crash logs accumulating slowly enough to debug). If you want plain
+       "always restart" semantics, replace the <dict>…</dict> with
+       <true/> to match the upstream com.user.omlx model.
+
+  ELDRITCH_ALLOW_OFFLINE_START=1 below is the cold-start escape hatch — see
+  README "Running as a Service" for the tradeoff (skips preflight; the
+  OPS-02 circuit breaker handles runtime oMLX loss).
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.shoemoney.eldritch-dm</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>python3</string>
+    <string>{PROJECT_DIR}/run.py</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>{PROJECT_DIR}</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+    <key>Crashed</key>
+    <true/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>{PROJECT_DIR}/eldritch-dm.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>{PROJECT_DIR}/eldritch-dm.err</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>LOG_FORMAT</key>
+    <string>json</string>
+    <!-- ELDRITCH_ALLOW_OFFLINE_START=1 lets the bot start even if oMLX is
+         not up yet (cold-start race). The OPS-02 circuit breaker handles
+         oMLX going away at runtime — preflight is only a startup gate. -->
+    <key>ELDRITCH_ALLOW_OFFLINE_START</key>
+    <string>1</string>
+  </dict>
+</dict>
+</plist>
