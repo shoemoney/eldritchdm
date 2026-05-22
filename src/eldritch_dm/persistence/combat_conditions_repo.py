@@ -72,11 +72,27 @@ class CombatConditionsRepo:
     def __init__(self, db_path: str) -> None:
         self._db_path = db_path
 
-    async def _connect(self) -> aiosqlite.Connection:
-        conn = await aiosqlite.connect(self._db_path)
+    def _connect(self) -> aiosqlite.Connection:
+        """Return an unstarted aiosqlite.Connection.
+
+        Callers MUST enter it via ``async with``::
+
+            async with self._connect() as conn:
+                ...
+
+        Returning an unstarted Connection (not awaited) is intentional so the
+        ``async with`` call performs the single start. Awaiting here and then
+        wrapping in ``async with`` would double-start the underlying Thread
+        (RuntimeError: threads can only be started once). Fixed inline as a
+        Rule 1 auto-fix in Phase 4 Plan 03 — the prior code shipped without
+        a non-mocked integration test that would have caught it.
+        """
+        return aiosqlite.connect(self._db_path)
+
+    async def _configure(self, conn: aiosqlite.Connection) -> None:
+        """Apply row_factory + pragmas to a freshly-entered connection."""
         conn.row_factory = aiosqlite.Row
         await apply_pragmas(conn)
-        return conn
 
     async def insert(
         self,
@@ -102,31 +118,22 @@ class CombatConditionsRepo:
             The new row id.
         """
         now = datetime.now(UTC).isoformat()
-        async with await self._connect() as conn:
-            # Replace existing condition for same (channel, character, kind)
-            await conn.execute(
-                """
-                INSERT INTO combat_conditions
-                    (channel_id, character_id, condition_kind,
-                     expires_round, applied_round, applied_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-                (channel_id, character_id, condition_kind,
-                 expires_round, applied_round, now),
-            )
-            # Delete any older row for same triple and insert fresh
+        async with self._connect() as conn:
+            await self._configure(conn)
+            # Replace any existing condition for same (channel, character, kind)
+            # — the table has no UNIQUE constraint on the triple, so the prior
+            # ON CONFLICT + INSERT OR REPLACE pattern produced duplicate rows
+            # (Rule 1 fix in Phase 4 Plan 03, caught by test_combat_condition_survives_restart).
             await conn.execute(
                 """
                 DELETE FROM combat_conditions
                 WHERE channel_id = ? AND character_id = ? AND condition_kind = ?
-                  AND applied_round < ?
                 """,
-                (channel_id, character_id, condition_kind, applied_round),
+                (channel_id, character_id, condition_kind),
             )
             cursor = await conn.execute(
                 """
-                INSERT OR REPLACE INTO combat_conditions
+                INSERT INTO combat_conditions
                     (channel_id, character_id, condition_kind,
                      expires_round, applied_round, applied_at)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -165,7 +172,8 @@ class CombatConditionsRepo:
         Returns:
             List of active CombatCondition rows.
         """
-        async with await self._connect() as conn:
+        async with self._connect() as conn:
+            await self._configure(conn)
             cursor = await conn.execute(
                 """
                 SELECT id, channel_id, character_id, condition_kind,
@@ -208,7 +216,8 @@ class CombatConditionsRepo:
         Returns:
             True if a matching active row exists.
         """
-        async with await self._connect() as conn:
+        async with self._connect() as conn:
+            await self._configure(conn)
             cursor = await conn.execute(
                 """
                 SELECT 1 FROM combat_conditions
@@ -233,7 +242,8 @@ class CombatConditionsRepo:
         Returns:
             Number of rows deleted.
         """
-        async with await self._connect() as conn:
+        async with self._connect() as conn:
+            await self._configure(conn)
             cursor = await conn.execute(
                 """
                 DELETE FROM combat_conditions
@@ -258,7 +268,8 @@ class CombatConditionsRepo:
         Args:
             channel_id: Discord channel snowflake string.
         """
-        async with await self._connect() as conn:
+        async with self._connect() as conn:
+            await self._configure(conn)
             await conn.execute(
                 "DELETE FROM combat_conditions WHERE channel_id = ?",
                 (channel_id,),
