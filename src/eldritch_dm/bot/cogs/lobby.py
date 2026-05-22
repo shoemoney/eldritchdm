@@ -31,13 +31,11 @@ SCOPE WALL: no character ingest in this cog — that's Plans 02 and 03.
 
 from __future__ import annotations
 
-import io
 import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Final
 
 import discord
-import segno
 import structlog
 from discord import app_commands
 from discord.ext import commands
@@ -45,6 +43,7 @@ from discord.ext import commands
 from eldritch_dm.bot.embeds import lobby_embed
 from eldritch_dm.bot.party_mode_parser import parse_party_mode_response
 from eldritch_dm.bot.permissions import can_act_on_character
+from eldritch_dm.bot.qr import render_qr_for_embed
 from eldritch_dm.logging import get_logger
 from eldritch_dm.persistence.models import ChannelState, PersistentView
 
@@ -66,34 +65,6 @@ ADVENTURE_IDS: Final[dict[str, str]] = {
 }
 
 log = get_logger(__name__)
-
-
-# ── QR helper (inline; moved to bot/qr.py in Plan 03) ────────────────────────
-
-
-def _render_qr(url: str, filename: str = "qr.png") -> discord.File:
-    """Generate a QR code as an in-memory PNG suitable for an embed thumbnail.
-
-    Uses error correction 'M' (15%) — robust to camera glare without bloat.
-    scale=8 yields ~250x250 px which is the sweet spot for Discord embeds.
-
-    Note: Plan 03 will extract this into bot/qr.py as render_qr_for_embed()
-    and update the import. The function signature and behaviour will not change.
-
-    Args:
-        url: URL to encode in the QR code.
-        filename: Discord file attachment filename.
-
-    Returns:
-        A :class:`discord.File` suitable for ``interaction.followup.send(file=...)``.
-
-    RESEARCH ref: §11 (segno vs qrcode decision), Pitfall 3 (QR regeneration)
-    """
-    qr = segno.make(url, error="m")
-    buf = io.BytesIO()
-    qr.save(buf, kind="png", scale=8, border=2, dark="black", light="white")
-    buf.seek(0)
-    return discord.File(buf, filename=filename)
 
 
 # ── LobbyCog ──────────────────────────────────────────────────────────────────
@@ -302,7 +273,7 @@ class LobbyCog(commands.Cog):
         files: list[discord.File] = []
         if server_url:
             try:
-                qr_file = _render_qr(server_url, filename="party_qr.png")
+                qr_file = render_qr_for_embed(server_url, filename="party_qr.png")
                 embed.set_thumbnail(url="attachment://party_qr.png")
                 files.append(qr_file)
             except Exception:  # noqa: BLE001
