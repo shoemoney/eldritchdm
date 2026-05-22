@@ -122,6 +122,53 @@ def lobby_embed(
     return embed
 
 
+def lobby_embed_with_joined_member(
+    *,
+    campaign_name: str,
+    players: Sequence[PlayerStatus],
+    party_invite: str | None = None,
+    server_url: str | None = None,
+    transition_state: str | None = None,
+    recently_joined: list[str] | None = None,
+) -> discord.Embed:
+    """Render the lobby embed, optionally with a 'Recently joined' field.
+
+    Backward-compatible extension of :func:`lobby_embed`.  All existing callers
+    using ``lobby_embed`` are unaffected.  Pass ``recently_joined`` with a list
+    of strings (e.g. ``["✅ Aragorn (Ranger, lvl 5) joined"]``) to add the field.
+
+    Args:
+        campaign_name:    Campaign name.
+        players:          Sequence of :class:`PlayerStatus` snapshots.
+        party_invite:     Optional invite URL.
+        server_url:       Optional Party Mode server base URL.
+        transition_state: Optional state transition hint.
+        recently_joined:  Optional list of join announcement strings.
+                          ``None`` or empty → no 'Recently joined' field added.
+
+    Returns:
+        A :class:`discord.Embed` with LOBBY color.
+
+    D-30 ref: Non-ephemeral lobby embed update on character commit.
+    """
+    embed = lobby_embed(
+        campaign_name=campaign_name,
+        players=players,
+        party_invite=party_invite,
+        server_url=server_url,
+        transition_state=transition_state,
+    )
+
+    if recently_joined:
+        embed.add_field(
+            name="Recently joined",
+            value="\n".join(recently_joined),
+            inline=False,
+        )
+
+    return embed
+
+
 def room_embed(
     *,
     room_title: str,

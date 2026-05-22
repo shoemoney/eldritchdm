@@ -140,6 +140,8 @@ class EldritchBot(commands.Bot):
         await self.load_extension("eldritch_dm.bot.cogs.diagnostics")
         # Phase 3: LobbyCog (/start_game, /load_adventure, ReadyButton wiring)
         await self.load_extension("eldritch_dm.bot.cogs.lobby")
+        # Phase 3: IngestCog (/upload_character_url, /upload_character_file, /upload_character_manual)
+        await self.load_extension("eldritch_dm.bot.cogs.ingest")
 
         # (g) Sync app command tree
         guild_ids = settings.guild_ids_list
