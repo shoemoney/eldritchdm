@@ -45,11 +45,9 @@ from eldritch_dm.bot.modals import (
     CharacterEntryModal,
     CharacterReviewModal,
     parse_abilities_field,
-    serialize_abilities,
 )
 from eldritch_dm.bot.permissions import can_act_on_character
 from eldritch_dm.ingest import ingest
-from eldritch_dm.ingest.schema import CharacterSheet
 from eldritch_dm.logging import get_logger
 
 if TYPE_CHECKING:
@@ -90,7 +88,7 @@ def _sniff_kind_cog(data: bytes) -> Literal["image", "pdf"] | None:
 
 
 class IngestCog(commands.Cog):
-    """Character ingest cog: /upload_character_url, /upload_character_file, /upload_character_manual.
+    """Character ingest cog: three upload slash commands for character onboarding.
 
     All three commands defer first (EDM001), gate by permission (D-29),
     and reply ephemerally (D-30, INGEST-10).
@@ -224,6 +222,23 @@ class IngestCog(commands.Cog):
             )
             return
 
+        # Phase 5 Plan 01: persist (class, subclass) for Riposte eligibility.
+        # dm20's get_character text omits subclass (RESEARCH Q2), so we capture
+        # it now at ingest time. Best-effort — non-fatal if it fails (we still
+        # have the dm20-side character). subclass may be "" for level 1-2 PCs.
+        pc_classes_repo = getattr(self.bot, "pc_classes", None)
+        if pc_classes_repo is not None and char_id:
+            try:
+                subclass = raw_dict.get("subclass") or ""
+                await pc_classes_repo.upsert(
+                    channel_id=channel_id_str,
+                    character_id=str(char_id),
+                    class_name=char_class,
+                    subclass=subclass,
+                )
+            except Exception:  # noqa: BLE001
+                bound_log.warning("ingest_pc_classes_upsert_failed", character_id=char_id)
+
         # Update lobby embed (non-ephemeral — D-30)
         try:
             channel = interaction.channel
@@ -306,6 +321,7 @@ class IngestCog(commands.Cog):
         char_name = (import_result or {}).get("name", url.split("/")[-1])
         char_class = (import_result or {}).get("class", "")
         char_level = (import_result or {}).get("level", 0)
+        char_subclass = (import_result or {}).get("subclass", "") or ""
 
         try:
             await self.bot.mcp.call(
@@ -316,6 +332,19 @@ class IngestCog(commands.Cog):
             )
         except Exception:  # noqa: BLE001
             bound_log.warning("upload_url_update_player_id_failed", char_id=char_id)
+
+        # Phase 5 Plan 01: pc_classes upsert (Riposte eligibility — RESEARCH Q2)
+        pc_classes_repo = getattr(self.bot, "pc_classes", None)
+        if pc_classes_repo is not None and char_id:
+            try:
+                await pc_classes_repo.upsert(
+                    channel_id=channel_id_str,
+                    character_id=str(char_id),
+                    class_name=str(char_class),
+                    subclass=str(char_subclass),
+                )
+            except Exception:  # noqa: BLE001
+                bound_log.warning("upload_url_pc_classes_upsert_failed")
 
         # Step 3: Update lobby embed
         try:
@@ -495,7 +524,9 @@ class IngestCog(commands.Cog):
                 )
 
             button_label = "Enter Character Manually"
-            modal_factory = lambda: CharacterEntryModal(prefill or None, on_submit_cb=on_entry_submit)  # noqa: E731
+            modal_factory = lambda: CharacterEntryModal(  # noqa: E731
+                prefill or None, on_submit_cb=on_entry_submit
+            )
             button_style = discord.ButtonStyle.secondary
 
         # Build ephemeral view with one button that opens the modal
@@ -509,8 +540,9 @@ class IngestCog(commands.Cog):
         if result.validation_warnings:
             warnings_text = "\n⚠️ " + "; ".join(result.validation_warnings[:3])
 
+        pct = f"{result.confidence_score:.0%}"
         content = (
-            f"📋 Character sheet processed (confidence: {result.confidence_score:.0%}){warnings_text}\n"
+            f"📋 Character sheet processed (confidence: {pct}){warnings_text}\n"
             "Click the button below to review and confirm."
         )
 

@@ -167,13 +167,16 @@ class TestBadCustomId:
 
 # Phase 4: EndTurnButton is promoted to real callback (no longer a stub).
 # AttackButton/DodgeButton/CastSpellButton also real callbacks.
-# Only RiposteButton remains a Phase 5 stub.
-_STUB_CLASSES = [
-    (RiposteButton, {"timer_id": 50, "user_id": 60}),
-]
+# Phase 5 Plan 01: RiposteButton is promoted to real callback — its tests
+# live in tests/gameplay/test_riposte_callback.py.
+_STUB_CLASSES: list = []
 
 
 class TestStubCallback:
+    """All callbacks are now real — Phase 5 Plan 01 promoted the last stub
+    (RiposteButton). This class is kept for parametrization extensibility if
+    future stubs land; the parametrized table is empty so the cases skip."""
+
     @pytest.mark.parametrize("cls, kwargs", _STUB_CLASSES)
     @pytest.mark.asyncio
     async def test_callback_defers_first(self, cls, kwargs) -> None:

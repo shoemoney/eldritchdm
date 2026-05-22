@@ -1170,6 +1170,17 @@ class RiposteButton(
         return f"riposte:{self.timer_id}:{self.user_id}"
 
     async def callback(self, interaction: discord.Interaction) -> None:
+        """Phase 5 Plan 01 — promoted from Phase 2 stub.
+
+        Defers ephemerally, then delegates the gate-and-dispatch sequence to
+        `gameplay/reactions.handle_riposte_click`. Plan 02 will wrap that
+        handler in a per-channel asyncio.Lock — see the PLAN-02-LOCK-SEAM
+        marker in reactions.py for the exact wrap point.
+
+        Dependency injection note: we pass `send_warning` + `WarningKind`
+        values into the gameplay-layer helper so that module stays free of
+        any `bot/` imports (import-linter contract).
+        """
         # D-09: defer first — always
         await interaction.response.defer(thinking=True, ephemeral=True)
 
@@ -1179,11 +1190,51 @@ class RiposteButton(
             custom_id=self._custom_id_str(),
             view_class=type(self).__name__,
         )
-        bound_log.info("phase2_stub_callback_invoked")
+        bound_log.info("riposte_button_callback")
 
-        await interaction.followup.send(
-            content=f"⏳ Phase 2 stub — {type(self).__name__} will be wired up in a later phase.",
-            ephemeral=True,
+        # Lazy imports to avoid cycles (bot ↔ gameplay).
+        from eldritch_dm.gameplay.reactions import handle_riposte_click  # noqa: PLC0415
+
+        bot = interaction.client
+        repo = getattr(bot, "riposte_timers_repo", None) or getattr(bot, "riposte_timers", None)
+        if repo is None:
+            bound_log.warning("riposte_callback_no_repo")
+            await send_warning(
+                interaction,
+                WarningKind.INVALID_ACTION,
+                reason="Bot not ready.",
+            )
+            return
+
+        async def _current_round_provider(channel_id: str) -> int:
+            """Re-fetch current round from dm20 on each click.
+
+            v1: no caching. Riposte clicks are rare; Plan 02 may add a tiny
+            LRU/TTL cache if profiling shows a hotspot. See bot.bot
+            current_round_for_channel for the helper.
+            """
+            getter = getattr(bot, "current_round_for_channel", None)
+            if getter is not None:
+                return await getter(channel_id)
+            # Fallback: parse fresh get_game_state
+            from eldritch_dm.gameplay.game_state_parser import parse_game_state  # noqa: PLC0415
+            raw = await mcp_tools.get_game_state(bot.mcp)
+            text = raw if isinstance(raw, str) else str(raw)
+            parsed = parse_game_state(text)
+            return parsed.round_number
+
+        await handle_riposte_click(
+            interaction=interaction,
+            timer_id=self.timer_id,
+            expected_user_id=self.user_id,
+            repo=repo,
+            mcp=bot.mcp,
+            rate_limiter=getattr(bot, "rate_limiter", None),
+            current_round_provider=_current_round_provider,
+            warning_sender=send_warning,
+            invalid_action_kind=WarningKind.INVALID_ACTION,
+            riposte_expired_kind=WarningKind.RIPOSTE_EXPIRED,
+            log=log,
         )
 
 

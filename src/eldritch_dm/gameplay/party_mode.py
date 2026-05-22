@@ -85,6 +85,7 @@ class PartyModeOrchestrator:
         batch_coordinator: BatchCoordinator,
         channel_sessions: Any,  # ChannelSessionRepo
         *,
+        monster_driver: Any = None,  # Phase 5 Plan 01: MonsterDriver (optional)
         poll_interval_ms: int = 250,
         combat_check_every_n_polls: int = _COMBAT_CHECK_EVERY_N_POLLS,
         clock: Callable[[], float] = time.monotonic,
@@ -94,6 +95,7 @@ class PartyModeOrchestrator:
         self._rate_limiter = rate_limiter
         self._batch_coordinator = batch_coordinator
         self._channel_sessions = channel_sessions
+        self._monster_driver = monster_driver
         self._poll_interval_s = poll_interval_ms / 1000.0
         self._combat_check_every_n = combat_check_every_n_polls
         self._clock = clock
@@ -107,6 +109,10 @@ class PartyModeOrchestrator:
         self._last_combat_state: dict[str, bool | None] = {}
         # channel_id → last known ChannelState (for cadence acceleration)
         self._last_channel_state: dict[str, ChannelState] = {}
+        # Phase 5 Plan 01: idempotency key per channel for monster-turn dispatch
+        # (round_number, monster_character_id) — prevents double-fires when the
+        # same monster turn appears on two consecutive COMBAT ticks.
+        self._last_monster_drive: dict[str, tuple[int, str]] = {}
 
         # Registered callbacks (list allows multiple cogs to register)
         self._resolution_callbacks: list[
@@ -474,6 +480,55 @@ class PartyModeOrchestrator:
                         callback_index=i,
                         error=str(result),
                     )
+
+
+    # ── Phase 5 Plan 01: monster-turn dispatch ────────────────────────────────
+
+    async def maybe_drive_monster_turn(
+        self,
+        *,
+        channel_id: str,
+        campaign_name: str,
+        current_actor: dict[str, Any],
+        round_number: int,
+    ) -> bool:
+        """Delegate the current turn to MonsterDriver if it's a monster's turn.
+
+        Idempotent per `(channel_id, round_number, current_actor.character_id)`:
+        calling twice for the same key is a no-op so consecutive COMBAT ticks
+        don't double-fire the driver.
+
+        Returns:
+            True if the driver was invoked; False if skipped (PC turn, no
+            driver wired, or duplicate dispatch).
+        """
+        if self._monster_driver is None:
+            return False
+        if current_actor.get("player_id") is not None:
+            return False  # PC turn — not driver's job
+
+        monster_id = current_actor.get("character_id", "")
+        key = (round_number, monster_id)
+        last = self._last_monster_drive.get(channel_id)
+        if last == key:
+            return False  # already dispatched for this (round, monster)
+
+        self._last_monster_drive[channel_id] = key
+        try:
+            await self._monster_driver.drive(
+                channel_id=channel_id,
+                campaign_name=campaign_name,
+                current_actor=current_actor,
+            )
+            return True
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "orchestrator_monster_driver_error",
+                channel_id=channel_id,
+                monster_id=monster_id,
+                round_number=round_number,
+            )
+            return False
 
 
 def start_orchestrator_for_channel(
