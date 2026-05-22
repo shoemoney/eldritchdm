@@ -19,6 +19,14 @@ This file lives at the *project root* on purpose — launchd plists and the
 README invocation hard-code ``python3 /path/to/run.py``. Keeping it
 importable as ``import run`` (rather than a package module) means the file
 must NOT execute the bot at import time — only when invoked as ``__main__``.
+
+**Token contract (D-26):** ``--check-only`` does not require ``DISCORD_TOKEN``
+to be set — it only runs the preflight (schema / oMLX / dm20) and exits.
+The token is validated at the bot-launch boundary: if ``run.py`` is invoked
+without ``--check-only`` and ``DISCORD_TOKEN`` is missing or blank, ``main``
+returns ``EXIT_MISSING_TOKEN`` (``4``) with a friendly structured-log line
+and a stderr message pointing self-hosters at ``.env.example``. No raw
+pydantic ValidationError traceback is ever emitted.
 """
 
 from __future__ import annotations
@@ -75,6 +83,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     """Validate env, run preflight, start the bot. Return process exit code."""
+    # Parse argv FIRST so `--check-only` can dispatch to preflight without
+    # needing DISCORD_TOKEN. Self-hosters running step 4 of the README
+    # quickstart should be able to verify dependencies BEFORE pasting a real
+    # token into .env (D-26).
     args = _parse_args(argv)
 
     # Inline imports so `python run.py --help` doesn't pay full startup cost.
@@ -82,9 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     from eldritch_dm.config import Settings
     from eldritch_dm.logging import configure_logging, get_logger
 
-    # Settings() may raise pydantic.ValidationError on missing DISCORD_TOKEN.
-    # We let that propagate — Python's traceback names the missing field
-    # clearly, and the exit code from an uncaught ValidationError is non-zero.
+    # Settings() may still raise pydantic.ValidationError on truly malformed
+    # input (e.g. non-int DISCORD_APPLICATION_ID). DISCORD_TOKEN is Optional
+    # in Settings since Phase 5 D-26 — we validate it ourselves at the bot
+    # launch boundary below.
     settings = Settings()
 
     configure_logging(
@@ -102,6 +115,27 @@ def main(argv: list[str] | None = None) -> int:
         log.info("run_check_only_complete", exit_code=code)
         return code
 
+    # Friendly DISCORD_TOKEN check (D-26) -------------------------------------
+    # From here on we're going to start the bot, which means we need a token.
+    # Emit a friendly structured log + stderr message instead of letting a
+    # pydantic ValidationError traceback hit the operator's terminal.
+    token = (settings.discord_token or "").strip()
+    if not token:
+        log.error(
+            "run_missing_discord_token",
+            hint="Copy .env.example to .env and paste your DISCORD_TOKEN.",
+            exit_code=preflight_mod.EXIT_MISSING_TOKEN,
+        )
+        print(
+            "❌ DISCORD_TOKEN is not set.\n"
+            "   Copy .env.example to .env and paste your bot token, e.g.:\n"
+            "     cp .env.example .env && $EDITOR .env\n"
+            "   (Or run `python run.py --check-only` to verify oMLX / dm20 "
+            "without a token first.)",
+            file=sys.stderr,
+        )
+        return preflight_mod.EXIT_MISSING_TOKEN
+
     if not skip_preflight:
         code = asyncio.run(preflight_mod.preflight())
         if code != preflight_mod.EXIT_OK:
@@ -111,9 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         log.warning(
             "run_preflight_skipped",
             reason=(
-                "--no-preflight CLI flag"
-                if args.no_preflight
-                else "ELDRITCH_ALLOW_OFFLINE_START=1"
+                "--no-preflight CLI flag" if args.no_preflight else "ELDRITCH_ALLOW_OFFLINE_START=1"
             ),
         )
 
@@ -125,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
 
     bot = EldritchBot(settings)
     try:
-        bot.run(settings.discord_token, log_handler=None)
+        bot.run(token, log_handler=None)
         return 0
     except KeyboardInterrupt:
         log.info("run_keyboard_interrupt")
