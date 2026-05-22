@@ -101,7 +101,10 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   3. Restart-survival drill: kill bot during an active riposte window, restart, button is still clickable until its `deadline_ts`; expired timers auto-cleaned on restart
   4. README walks a new user from "I have oMLX + dm20 + a Discord bot token" to "I am playing D&D in 10 minutes"; `.env.example` documents every var; `bootstrap.py` provisions the local DB and pings oMLX
   5. Full test suite green: MCP-client mocked tests, sanitizer adversarial corpus, repository round-trip, persistent-view restart drill, 4-player concurrent write stress, 8-player combat load — all pass; CI lint enforces defer discipline
-**Plans**: TBD
+**Plans**:
+- [x] 01-PLAN-riposte-and-monster-driver.md — Wave 0 schema (consumed_in_round ALTER + pc_classes), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click + PLAN-02-LOCK-SEAM marker), MonsterDriver (random target per D-B), RiposteButton.callback promoted to real, _maybe_surface_riposte DELETED (D-A); COMBAT-09 + COMBAT-10 functionally satisfied; 64 new tests, 798 total — COMPLETE (70 min)
+- [ ] 02-PLAN-sweeper-and-restart-survival.md — background sweeper marks expired timers, per-channel asyncio.Lock wrapping handle_riposte_click + sweeper, restart-survival OPS-01 drill (COMBAT-11)
+- [ ] 03-PLAN-self-host-polish-and-closure.md — README, .env.example, bootstrap CLI, run.py, launchd recipe, REQUIREMENTS [x] sweep, Phase 5 closure
 
 ## Traceability
 

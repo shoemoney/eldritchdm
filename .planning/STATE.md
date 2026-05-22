@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-05-22T07:00:00.000Z"
+last_updated: "2026-05-22T10:34:43.274Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 0
   total_plans: 0
-  completed_plans: 12
-  percent: 80
+  completed_plans: 14
+  percent: 0
 ---
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-22 (Phase 4 COMPLETE — orchestrator + combat + 8-actor load test + restart drill, 728 tests passing default + 2 load-gated)
+**Last updated:** 2026-05-22 (Phase 5 Plan 01 COMPLETE — Riposte + MonsterDriver wired, _maybe_surface_riposte seam deleted, COMBAT-09 + COMBAT-10 satisfied; 798 tests passing default)
 **Milestone:** v1.0
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -41,7 +41,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 2 | Discord Scaffold + Persistent Views | ✅ Complete (3/3 plans, 284 tests) |
 | 3 | Lobby + Character Ingest | ✅ Complete (3/3 plans, 469 tests) |
 | 4 | Gameplay — Exploration + Combat (Party Mode) | ✅ Complete (3/3 plans, 730 tests inc. load-gated) |
-| 5 | Reactions + Self-Host Polish | 🔄 Next |
+| 5 | Reactions + Self-Host Polish | 🔄 In progress (1/3 plans, 798 tests) |
 
 ## Blockers / Concerns
 
@@ -78,7 +78,15 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - Non-ephemeral lobby update: lobby_message_id from dm20_party_token JSON; missing key = graceful skip
 - _get_poll_cadence: COMBAT returns 1 (every tick), EXPLORATION returns _combat_check_every_n (default 4)
 - asyncio.gather(return_exceptions=True) for state_change callbacks: one cog raising doesn't block others
-- AttackButton._maybe_surface_riposte is Phase 5 seam: no-op in Phase 4; RiposteCog hooks here
+- AttackButton._maybe_surface_riposte is Phase 5 seam: no-op in Phase 4; RiposteCog hooks here (DELETED in Phase 5 Plan 01 — wrong RAW path per D-A; Riposte fires from MonsterDriver on monster-misses-PC)
+- Phase 5 D-B: MonsterDriver is minimal random-target for v1; smart Claudmaster-driven targeting deferred to v2 (REQUIREMENTS REACT-*)
+- Phase 5 D-C: Strict RAW eligibility for Riposte — Battle Master Fighter only (Swashbuckler explicitly excluded; corrects CONTEXT.md D-04)
+- Phase 5 reaction-budget shim: additive ALTER TABLE riposte_timers ADD COLUMN consumed_in_round INTEGER (dm20 has no native reaction tracking — RESEARCH Q1)
+- Phase 5 pc_classes table: subclass persisted at ingest because dm20 get_character text omits subclass (RESEARCH Q2)
+- Phase 5 Riposte button is public message + permission gate (NOT ephemeral) — ephemeral followups die at 15 min and break COMBAT-11 restart-survival
+- Phase 5 deadline recompute AFTER channel.send (RESEARCH Pitfall 1) — TTL not consumed by Discord API latency
+- Phase 5 PLAN-02-LOCK-SEAM marker convention: deliberate one-line docstring marker in handle_riposte_click for Plan 02's executor to grep
+- Phase 5 dependency-inject send_warning + WarningKind + button_factory into gameplay/reactions so import-linter contract "gameplay must not import bot or ingest" stays KEPT
 - Dodge v1 shim: combat_conditions table + apply_effect("dodging"); expires_round = applied_round + 1
 - Cross-cog helpers on EldritchBot: close_exploration_coalescer_for / close_combat_coalescer_for avoid cog-to-cog circular imports
 - _PARAM_REMAP in setup_hook.py bridges regex group names (round) to __init__ params (round_n) for combat buttons
@@ -103,6 +111,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 | 03-lobby-character-ingest | 03 | 85 | 5 | 12 |
 | 04-gameplay-exploration-combat | 02 | 180 | 3 | 17 |
 | 04-gameplay-exploration-combat | 03 | 90 | 3 | 5 |
+| 05-reactions-self-host-polish | 01 | 70 | 3 | 27 |
 
 ## Recent History
 
@@ -126,3 +135,4 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-22: Phase 4 Plan 02 COMPLETE — CombatCog + combat buttons + dodge shim + turn gatekeeping + orchestrator cadence + integration tests; 257 new tests; 726 total passing
 - 2026-05-22: Phase 4 Plan 03 COMPLETE — 8-actor combat load test (RUN_LOAD=1, virtual clock, 5 rounds × 8 actors × 4 events, assertions A-G hold); restart-mid-combat drill (D-35, 6 tests); Rule 1 fixes in CombatConditionsRepo (double-start + duplicate-insert bugs found by first non-mocked integration test); 8 new tests; 728 default + 2 load-gated
 - 2026-05-22: PHASE 4 COMPLETE — orchestrator + combat + load proof + closure; EXPLORE-01..07, COMBAT-01..08, COMBAT-12, OPS-03 satisfied; Phase 5 Riposte seam documented in AttackButton._maybe_surface_riposte (no-op); cursor advances to 05-reactions-self-host-polish
+- 2026-05-22: Phase 5 Plan 01 COMPLETE — Wave 0 schema (consumed_in_round ALTER + pc_classes table), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click), MonsterDriver (random target per D-B), RiposteButton.callback promoted from Phase 2 stub, _maybe_surface_riposte DELETED (D-A, atomic commit 1d2edc8); COMBAT-09 + COMBAT-10 functionally satisfied; PLAN-02-LOCK-SEAM marker at src/eldritch_dm/gameplay/reactions.py:280; 64 new tests; 798 default passing
