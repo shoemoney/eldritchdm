@@ -12,8 +12,7 @@ Covers:
 
 from __future__ import annotations
 
-import re
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
@@ -141,13 +140,14 @@ class TestBadCustomId:
 
 
 # ── Test 4: stub callback — defer first, then followup.send ───────────────────
-# Note: ReadyButton is NOT included here — its callback was replaced by a real
-# implementation in Phase 3 (Task 3). Tests for the real ReadyButton callback
-# live in test_dynamic_items_real.py.
+# Note: ReadyButton and DeclareActionButton are NOT included here — their callbacks
+# were replaced by real implementations in Phase 3 (Task 3) and Phase 4 (Task 3).
+# Tests for the real callbacks live in:
+#   - test_dynamic_items_real.py (ReadyButton)
+#   - test_dynamic_items_declare_real.py (DeclareActionButton)
 
 
 _STUB_CLASSES = [
-    (DeclareActionButton, {"channel_id": 20}),
     (EndTurnButton, {"channel_id": 30, "actor_id": 40}),
     (RiposteButton, {"timer_id": 50, "user_id": 60}),
 ]
