@@ -42,13 +42,14 @@ Phase 4 Plan 02: combat buttons with turn-gatekeeper pattern.
       6. MCP call
       7. Ephemeral followup
 
-Phase 5 Riposte seam:
-    After combat_action(action="attack") returns outcome=miss AND the
-    target has has_reaction=True, Phase 5 RiposteCog will surface a timed
-    button. In AttackButton.callback, after mech_result is received, call:
-        await self._maybe_surface_riposte(interaction, mech_result, target)
-    which is currently a no-op (below). Phase 5 wires the real logic here.
-    See _maybe_surface_riposte at the bottom of AttackButton.
+Phase 5 Plan 01 — Riposte trigger relocation (D-A):
+    The Phase 4 stub seam `AttackButton._maybe_surface_riposte` has been
+    DELETED. It fired on the wrong RAW path (PC-misses-monster). Battle
+    Master Riposte triggers when a MONSTER misses a PC. The correct trigger
+    now lives in `gameplay/monster_driver.MonsterDriver` which detects
+    monster-actor turns, calls dm20__combat_action, parses the text outcome
+    via `gameplay/combat_outcome_parser`, and on MISS / NATURAL_ONE awaits
+    `gameplay/reactions.surface_riposte_button`.
 
 Dodge v1 narrative-only note (04-RESEARCH.md Q2, D-22):
     dm20 has no built-in "dodging" SRD condition. DodgeButton:
@@ -668,13 +669,9 @@ class AttackButton(
       2. Open WeaponSelectModal via 2-step launch pattern.
       3. on_submit_cb: rate_limiter.acquire -> combat_action(action="attack").
       4. Enqueue narrative context for ShoeGPT.
-      5. _maybe_surface_riposte (Phase 5 seam -- no-op in v1).
 
-    Phase 5 Riposte seam:
-        _maybe_surface_riposte is called after combat_action returns.
-        When mech_result indicates outcome=miss AND target has has_reaction=True,
-        Phase 5 RiposteCog will surface a timed ephemeral button. Phase 4
-        leaves this as a no-op.
+    Phase 5 Plan 01 D-A: the prior `_maybe_surface_riposte` seam was DELETED.
+    Riposte fires on the monster-attack path in MonsterDriver, not here.
     """
 
     template = re.compile(r"^attack:(?P<channel_id>\d+):(?P<actor_id>[a-z0-9-]+):(?P<round>\d+)$")
@@ -749,25 +746,6 @@ class AttackButton(
             log.warning("attack_button_game_state_error", channel_id=channel_id_str)
             return None
 
-    async def _maybe_surface_riposte(
-        self,
-        interaction: discord.Interaction,
-        mech_result: Any,
-        target_id: str,
-    ) -> None:
-        """Phase 5 Riposte seam -- no-op in Phase 4.
-
-        When mech_result indicates outcome=miss AND the target has has_reaction=True,
-        Phase 5 RiposteCog will surface a timed ephemeral RiposteButton here.
-
-        Phase 5 hook point:
-          File: src/eldritch_dm/bot/dynamic_items.py
-          Method: AttackButton._maybe_surface_riposte
-          Trigger: outcome == "miss" AND target["has_reaction"] is True
-          Action: await riposte_cog.surface_riposte_button(interaction, target_id, timer_id)
-        """
-        # Phase 5 wires this. Phase 4: intentional no-op.
-
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle Attack button click.
 
@@ -824,9 +802,6 @@ class AttackButton(
                 weapon=weapon,
                 target=target_id,
             ).info("attack_dispatched")
-
-            # Phase 5 seam: check for riposte opportunity
-            await self._maybe_surface_riposte(interaction, mech_result, target_id)
 
         modal = WeaponSelectModal(on_submit_cb=_on_weapon_submit)
 

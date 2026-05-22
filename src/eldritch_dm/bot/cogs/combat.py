@@ -24,10 +24,9 @@ Thread safety:
   - All state mutations use the asyncio event loop (no threads).
   - Callbacks wrapped in asyncio.shield in the orchestrator (T-04-08).
 
-Phase 5 Riposte seam:
-  After AttackButton resolves an attack, AttackButton._maybe_surface_riposte
-  is called. Phase 5's RiposteCog will plug in there. CombatCog has no
-  additional seam required.
+Phase 5 Plan 01 update (D-A): the Riposte trigger does NOT live in CombatCog.
+It runs in `gameplay/monster_driver.MonsterDriver` on the monster-attack
+resolution path (RESEARCH finding #6 corrected the Phase 4 placement).
 """
 
 from __future__ import annotations
