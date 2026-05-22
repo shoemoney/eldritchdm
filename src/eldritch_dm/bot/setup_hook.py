@@ -20,7 +20,6 @@ D-39 log line: "rehydrated N persistent views from M channel sessions"
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 import discord
@@ -29,8 +28,8 @@ from eldritch_dm.logging import get_logger
 
 if TYPE_CHECKING:
     from eldritch_dm.persistence.channel_sessions_repo import ChannelSessionRepo
-    from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
     from eldritch_dm.persistence.models import PersistentView
+    from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 
 log = get_logger(__name__)
 
@@ -41,9 +40,15 @@ def _get_dynamic_item_classes() -> dict[str, type]:
     """Return a mapping of view_class name → DynamicItem subclass.
 
     Imported lazily to avoid circular import at module load time.
+
+    Phase 4 Plan 02: added combat button classes (AttackButton, DodgeButton,
+    CastSpellButton) so rehydration works across restarts during mid-combat.
     """
     from eldritch_dm.bot.dynamic_items import (
+        AttackButton,
+        CastSpellButton,
         DeclareActionButton,
+        DodgeButton,
         EndTurnButton,
         ReadyButton,
         RiposteButton,
@@ -53,11 +58,25 @@ def _get_dynamic_item_classes() -> dict[str, type]:
         "ReadyButton": ReadyButton,
         "DeclareActionButton": DeclareActionButton,
         "EndTurnButton": EndTurnButton,
+        "AttackButton": AttackButton,
+        "DodgeButton": DodgeButton,
+        "CastSpellButton": CastSpellButton,
         "RiposteButton": RiposteButton,
     }
 
 
-def build_view_for_row(row: "PersistentView") -> discord.ui.View | None:
+# Regex group name → __init__ parameter name remapping for classes where the
+# capture group name differs from the constructor parameter name.
+# (e.g. EndTurnButton captures "round" but __init__ takes "round_n")
+_PARAM_REMAP: dict[str, dict[str, str]] = {
+    "EndTurnButton": {"round": "round_n"},
+    "AttackButton":  {"round": "round_n"},
+    "DodgeButton":   {"round": "round_n"},
+    "CastSpellButton": {"round": "round_n"},
+}
+
+
+def build_view_for_row(row: PersistentView) -> discord.ui.View | None:
     """Construct a discord.ui.View with the DynamicItem for a persistent_views row.
 
     Args:
@@ -96,14 +115,18 @@ def build_view_for_row(row: "PersistentView") -> discord.ui.View | None:
 
     # Build the DynamicItem from captured groups
     groups = match.groupdict()
-    int_groups = {}
+    # Apply parameter remapping: regex group names may differ from __init__ params
+    # (e.g. EndTurnButton captures "round" but __init__ takes "round_n")
+    remap = _PARAM_REMAP.get(row.view_class, {})
+    init_kwargs = {}
     for k, v in groups.items():
+        param_name = remap.get(k, k)  # rename if in remap, else keep as-is
         try:
-            int_groups[k] = int(v)
+            init_kwargs[param_name] = int(v)
         except (ValueError, TypeError):
-            int_groups[k] = v
+            init_kwargs[param_name] = v
 
-    item = cls(**int_groups)
+    item = cls(**init_kwargs)
 
     view = discord.ui.View(timeout=None)
     view.add_item(item)
@@ -112,8 +135,8 @@ def build_view_for_row(row: "PersistentView") -> discord.ui.View | None:
 
 async def rehydrate_persistent_views(
     bot: discord.Client,
-    repo: "PersistentViewRepo",
-    channel_sessions_repo: "ChannelSessionRepo",
+    repo: PersistentViewRepo,
+    channel_sessions_repo: ChannelSessionRepo,
 ) -> int:
     """Rehydrate persistent views from the database after a restart.
 

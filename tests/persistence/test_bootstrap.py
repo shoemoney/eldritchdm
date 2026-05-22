@@ -33,6 +33,7 @@ class TestBootstrapCreatesTables:
 
         expected_tables = {
             "channel_sessions",
+            "combat_conditions",  # Phase 4 Plan 02 dodge shim (D-22)
             "persistent_views",
             "riposte_timers",
             "sanitizer_audit",

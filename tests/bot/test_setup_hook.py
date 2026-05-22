@@ -14,13 +14,12 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 
 from eldritch_dm.persistence.models import ChannelSession, ChannelState, PersistentView
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +60,8 @@ def _make_session(channel_id: str) -> ChannelSession:
     [
         ("ReadyButton", "ready:111", "ReadyButton"),
         ("DeclareActionButton", "declare:222", "DeclareActionButton"),
-        ("EndTurnButton", "endturn:333:444", "EndTurnButton"),
+        # Phase 4 format: endturn:{channel_id}:{actor_id}:{round}
+        ("EndTurnButton", "endturn:333:hero-001:1", "EndTurnButton"),
         ("RiposteButton", "riposte:555:666", "RiposteButton"),
     ],
 )
@@ -131,7 +131,8 @@ async def test_rehydrate_persistent_views_happy_path():
     views_by_channel = {
         "111": [
             _make_pv(custom_id="ready:111", view_class="ReadyButton", message_id="100", channel_id="111"),
-            _make_pv(custom_id="endturn:111:42", view_class="EndTurnButton", message_id="101", channel_id="111"),
+            # Phase 4 EndTurnButton format: endturn:{channel}:{actor_id}:{round}
+            _make_pv(custom_id="endturn:111:hero-001:1", view_class="EndTurnButton", message_id="101", channel_id="111"),
         ],
         "222": [
             _make_pv(custom_id="declare:222", view_class="DeclareActionButton", message_id="200", channel_id="222"),

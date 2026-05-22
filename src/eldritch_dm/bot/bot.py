@@ -78,6 +78,50 @@ class EldritchBot(commands.Bot):
 
         self._logger = log.bind(component="EldritchBot")
 
+    async def close_exploration_coalescer_for(self, channel_id: str) -> None:
+        """Close ExplorationCog's coalescer for *channel_id* (cross-cog handoff).
+
+        Called by CombatCog on EXPLORATION->COMBAT transition so the exploration
+        embed coalescer is cleanly closed before the combat embed is posted.
+
+        Delegates to ExplorationCog.on_state_change(EXPLORATION, COMBAT) which
+        handles its own coalescer lifecycle. If the cog is not loaded, no-ops.
+
+        Avoids direct cog->cog imports (circular import prevention per D-24).
+        """
+        exploration_cog = self.get_cog("ExplorationCog")
+        if exploration_cog is None:
+            return
+        # Trigger the EXPLORATION->COMBAT path in ExplorationCog which closes
+        # the exploration coalescer for this channel.
+        try:
+            await exploration_cog.on_state_change(
+                channel_id,
+                ChannelState.EXPLORATION,
+                ChannelState.COMBAT,
+            )
+        except Exception:  # noqa: BLE001
+            log.warning("close_exploration_coalescer_error", channel_id=channel_id)
+
+    async def close_combat_coalescer_for(self, channel_id: str) -> None:
+        """Close CombatCog's coalescer for *channel_id* (cross-cog handoff).
+
+        Called externally (e.g. Plan 03 restart drill) to cleanly close the
+        combat embed coalescer without triggering the full COMBAT->EXPLORATION
+        state change flow.
+
+        Avoids direct cog->cog imports (circular import prevention per D-24).
+        """
+        combat_cog = self.get_cog("CombatCog")
+        if combat_cog is None:
+            return
+        coalescer = getattr(combat_cog, "_coalescers", {}).pop(channel_id, None)
+        if coalescer is not None:
+            try:
+                await coalescer.close()
+            except Exception:  # noqa: BLE001
+                log.warning("close_combat_coalescer_error", channel_id=channel_id)
+
     def get_channel_edit_budget(self, channel_id: str) -> ChannelEditBudget:
         """Return (or create) the per-channel ChannelEditBudget.
 
@@ -184,6 +228,8 @@ class EldritchBot(commands.Bot):
         await self.load_extension("eldritch_dm.bot.cogs.ingest")
         # Phase 4: ExplorationCog — room embed lifecycle, declare-action UI
         await self.load_extension("eldritch_dm.bot.cogs.exploration")
+        # Phase 4 Plan 02: CombatCog — combat embed lifecycle + turn-gated buttons
+        await self.load_extension("eldritch_dm.bot.cogs.combat")
 
         # (g) Phase 4: Resume orchestrator tasks for any EXPLORATION/COMBAT sessions
         # that survived a bot restart. ExplorationCog must be loaded first (above)

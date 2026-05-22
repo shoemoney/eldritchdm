@@ -48,7 +48,7 @@ from eldritch_dm.gameplay.exploration_batch import (
     BatchCoordinator,
     serialize_batch_payload,
 )
-from eldritch_dm.gameplay.game_state_parser import ParsedGameState, parse_game_state
+from eldritch_dm.gameplay.game_state_parser import parse_game_state
 from eldritch_dm.logging import get_logger
 from eldritch_dm.mcp import tools as mcp_tools
 from eldritch_dm.mcp.rate_limit import ChannelRateLimiter
@@ -105,6 +105,8 @@ class PartyModeOrchestrator:
         self._channel_meta: dict[str, tuple[str, str]] = {}
         # channel_id → last known in_combat state (None = unknown)
         self._last_combat_state: dict[str, bool | None] = {}
+        # channel_id → last known ChannelState (for cadence acceleration)
+        self._last_channel_state: dict[str, ChannelState] = {}
 
         # Registered callbacks (list allows multiple cogs to register)
         self._resolution_callbacks: list[
@@ -113,6 +115,20 @@ class PartyModeOrchestrator:
         self._state_change_callbacks: list[
             Callable[[str, ChannelState, ChannelState], Awaitable[None]]
         ] = []
+
+    # ── Poll cadence ─────────────────────────────────────────────────────────
+
+    def _get_poll_cadence(self, state: ChannelState) -> int:
+        """Return number of pop_action ticks between game_state checks.
+
+        COMBAT state accelerates to every tick (cadence=1) so the orchestrator
+        catches COMBAT->EXPLORATION transitions within one 250ms cycle.
+
+        EXPLORATION state uses the default _combat_check_every_n (4 ticks).
+        """
+        if state == ChannelState.COMBAT:
+            return 1  # Check every tick in COMBAT (D-17, COMBAT-12 fast detection)
+        return self._combat_check_every_n
 
     # ── Callback registration ─────────────────────────────────────────────────
 
@@ -170,6 +186,7 @@ class PartyModeOrchestrator:
 
         self._channel_meta[channel_id] = (campaign_name, session_id)
         self._last_combat_state[channel_id] = None
+        self._last_channel_state[channel_id] = ChannelState.EXPLORATION
 
         task = asyncio.create_task(
             self._loop(channel_id, campaign_name, session_id),
@@ -195,6 +212,7 @@ class PartyModeOrchestrator:
         task = self._tasks.pop(channel_id, None)
         self._channel_meta.pop(channel_id, None)
         self._last_combat_state.pop(channel_id, None)
+        self._last_channel_state.pop(channel_id, None)
 
         if task is not None and not task.done():
             task.cancel()
@@ -257,7 +275,11 @@ class PartyModeOrchestrator:
                 poll_counter += 1
 
                 # ── Combat-state watcher ──────────────────────────────────────
-                if poll_counter % self._combat_check_every_n == 0:
+                # Cadence accelerates to 1 (every tick) when in COMBAT state
+                # so we catch COMBAT->EXPLORATION transitions within 250ms.
+                last_state = self._last_channel_state.get(channel_id, ChannelState.EXPLORATION)
+                cadence = self._get_poll_cadence(last_state)
+                if poll_counter % cadence == 0:
                     await self._check_state_transition(
                         channel_id, campaign_name, session_id, bound_log
                     )
@@ -289,7 +311,11 @@ class PartyModeOrchestrator:
                     bound_log.warning("orchestrator_party_thinking_error")
 
                 # party_get_prefetch for combat-relevant actions (turn_id present)
-                if "turn_id" in action or "combat_turn_id" in action or "encounter_action" in action:
+                if (
+                    "turn_id" in action
+                    or "combat_turn_id" in action
+                    or "encounter_action" in action
+                ):
                     turn_id = (
                         action.get("turn_id")
                         or action.get("combat_turn_id")
@@ -415,6 +441,9 @@ class PartyModeOrchestrator:
         old_state = ChannelState.COMBAT if last_combat else ChannelState.EXPLORATION
         new_state = ChannelState.COMBAT if state.in_combat else ChannelState.EXPLORATION
 
+        # Update cadence tracker so loop uses correct poll cadence next tick
+        self._last_channel_state[channel_id] = new_state
+
         bound_log.info(
             "orchestrator_state_transition",
             old_state=old_state,
@@ -428,14 +457,23 @@ class PartyModeOrchestrator:
         except Exception:
             bound_log.warning("orchestrator_state_db_update_error")
 
-        # Fire all registered callbacks exactly once per transition
-        for cb in self._state_change_callbacks:
-            try:
-                await asyncio.shield(cb(channel_id, old_state, new_state))
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                bound_log.warning("orchestrator_state_change_callback_error")
+        # Fire all registered callbacks concurrently via asyncio.gather so one
+        # cog raising does not prevent others from running (T-04-08, COMBAT-11).
+        if self._state_change_callbacks:
+            results = await asyncio.gather(
+                *[
+                    asyncio.shield(cb(channel_id, old_state, new_state))
+                    for cb in self._state_change_callbacks
+                ],
+                return_exceptions=True,
+            )
+            for i, result in enumerate(results):
+                if isinstance(result, Exception) and not isinstance(result, asyncio.CancelledError):
+                    bound_log.warning(
+                        "orchestrator_state_change_callback_error",
+                        callback_index=i,
+                        error=str(result),
+                    )
 
 
 def start_orchestrator_for_channel(
@@ -443,7 +481,7 @@ def start_orchestrator_for_channel(
     channel_id: str,
     campaign_name: str,
     session_id: str,
-) -> "Awaitable[asyncio.Task]":
+) -> Awaitable[asyncio.Task]:
     """Module-level helper for starting an orchestrator task.
 
     Thin wrapper for convenience import. Prefer calling orchestrator.start_orchestrator_for_channel
@@ -455,6 +493,6 @@ def start_orchestrator_for_channel(
 def stop_orchestrator_for_channel(
     orchestrator: PartyModeOrchestrator,
     channel_id: str,
-) -> "Awaitable[None]":
+) -> Awaitable[None]:
     """Module-level helper for stopping an orchestrator task."""
     return orchestrator.stop_orchestrator_for_channel(channel_id)
