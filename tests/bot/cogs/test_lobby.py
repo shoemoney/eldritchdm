@@ -20,14 +20,14 @@ Covers:
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 from discord import app_commands
 
 from eldritch_dm.bot.cogs.lobby import ADVENTURE_IDS, LobbyCog
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +45,8 @@ def _make_bot(
     cs_repo.get.return_value = channel_session
     cs_repo.upsert = AsyncMock()
     cs_repo.set_state = AsyncMock()
+    # By default, no active sessions from other channels (guard returns empty)
+    cs_repo.list_active = AsyncMock(return_value=[])
     bot.channel_sessions = cs_repo
 
     # persistent_views repo (accessed via bot.pv_repo — discord.Client has a
@@ -299,6 +301,66 @@ class TestStartGame:
         call_names = [c.args[0] for c in bot.mcp.call.call_args_list]
         assert "dm20__get_party_status" in call_names
 
+    @pytest.mark.asyncio
+    async def test_start_game_blocked_when_another_channel_active(self):
+        """Single-campaign guard: if another channel has a non-LOBBY session, refuse."""
+        from datetime import datetime
+
+        from eldritch_dm.persistence.models import ChannelSession, ChannelState
+
+        # Channel 200 is trying to start a game.
+        # Channel 999 already has an EXPLORATION session — this should block.
+        existing_session = ChannelSession(
+            channel_id="999",
+            campaign_name="OtherCampaign",
+            claudmaster_session_id="sess-existing",
+            dm20_party_token=None,
+            state=ChannelState.EXPLORATION,
+            created_at=datetime.now(tz=UTC),
+            updated_at=datetime.now(tz=UTC),
+        )
+        bot = _make_bot()
+        bot.channel_sessions.list_active = AsyncMock(return_value=[existing_session])
+        bot.mcp.call = _make_mcp_responses()
+        interaction = _make_interaction(channel_id=200)
+
+        cog = LobbyCog(bot)
+        await cog.start_game.callback(cog, interaction, name="NewCamp")
+
+        # Should be rejected with ephemeral error — MCP calls not made
+        bot.channel_sessions.upsert.assert_not_awaited()
+        call_kwargs = interaction.followup.send.call_args[1]
+        assert call_kwargs.get("ephemeral") is True
+        assert "active" in call_kwargs.get("content", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_start_game_not_blocked_by_own_channel_lobby_session(self):
+        """Guard allows restart of the SAME channel (even if listed as active)."""
+        from datetime import datetime
+
+        from eldritch_dm.persistence.models import ChannelSession, ChannelState
+
+        # Channel 200 has itself in the active list at LOBBY — should not block.
+        own_lobby_session = ChannelSession(
+            channel_id="200",  # Same channel as interaction
+            campaign_name="SameCamp",
+            claudmaster_session_id=None,
+            dm20_party_token=None,
+            state=ChannelState.LOBBY,
+            created_at=datetime.now(tz=UTC),
+            updated_at=datetime.now(tz=UTC),
+        )
+        bot = _make_bot()
+        bot.channel_sessions.list_active = AsyncMock(return_value=[own_lobby_session])
+        bot.mcp.call = _make_mcp_responses()
+        interaction = _make_interaction(channel_id=200)
+
+        cog = LobbyCog(bot)
+        await cog.start_game.callback(cog, interaction, name="SameCamp")
+
+        # Not blocked — upsert should be called (happy path)
+        bot.channel_sessions.upsert.assert_awaited()
+
 
 # ── /load_adventure ────────────────────────────────────────────────────────────
 
@@ -309,7 +371,7 @@ class TestLoadAdventure:
         campaign_name: str = "TestCamp",
         module_bound: str | None = None,
     ):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from eldritch_dm.persistence.models import ChannelSession, ChannelState
 
@@ -324,8 +386,8 @@ class TestLoadAdventure:
             claudmaster_session_id="sess-xyz",
             dm20_party_token=token,
             state=ChannelState.LOBBY,
-            created_at=datetime.now(tz=timezone.utc),
-            updated_at=datetime.now(tz=timezone.utc),
+            created_at=datetime.now(tz=UTC),
+            updated_at=datetime.now(tz=UTC),
         )
 
     @pytest.mark.asyncio

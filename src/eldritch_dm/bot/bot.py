@@ -18,12 +18,17 @@ import asyncio
 import discord
 from discord.ext import commands
 
+from eldritch_dm.bot.coalescer import ChannelEditBudget
 from eldritch_dm.config import Settings
+from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
+from eldritch_dm.gameplay.party_mode import PartyModeOrchestrator
 from eldritch_dm.logging import get_logger
 from eldritch_dm.mcp.client import MCPClient
 from eldritch_dm.mcp.health import CircuitBreaker, HealthCheck
+from eldritch_dm.mcp.rate_limit import ChannelRateLimiter
 from eldritch_dm.persistence import ChannelSessionRepo, WriterQueue
 from eldritch_dm.persistence.bootstrap import bootstrap
+from eldritch_dm.persistence.models import ChannelState
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 
 log = get_logger(__name__)
@@ -64,7 +69,25 @@ class EldritchBot(commands.Bot):
         self.channel_sessions: ChannelSessionRepo | None = None
         self.pv_repo: PersistentViewRepo | None = None
 
+        # Phase 4 gameplay subsystems — initialized in setup_hook
+        self.rate_limiter: ChannelRateLimiter | None = None
+        self.batch_coordinator: BatchCoordinator | None = None
+        self.orchestrator: PartyModeOrchestrator | None = None
+        # Per-channel edit budget instances — keyed by channel_id string
+        self._channel_edit_budgets: dict[str, ChannelEditBudget] = {}
+
         self._logger = log.bind(component="EldritchBot")
+
+    def get_channel_edit_budget(self, channel_id: str) -> ChannelEditBudget:
+        """Return (or create) the per-channel ChannelEditBudget.
+
+        Discord rate-limits embed edits to 5 per 5 seconds per channel.
+        One budget instance is shared across all EmbedCoalescers for the
+        same channel (e.g. room embed + combat embed during a transition).
+        """
+        if channel_id not in self._channel_edit_budgets:
+            self._channel_edit_budgets[channel_id] = ChannelEditBudget(channel_id=channel_id)
+        return self._channel_edit_budgets[channel_id]
 
     async def setup_hook(self) -> None:
         """Boot persistence, MCP health, and cogs.
@@ -79,8 +102,11 @@ class EldritchBot(commands.Bot):
           (c) CircuitBreaker + MCPClient
           (d) HealthCheck.start()
           (e) ChannelSessionRepo
-          (f) load Diagnostics cog
-          (g) sync app command tree
+          (e2) Register DynamicItem subclasses + rehydrate persistent views
+          (e3) Phase 4: ChannelRateLimiter + BatchCoordinator + PartyModeOrchestrator
+          (f) load cogs (Diagnostics, Lobby, Ingest, Exploration)
+          (g) Phase 4: start orchestrator tasks for existing EXPLORATION/COMBAT sessions
+          (h) sync app command tree
         """
         settings = self.settings
 
@@ -136,14 +162,50 @@ class EldritchBot(commands.Bot):
             self.channel_sessions_repo,
         )
 
+        # (e3) Phase 4 gameplay subsystems
+        self.rate_limiter = ChannelRateLimiter(
+            min_interval_ms=settings.mcp_rate_limit_ms,
+        )
+        self.batch_coordinator = BatchCoordinator(
+            window_seconds=float(settings.explore_batch_window_seconds),
+        )
+        self.orchestrator = PartyModeOrchestrator(
+            mcp=self.mcp,
+            rate_limiter=self.rate_limiter,
+            batch_coordinator=self.batch_coordinator,
+            channel_sessions=self.channel_sessions_repo,
+        )
+
         # (f) Load cogs
         await self.load_extension("eldritch_dm.bot.cogs.diagnostics")
         # Phase 3: LobbyCog (/start_game, /load_adventure, ReadyButton wiring)
         await self.load_extension("eldritch_dm.bot.cogs.lobby")
-        # Phase 3: IngestCog (/upload_character_url, /upload_character_file, /upload_character_manual)
+        # Phase 3: IngestCog — character upload via URL, file, and manual entry
         await self.load_extension("eldritch_dm.bot.cogs.ingest")
+        # Phase 4: ExplorationCog — room embed lifecycle, declare-action UI
+        await self.load_extension("eldritch_dm.bot.cogs.exploration")
 
-        # (g) Sync app command tree
+        # (g) Phase 4: Resume orchestrator tasks for any EXPLORATION/COMBAT sessions
+        # that survived a bot restart. ExplorationCog must be loaded first (above)
+        # so its callbacks are registered before we begin polling.
+        try:
+            active_rows = await self.channel_sessions_repo.list_active()
+            resumed = 0
+            for sess in active_rows:
+                if sess.state in (ChannelState.EXPLORATION, ChannelState.COMBAT):
+                    await self.orchestrator.start_orchestrator_for_channel(
+                        channel_id=str(sess.channel_id),
+                        campaign_name=sess.campaign_name,
+                        session_id=sess.claudmaster_session_id or "",
+                    )
+                    resumed += 1
+            if resumed:
+                self._logger.info("orchestrator_sessions_resumed", count=resumed)
+        except Exception:  # noqa: BLE001
+            self._logger.exception("orchestrator_resume_error")
+            # Non-fatal: bot connects normally; existing channels resume on next action
+
+        # (h) Sync app command tree
         guild_ids = settings.guild_ids_list
         if guild_ids:
             synced_total: list[discord.app_commands.AppCommand] = []
@@ -176,6 +238,14 @@ class EldritchBot(commands.Bot):
         even if an earlier step raises an unexpected error.
         """
         self._logger.info("bot_closing")
+
+        # Step 0: Stop PartyModeOrchestrator (cancel all per-channel polling tasks)
+        if self.orchestrator is not None:
+            try:
+                await self.orchestrator.stop_all()
+                self._logger.debug("orchestrator_stopped")
+            except Exception:  # noqa: BLE001
+                self._logger.exception("orchestrator_stop_error")
 
         # Step 1: Stop HealthCheck
         if self.health is not None:

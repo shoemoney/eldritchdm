@@ -141,6 +141,30 @@ class LobbyCog(commands.Cog):
         mcp = self.bot.mcp
         channel_id_str = str(interaction.channel_id)
 
+        # Pre-step: Single-campaign-per-process guard (v1 constraint).
+        # If ANY other channel already has a non-LOBBY session, refuse.
+        try:
+            active_rows = await self.bot.channel_sessions.list_active()
+            for row in active_rows:
+                if row.channel_id != channel_id_str and row.state != ChannelState.LOBBY:
+                    bound_log.warning(
+                        "start_game_blocked_active_session",
+                        existing_channel_id=row.channel_id,
+                        existing_state=row.state,
+                    )
+                    await interaction.followup.send(
+                        content=(
+                            f"A campaign is already active in another channel "
+                            f"(campaign: '{row.campaign_name}', state: {row.state}). "
+                            f"Only one active campaign is supported per bot instance."
+                        ),
+                        ephemeral=True,
+                    )
+                    return
+        except Exception:
+            bound_log.exception("start_game_active_session_check_failed")
+            # Non-fatal: let the game start; the guard is best-effort
+
         # Step 2: Create campaign
         try:
             await mcp.call(

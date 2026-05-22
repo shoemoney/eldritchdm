@@ -34,11 +34,9 @@ strings. For 19-digit Discord snowflakes (the realistic worst case):
 
 from __future__ import annotations
 
-import json
 import re
 
 import discord
-import structlog
 
 from eldritch_dm.logging import get_logger
 from eldritch_dm.mcp import tools as mcp_tools
@@ -80,7 +78,7 @@ class ReadyButton(
         item: discord.ui.Button,
         match: re.Match[str],
         /,
-    ) -> "ReadyButton":
+    ) -> ReadyButton:
         return cls(channel_id=int(match["channel_id"]))
 
     def _custom_id_str(self) -> str:
@@ -158,7 +156,9 @@ class ReadyButton(
             return
 
         characters = roster_result.get("characters", []) if isinstance(roster_result, dict) else []
-        player_ids: set[str] = {str(c.get("player_id", "")) for c in characters if c.get("player_id")}
+        player_ids: set[str] = {  # noqa: E501
+            str(c.get("player_id", "")) for c in characters if c.get("player_id")
+        }
 
         if str(user_id) not in player_ids:
             bound_log.warning("ready_button_non_roster_user")
@@ -184,7 +184,8 @@ class ReadyButton(
         # created_at is set by the DB (datetime('now')); provide a dummy datetime
         # for model construction since it's required by Pydantic but overridden in SQL.
         # message_id is "" since we track the lobby message separately.
-        from datetime import UTC, datetime as _datetime  # noqa: PLC0415
+        from datetime import UTC  # noqa: PLC0415
+        from datetime import datetime as _datetime
 
         updated_view = PersistentView(
             custom_id=ready_custom_id,
@@ -289,26 +290,98 @@ class DeclareActionButton(
         item: discord.ui.Button,
         match: re.Match[str],
         /,
-    ) -> "DeclareActionButton":
+    ) -> DeclareActionButton:
         return cls(channel_id=int(match["channel_id"]))
 
     def _custom_id_str(self) -> str:
         return f"declare:{self.channel_id}"
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        # D-09: defer first — always
+        """Phase 4 DeclareActionButton callback.
+
+        State guard: refuses to open modal if session is not EXPLORATION.
+        Uses the 2-step _ModalLaunchView pattern (defer + ephemeral button →
+        button click sends modal on a fresh interaction).
+
+        EDM001 waiver granted on the inner _launch_button: it opens a modal;
+        first response is send_modal (same precedent as ingest.py line 609).
+        """
+        # Step 1: D-09 defer first (EDM001 lint gate)
         await interaction.response.defer(thinking=True, ephemeral=True)
 
+        channel_id_str = str(self.channel_id)
         bound_log = log.bind(
-            channel_id=self.channel_id,
+            channel_id=channel_id_str,
             custom_id=self._custom_id_str(),
             view_class=type(self).__name__,
             user_id=getattr(interaction.user, "id", None),
         )
-        bound_log.info("phase2_stub_callback_invoked")
+        bound_log.info("declare_action_button_invoked")
+
+        # Resolve bot subsystems via interaction.client (DynamicItem cannot use
+        # constructor injection — discord.py routes dispatch via class).
+        bot = interaction.client
+
+        # Step 2: Check session state — only open modal if EXPLORATION
+        from eldritch_dm.persistence.models import ChannelState  # noqa: PLC0415
+
+        channel_sessions = getattr(bot, "channel_sessions", None)
+        if channel_sessions is None:
+            bound_log.warning("declare_action_no_channel_sessions")
+            from eldritch_dm.bot.warnings import WarningKind, send_warning  # noqa: PLC0415
+
+            await send_warning(
+                interaction,
+                WarningKind.INVALID_ACTION,
+                reason="Bot not ready yet. Try again in a moment.",
+            )
+            return
+
+        session = await channel_sessions.get(channel_id_str)
+        if session is None or session.state != ChannelState.EXPLORATION:
+            bound_log.warning(
+                "declare_action_wrong_state",
+                state=session.state if session else "no_session",
+            )
+            from eldritch_dm.bot.warnings import WarningKind, send_warning  # noqa: PLC0415
+
+            if session is None:
+                reason = "No active session in this channel."
+            else:
+                reason = (
+                    f"Actions can only be declared during exploration"
+                    f" (state: {session.state})."
+                )
+            await send_warning(
+                interaction,
+                WarningKind.INVALID_ACTION,
+                reason=reason,
+            )
+            return
+
+        # Step 3: Open modal via 2-step pattern (defer + send_modal conflict workaround).
+        # Import here to avoid circular import (dynamic_items → cogs/exploration).
+        from eldritch_dm.bot.cogs.exploration import DeclareActionModal  # noqa: PLC0415
+
+        def _modal_factory() -> DeclareActionModal:
+            return DeclareActionModal(channel_id=self.channel_id, bot=bot)  # type: ignore[arg-type]
+
+        # Inline _ModalLaunchView — same pattern as ingest.py but private to this callback.
+        launch_view = discord.ui.View(timeout=300)
+        launch_button = discord.ui.Button(
+            label="Open Action Form",
+            style=discord.ButtonStyle.primary,
+        )
+
+        async def _on_launch_click(btn_interaction: discord.Interaction) -> None:  # noqa: EDM001 — button opens modal; first response is send_modal
+            await btn_interaction.response.send_modal(_modal_factory())
+
+        launch_button.callback = _on_launch_click
+        launch_view.add_item(launch_button)
 
         await interaction.followup.send(
-            content=f"⏳ Phase 2 stub — {type(self).__name__} will be wired up in a later phase.",
+            content="Click below to declare your action:",
+            view=launch_view,
             ephemeral=True,
         )
 
@@ -347,7 +420,7 @@ class EndTurnButton(
         item: discord.ui.Button,
         match: re.Match[str],
         /,
-    ) -> "EndTurnButton":
+    ) -> EndTurnButton:
         return cls(
             channel_id=int(match["channel_id"]),
             actor_id=int(match["actor_id"]),
@@ -409,7 +482,7 @@ class RiposteButton(
         item: discord.ui.Button,
         match: re.Match[str],
         /,
-    ) -> "RiposteButton":
+    ) -> RiposteButton:
         return cls(
             timer_id=int(match["timer_id"]),
             user_id=int(match["user_id"]),
