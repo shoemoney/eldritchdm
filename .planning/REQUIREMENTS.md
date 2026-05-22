@@ -41,24 +41,24 @@
 
 ### Lobby (LOBBY)
 
-- [ ] **LOBBY-01**: `/start_game` slash command — creates dm20 campaign via `dm20__create_campaign`, starts Claudmaster session via `dm20__start_claudmaster_session`, starts Party Mode via `dm20__start_party_mode`, records mapping in `channel_sessions`
-- [ ] **LOBBY-02**: Optional `/load_adventure <id>` — runs `dm20__load_adventure` (CoS, LMoP, etc.)
-- [ ] **LOBBY-03**: Lobby embed lists party-mode invite/QR (output of `start_party_mode`) AND a Discord-native "Join" persistent button
-- [ ] **LOBBY-04**: Ready check: each player marks ready via persistent button; all-ready transitions to EXPLORATION and signals Claudmaster
+- [x] **LOBBY-01**: `/start_game` slash command — creates dm20 campaign via `dm20__create_campaign`, starts Claudmaster session via `dm20__start_claudmaster_session`, starts Party Mode via `dm20__start_party_mode`, records mapping in `channel_sessions`
+- [x] **LOBBY-02**: Optional `/load_adventure <id>` — runs `dm20__load_adventure` (CoS, LMoP, etc.)
+- [x] **LOBBY-03**: Lobby embed lists party-mode invite/QR (output of `start_party_mode`) AND a Discord-native "Join" persistent button
+- [x] **LOBBY-04**: Ready check: each player marks ready via persistent button; all-ready transitions to EXPLORATION and signals Claudmaster
 
 ### Character Ingest (INGEST)
 
-- [ ] **INGEST-01**: `/upload_character_url <ddb_url>` slash command → `dm20__import_from_dndbeyond(url_or_id, player_name)`
-- [ ] **INGEST-02**: `/upload_character_file` accepts PNG/JPG/PDF attachment for non-DDB sheets
-- [ ] **INGEST-03**: `ocrmac` (Apple Vision) primary OCR on macOS; `easyocr` via `linux-ocr` extra
-- [ ] **INGEST-04**: `PyMuPDF` primary PDF parse; `pypdf` MIT fallback
-- [ ] **INGEST-05**: OCR/PDF work runs on `ThreadPoolExecutor(max_workers=2)` via `run_in_executor`
-- [ ] **INGEST-06**: Extracted text passed to oMLX (`/v1/chat/completions`, response_format=json_object, temp=0.05) for schema translation
-- [ ] **INGEST-07**: Pydantic validates LLM output; ability-score ranges checked; class/race verified against `dm20__get_class_info`/`get_race_info`
-- [ ] **INGEST-08**: Manual-review modal: parsed fields rendered; player confirms or edits before `dm20__create_character` is called
-- [ ] **INGEST-09**: Confidence-gated: low-confidence OCR triggers manual-entry modal as first-class path
-- [ ] **INGEST-10**: Confirmations are ephemeral; uploads restricted to invoking player or DM
-- [ ] **INGEST-11**: End-to-end ingest (image → dm20 character) completes in <8s for standard sheets
+- [x] **INGEST-01**: `/upload_character_url <ddb_url>` slash command → `dm20__import_from_dndbeyond(url_or_id, player_name)`
+- [x] **INGEST-02**: `/upload_character_file` accepts PNG/JPG/PDF attachment for non-DDB sheets
+- [x] **INGEST-03**: `ocrmac` (Apple Vision) primary OCR on macOS; `easyocr` via `linux-ocr` extra
+- [x] **INGEST-04**: `PyMuPDF` primary PDF parse; `pypdf` MIT fallback
+- [x] **INGEST-05**: OCR/PDF work runs on `ThreadPoolExecutor(max_workers=2)` via `run_in_executor`
+- [x] **INGEST-06**: Extracted text passed to oMLX (`/v1/chat/completions`, response_format=json_object, temp=0.05) for schema translation
+- [x] **INGEST-07**: Pydantic validates LLM output; ability-score ranges checked; class/race verified against `dm20__get_class_info`/`get_race_info`
+- [x] **INGEST-08**: Manual-review modal: parsed fields rendered; player confirms or edits before `dm20__create_character` is called
+- [x] **INGEST-09**: Confidence-gated: low-confidence OCR triggers manual-entry modal as first-class path
+- [x] **INGEST-10**: Confirmations are ephemeral; uploads restricted to invoking player or DM
+- [x] **INGEST-11**: End-to-end ingest (image → dm20 character) completes in <8s for standard sheets
 
 ### Exploration State (EXPLORE)
 

@@ -14,7 +14,7 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
 
 - [x] **Phase 1: MCP Client + Local State** — Async MCP wrapper to dm20 at oMLX, local Discord-state SQLite (WAL, repositories), sanitizer pipeline
 - [x] **Phase 2: Discord Scaffold + Persistent Views** — discord.py bot, slash command tree, DynamicItem `custom_id`s, embed coalescer, defer discipline, restart-drill infrastructure
-- [ ] **Phase 3: Lobby + Character Ingest** — `/start_game` + `/load_adventure`, ready-check, D&D Beyond import, OCR/PDF pipeline for paper sheets, manual-review modal
+- [x] **Phase 3: Lobby + Character Ingest** — `/start_game` + `/load_adventure`, ready-check, D&D Beyond import, OCR/PDF pipeline for paper sheets, manual-review modal
 - [ ] **Phase 4: Gameplay — Exploration + Combat (Party Mode)** — Bind to dm20 Party Mode queue, action batching, combat embed, turn gatekeeping by Discord user_id, dodge, 8-player load proof
 - [ ] **Phase 5: Reactions + Self-Host Polish** — Timed Riposte button with restart-survival, README, `.env.example`, bootstrap, `run.py`, launchd recipe, full test suite
 
@@ -66,7 +66,10 @@ Mechanically honest AI DM, on Discord, fully local. Bot never computes game math
   4. `/upload_character_file` with PNG/JPG/PDF: OCR (ocrmac on macOS) → oMLX schema translate → manual-review modal → DM/player confirm → `dm20__create_character` or `update_character` in <8s for standard sheets
   5. Confidence gate works: forced-low-confidence test triggers manual-entry modal as the first-class path; uploads restricted to invoking user or DM; confirmations are ephemeral
   6. All-ready button transitions session to EXPLORATION state (recorded in `channel_sessions`, signaled to Claudmaster via state update)
-**Plans**: TBD
+**Plans**:
+- [x] 01-PLAN-lobby-and-cogs.md — LobbyCog (/start_game, /load_adventure, ReadyButton, lobby embed + QR), ChannelSessionRepo wiring, party_mode_parser, permissions gate — COMPLETE (127 tests, 16 files, 120 min)
+- [x] 02-PLAN-ingest-pipeline.md — OCR/PDF ingest pipeline (ocrmac+easyocr+PyMuPDF), oMLX schema translation, IngestResult with confidence score, pydantic CharacterSheet validation — COMPLETE (82 tests, 14 files, 90 min)
+- [x] 03-PLAN-ingest-cogs-and-modals.md — IngestCog (3 slash commands), CharacterReviewModal + CharacterEntryModal (5-component cap), QR helper extraction, Phase 3 integration smoke, Phase 3 closure — COMPLETE (55 tests, 12 files, 85 min)
 
 ### Phase 4: Gameplay — Exploration + Combat (Party Mode)
 **Goal**: A functional play loop — players declare actions in modals, ShoeGPT narrates via dm20's Party Mode queue, combat enforces turn order by Discord user_id, and the 8-player load test passes without Discord rate-limit errors
