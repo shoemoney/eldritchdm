@@ -35,6 +35,7 @@ from eldritch_dm.persistence.models import ChannelState
 from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
+from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
 
 log = get_logger(__name__)
 
@@ -65,6 +66,12 @@ class EldritchBot(commands.Bot):
         self.health: HealthCheck | None = None
         self.channel_sessions_repo: ChannelSessionRepo | None = None
         self.persistent_views_repo: PersistentViewRepo | None = None
+        # G-2 (v1.0 audit closure): SanitizerAuditRepo wiring. Without this,
+        # SAN-05 was unsatisfied at runtime — strips logged via structlog but
+        # never persisted to the sanitizer_audit table. Instantiated in
+        # setup_hook so the cog wiring at exploration.py:107 can pass it via
+        # make_async_audit_callback(...).
+        self.sanitizer_audit_repo: SanitizerAuditRepo | None = None
         # Phase 3 convenience aliases — ReadyButton.callback and LobbyCog read these via
         # interaction.client (cannot use constructor injection with DynamicItem).
         # Named with trailing underscore to avoid collision with discord.Client.persistent_views
@@ -215,6 +222,14 @@ class EldritchBot(commands.Bot):
             self.writer_queue,
         )
         self.persistent_views_repo = PersistentViewRepo(
+            settings.eldritch_db_path,
+            self.writer_queue,
+        )
+        # G-2 (v1.0 audit closure): SanitizerAuditRepo for SAN-05.
+        # ExplorationCog.DeclareActionModal reads this via
+        # interaction.client.sanitizer_audit_repo and bridges it to
+        # sanitize_player_input via make_async_audit_callback.
+        self.sanitizer_audit_repo = SanitizerAuditRepo(
             settings.eldritch_db_path,
             self.writer_queue,
         )

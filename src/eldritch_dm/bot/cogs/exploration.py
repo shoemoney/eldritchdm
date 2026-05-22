@@ -44,7 +44,10 @@ from eldritch_dm.bot.embeds import room_embed
 from eldritch_dm.gameplay.exploration_batch import PlayerIntent
 from eldritch_dm.logging import get_logger
 from eldritch_dm.persistence.models import ChannelState
-from eldritch_dm.safety.sanitizer import sanitize_player_input
+from eldritch_dm.safety.sanitizer import (
+    make_async_audit_callback,
+    sanitize_player_input,
+)
 
 if TYPE_CHECKING:
     from eldritch_dm.bot.bot import EldritchBot
@@ -103,12 +106,22 @@ class DeclareActionModal(discord.ui.Modal, title="Declare Your Action"):
 
         raw = self.action_text.value or ""
 
-        # Step 2: Sanitize (T-04-01, T-04-06)
+        # G-2 (v1.0 audit closure): build the audit callback if the bot has
+        # the repo wired. SAN-05 requires the strip event to persist to the
+        # sanitizer_audit table whenever stripped_tokens != [] or truncated
+        # is True. The callback is fire-and-forget on the running loop.
+        audit_repo = getattr(self._bot, "sanitizer_audit_repo", None)
+        audit_cb = (
+            make_async_audit_callback(audit_repo) if audit_repo is not None else None
+        )
+
+        # Step 2: Sanitize (T-04-01, T-04-06, SAN-05)
         sanitized = sanitize_player_input(
             raw,
             speaker=display_name,
             user_id=user_id,
             channel_id=channel_id_str,
+            audit_callback=audit_cb,
         )
 
         bound_log.info(
