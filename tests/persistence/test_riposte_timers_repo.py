@@ -100,6 +100,33 @@ class TestRiposteTimerMark:
         assert got is not None
         assert got.status == RiposteStatus.CONSUMED
 
+    async def test_mark_expired_conditional_on_pending(self, bootstrapped_db_with_repos):
+        """Plan 02: mark_expired is conditional on status='pending'.
+
+        Calling mark_expired on a row that has already been consumed must
+        leave the row in 'consumed' state (0-row UPDATE — semantic no-op).
+        This is the belt-and-suspenders correctness for the click-vs-sweeper
+        race (RESEARCH Pitfall 3 / T-05-10).
+        """
+        db_path, wq, channel_repo, _, riposte_repo, _, _ = bootstrapped_db_with_repos
+        await channel_repo.upsert(channel_id="ch-1", campaign_name="Camp1")
+
+        inserted = await riposte_repo.insert(make_timer())
+
+        # Click wins: consumed
+        await riposte_repo.mark_consumed_with_round(inserted.id, 1)
+        got = await riposte_repo.get(inserted.id)
+        assert got is not None
+        assert got.status == RiposteStatus.CONSUMED
+
+        # Sweeper races in afterwards — must NOT overwrite consumed
+        await riposte_repo.mark_expired(inserted.id)
+        got = await riposte_repo.get(inserted.id)
+        assert got is not None
+        assert got.status == RiposteStatus.CONSUMED, (
+            "Plan 02 conditional mark_expired must NOT overwrite a consumed row"
+        )
+
 
 class TestRiposteTimerPhase5Extensions:
     """Phase 5 Plan 01: list_for_character, mark_cancelled, update_message_ref,

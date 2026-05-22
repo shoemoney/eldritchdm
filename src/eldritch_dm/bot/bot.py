@@ -23,6 +23,8 @@ from eldritch_dm.bot.coalescer import ChannelEditBudget
 from eldritch_dm.config import Settings
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
 from eldritch_dm.gameplay.party_mode import PartyModeOrchestrator
+from eldritch_dm.gameplay.riposte_sweeper import RiposteSweeper
+from eldritch_dm.gameplay.session_locks import SessionLocks
 from eldritch_dm.logging import get_logger
 from eldritch_dm.mcp.client import MCPClient
 from eldritch_dm.mcp.health import CircuitBreaker, HealthCheck
@@ -81,6 +83,9 @@ class EldritchBot(commands.Bot):
         self.riposte_timers: RiposteTimerRepo | None = None
         self.riposte_timers_repo: RiposteTimerRepo | None = None
         self.monster_driver: Any = None
+        # Phase 5 Plan 02 gameplay subsystems — initialized in setup_hook
+        self.session_locks: SessionLocks | None = None
+        self.riposte_sweeper: RiposteSweeper | None = None
         # Per-channel edit budget instances — keyed by channel_id string
         self._channel_edit_budgets: dict[str, ChannelEditBudget] = {}
 
@@ -293,6 +298,21 @@ class EldritchBot(commands.Bot):
             ttl_seconds=settings.riposte_ttl_seconds,
         )
 
+        # (e3c) Phase 5 Plan 02 — shared SessionLocks + RiposteSweeper.
+        # Order: AFTER rehydrate_persistent_views (e2/e3) so DynamicItems
+        # are registered before any sweeper-triggered Discord interactions
+        # could route. AFTER riposte_timers_repo construction (above).
+        # BEFORE orchestrator (below) is purely organizational — they are
+        # independent subsystems.
+        self.session_locks = SessionLocks()
+        self.riposte_sweeper = RiposteSweeper(
+            repo=self.riposte_timers_repo,
+            bot=self,
+            session_locks=self.session_locks,
+            log=get_logger("eldritch_dm.gameplay.riposte_sweeper"),
+        )
+        await self.riposte_sweeper.start()
+
         self.orchestrator = PartyModeOrchestrator(
             mcp=self.mcp,
             rate_limiter=self.rate_limiter,
@@ -366,7 +386,22 @@ class EldritchBot(commands.Bot):
         """
         self._logger.info("bot_closing")
 
-        # Step 0: Stop PartyModeOrchestrator (cancel all per-channel polling tasks)
+        # Step 0a: Stop RiposteSweeper FIRST (Plan 02 / OPS-04 chain).
+        # Rationale: pending mark_expired calls during shutdown need
+        # session_locks alive (they are, while the sweeper drains). Stopping
+        # the sweeper first means no half-finished iterations linger; the
+        # remaining steps tear down repos + DB without the sweeper poking
+        # them mid-shutdown. Plan 02 decision: cancel (not flush) for clean
+        # shutdown semantics; pending rows survive across restart and get
+        # cleaned up on the next bot's first sweep.
+        if self.riposte_sweeper is not None:
+            try:
+                await self.riposte_sweeper.stop()
+                self._logger.debug("riposte_sweeper_stopped")
+            except Exception:  # noqa: BLE001
+                self._logger.exception("riposte_sweeper_stop_error")
+
+        # Step 0b: Stop PartyModeOrchestrator (cancel all per-channel polling tasks)
         if self.orchestrator is not None:
             try:
                 await self.orchestrator.stop_all()

@@ -401,18 +401,36 @@ class TestSurfaceRiposteButton:
         assert result == 314
 
 
-# ── PLAN-02-LOCK-SEAM marker presence ────────────────────────────────────────
+# ── PLAN-02 LOCK INTEGRATION (post-Plan-02) ──────────────────────────────────
 
 
-class TestPlan02LockSeamMarker:
-    def test_marker_present_in_reactions_module(self) -> None:
-        """Plan 02 will grep for this marker; ensure it's present in handle_riposte_click."""
+class TestPlan02LockIntegrated:
+    """Plan 02 replaces the PLAN-01 marker with the real session_locks wrapper.
+
+    These tests REPLACED the Plan 01 marker-present check now that Plan 02
+    has shipped the actual lock plumbing.
+    """
+
+    def test_marker_is_gone_from_handle_riposte_click(self) -> None:
+        """The PLAN-02-LOCK-SEAM marker MUST be absent post-Plan-02."""
         import inspect
 
         from eldritch_dm.gameplay.reactions import handle_riposte_click
 
         src = inspect.getsource(handle_riposte_click)
-        assert "PLAN-02-LOCK-SEAM" in src, (
-            "Plan 02 needs the PLAN-02-LOCK-SEAM marker inside handle_riposte_click"
-            " to wrap the read-then-mark sequence in a per-channel asyncio.Lock."
+        assert "PLAN-02-LOCK-SEAM" not in src, (
+            "Plan 02 should have replaced the PLAN-02-LOCK-SEAM marker with a "
+            "real session_locks.lock_for('riposte', channel_id) wrapper."
+        )
+
+    def test_session_locks_lock_for_is_called(self) -> None:
+        """handle_riposte_click must wrap the mutate path in session_locks."""
+        import inspect
+
+        from eldritch_dm.gameplay.reactions import handle_riposte_click
+
+        src = inspect.getsource(handle_riposte_click)
+        assert 'session_locks.lock_for("riposte"' in src or "session_locks.lock_for('riposte'" in src, (
+            "handle_riposte_click must wrap the read-then-mark sequence in "
+            "session_locks.lock_for('riposte', channel_id). See Plan 02 task 1."
         )

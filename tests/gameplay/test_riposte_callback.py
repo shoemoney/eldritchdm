@@ -24,6 +24,7 @@ import pytest
 
 from eldritch_dm.bot.warnings import WarningKind
 from eldritch_dm.gameplay.reactions import handle_riposte_click
+from eldritch_dm.gameplay.session_locks import SessionLocks
 from eldritch_dm.persistence.models import RiposteStatus, RiposteTimer
 
 
@@ -102,6 +103,7 @@ class TestWrongUserRejected:
                 repo=repo,
                 mcp=MagicMock(),
                 rate_limiter=None,
+                session_locks=SessionLocks(),
                 current_round_provider=_round_provider,
                 warning_sender=warning_sender,
                 invalid_action_kind=WarningKind.INVALID_ACTION,
@@ -139,6 +141,7 @@ class TestExpiredRowClick:
                 repo=repo,
                 mcp=MagicMock(),
                 rate_limiter=None,
+                session_locks=SessionLocks(),
                 current_round_provider=_round_provider,
                 warning_sender=warning_sender,
                 invalid_action_kind=WarningKind.INVALID_ACTION,
@@ -179,6 +182,7 @@ class TestLatePendingClick:
                 repo=repo,
                 mcp=MagicMock(),
                 rate_limiter=None,
+                session_locks=SessionLocks(),
                 current_round_provider=_round_provider,
                 warning_sender=warning_sender,
                 invalid_action_kind=WarningKind.INVALID_ACTION,
@@ -224,6 +228,7 @@ class TestSuccessfulClick:
                 repo=repo,
                 mcp=MagicMock(),
                 rate_limiter=rate_limiter,
+                session_locks=SessionLocks(),
                 current_round_provider=round_5,
                 warning_sender=warning_sender,
                 invalid_action_kind=WarningKind.INVALID_ACTION,
@@ -261,8 +266,14 @@ class TestConcurrentClicks:
         consumed_timer = _make_timer(status=RiposteStatus.CONSUMED)
 
         repo = MagicMock()
-        # First .get() → pending; second .get() → consumed
-        repo.get = AsyncMock(side_effect=[timer, consumed_timer])
+        # Plan 02: handle_riposte_click does TWO .get() calls per click —
+        # one pre-lock (to discover channel_id) and one under-lock (the
+        # authoritative status read). So we need 4 .get() returns total:
+        #   click 1: pre-lock pending, under-lock pending → consumes
+        #   click 2: pre-lock consumed,  under-lock consumed → RIPOSTE_EXPIRED
+        repo.get = AsyncMock(
+            side_effect=[timer, timer, consumed_timer, consumed_timer]
+        )
         repo.mark_consumed_with_round = AsyncMock()
         repo.mark_expired = AsyncMock()
 
@@ -284,6 +295,7 @@ class TestConcurrentClicks:
                 repo=repo,
                 mcp=MagicMock(),
                 rate_limiter=rate_limiter,
+                session_locks=SessionLocks(),
                 current_round_provider=_round_provider,
                 warning_sender=warning_sender,
                 invalid_action_kind=WarningKind.INVALID_ACTION,
@@ -299,6 +311,7 @@ class TestConcurrentClicks:
                 repo=repo,
                 mcp=MagicMock(),
                 rate_limiter=rate_limiter,
+                session_locks=SessionLocks(),
                 current_round_provider=_round_provider,
                 warning_sender=warning_sender,
                 invalid_action_kind=WarningKind.INVALID_ACTION,
@@ -401,3 +414,173 @@ class TestRiposteExpiredWarningKind:
         assert kwargs.get("ephemeral") is True
         # message text contains a riposte hint
         assert "riposte" in kwargs.get("content", "").lower()
+
+
+# ── Test 16 (Plan 02): Concurrent clicks — deterministic under shared lock ──
+
+
+class TestPlan02ConcurrentClicksDeterministic:
+    """Plan 02: with the shared SessionLocks lock, two concurrent clicks for
+    the same timer_id (fired via asyncio.gather) are deterministic — exactly
+    ONE completes mark_consumed_with_round, the other observes status='consumed'
+    inside the lock and emits RIPOSTE_EXPIRED.
+
+    Plan 01 shipped a status-check correctness path; Plan 02 hardens it so
+    the test outcome is deterministic (not race-lucky).
+    """
+
+    @pytest.mark.asyncio
+    async def test_concurrent_clicks_one_winner(self) -> None:
+        timer = _make_timer()
+        consumed_timer = _make_timer(status=RiposteStatus.CONSUMED)
+
+        # First .get (initial pre-lock) for both clicks returns pending.
+        # Once one click enters the lock and calls mark_consumed, the OTHER
+        # click's second .get (under the lock) sees consumed_timer.
+        repo = MagicMock()
+        get_call_count = {"n": 0}
+        mark_consumed_done = asyncio.Event()
+
+        async def get_side_effect(_id: int):
+            n = get_call_count["n"]
+            get_call_count["n"] += 1
+            # 1st + 2nd get calls (pre-lock for both clicks) → pending
+            # 3rd get (the FIRST under-lock re-read for the winner) → pending
+            # 4th get (the SECOND under-lock re-read for the loser) → consumed
+            if mark_consumed_done.is_set():
+                return consumed_timer
+            return timer
+
+        repo.get = AsyncMock(side_effect=get_side_effect)
+        repo.mark_expired = AsyncMock()
+
+        async def mark_consumed_impl(_id: int, _round: int) -> None:
+            mark_consumed_done.set()
+
+        repo.mark_consumed_with_round = AsyncMock(side_effect=mark_consumed_impl)
+
+        rate_limiter = MagicMock()
+        rate_limiter.acquire = AsyncMock()
+
+        warning_sender = AsyncMock()
+        # Shared SessionLocks across both clicks (THIS is the critical wiring)
+        shared_locks = SessionLocks()
+
+        with patch(
+            "eldritch_dm.gameplay.reactions.mcp_tools.combat_action",
+            new=AsyncMock(return_value="**Hit!**"),
+        ):
+            async def one_click():
+                interaction = _make_interaction()
+                await handle_riposte_click(
+                    interaction=interaction,
+                    timer_id=1,
+                    expected_user_id=999,
+                    repo=repo,
+                    mcp=MagicMock(),
+                    rate_limiter=rate_limiter,
+                    session_locks=shared_locks,
+                    current_round_provider=_round_provider,
+                    warning_sender=warning_sender,
+                    invalid_action_kind=WarningKind.INVALID_ACTION,
+                    riposte_expired_kind=WarningKind.RIPOSTE_EXPIRED,
+                )
+
+            await asyncio.gather(one_click(), one_click())
+
+        # Exactly ONE mark_consumed_with_round under deterministic lock
+        assert repo.mark_consumed_with_round.await_count == 1
+        # The other click sent a RIPOSTE_EXPIRED warning
+        assert warning_sender.await_count == 1
+        assert warning_sender.call_args.args[1] == WarningKind.RIPOSTE_EXPIRED
+
+
+# ── Test 17 (Plan 02): Race with sweeper — click wins, sweeper no-ops ────────
+
+
+class TestPlan02SweeperRaceLockOrdering:
+    """Plan 02: with the shared SessionLocks, a sweeper that tries to
+    mark_expired while a click is in-flight will WAIT for the click's lock
+    release. Then the sweeper's mark_expired SQL (WHERE status='pending')
+    becomes a 0-row no-op since the click already flipped status to consumed.
+    """
+
+    @pytest.mark.asyncio
+    async def test_sweeper_waits_then_observes_consumed(self) -> None:
+        # The click writes mark_consumed first; then a "sweeper" coroutine
+        # acquires the same lock and calls mark_expired (which is conditional
+        # on still-pending, so it's a 0-row UPDATE — semantic no-op).
+        timer = _make_timer()
+        consumed_timer = _make_timer(status=RiposteStatus.CONSUMED)
+
+        click_done = asyncio.Event()
+        sweeper_waited = {"flag": False}
+
+        repo = MagicMock()
+        get_calls = {"n": 0}
+
+        async def get_side_effect(_id: int):
+            get_calls["n"] += 1
+            # Click's initial pre-lock get → pending
+            # Click's under-lock re-read get → pending
+            # (sweeper doesn't call .get; it acts on list_pending elsewhere)
+            return timer if not click_done.is_set() else consumed_timer
+
+        repo.get = AsyncMock(side_effect=get_side_effect)
+
+        async def mark_consumed_impl(_id: int, _round: int) -> None:
+            # Hold the click in the critical section briefly so the sweeper
+            # has time to enqueue waiting on the lock.
+            await asyncio.sleep(0.02)
+            click_done.set()
+
+        repo.mark_consumed_with_round = AsyncMock(side_effect=mark_consumed_impl)
+        repo.mark_expired = AsyncMock()
+
+        rate_limiter = MagicMock()
+        rate_limiter.acquire = AsyncMock()
+
+        warning_sender = AsyncMock()
+        shared_locks = SessionLocks()
+
+        async def fake_sweeper_run() -> None:
+            # Wait a bit so the click acquires the lock first
+            await asyncio.sleep(0.005)
+            async with shared_locks.lock_for("riposte", "ch-1"):
+                # If we get here AFTER the click has flipped status, the
+                # mark_expired UPDATE is a 0-row no-op (status no longer
+                # 'pending'). This is the belt-and-suspenders correctness.
+                sweeper_waited["flag"] = click_done.is_set()
+                await repo.mark_expired(1)
+
+        with patch(
+            "eldritch_dm.gameplay.reactions.mcp_tools.combat_action",
+            new=AsyncMock(return_value="**Hit!**"),
+        ):
+            interaction = _make_interaction()
+            await asyncio.gather(
+                handle_riposte_click(
+                    interaction=interaction,
+                    timer_id=1,
+                    expected_user_id=999,
+                    repo=repo,
+                    mcp=MagicMock(),
+                    rate_limiter=rate_limiter,
+                    session_locks=shared_locks,
+                    current_round_provider=_round_provider,
+                    warning_sender=warning_sender,
+                    invalid_action_kind=WarningKind.INVALID_ACTION,
+                    riposte_expired_kind=WarningKind.RIPOSTE_EXPIRED,
+                ),
+                fake_sweeper_run(),
+            )
+
+        # Click completed first (mark_consumed called)
+        assert repo.mark_consumed_with_round.await_count == 1
+        # Sweeper waited for the click's lock release THEN called mark_expired
+        # (which is a 0-row no-op under the conditional SQL).
+        assert sweeper_waited["flag"] is True, (
+            "Sweeper must have waited for the click's lock release "
+            "(observed click_done before entering its critical section)."
+        )
+        repo.mark_expired.assert_awaited_once()

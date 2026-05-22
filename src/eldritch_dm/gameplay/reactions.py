@@ -32,11 +32,13 @@ Subclass drift (RESEARCH Pitfall 5):
   up mid-session, the row may go stale. v2 may re-sync via
   `validate_character_rules` at eligibility-check time; not in v1 scope.
 
-Plan 02 lock seam:
-  `handle_riposte_click` performs a read-then-mark sequence that is racy
-  against the sweeper at the deadline boundary. Plan 02 wraps it in a
-  per-channel asyncio.Lock keyed `riposte:{channel_id}`. Grep for the
-  `PLAN-02-LOCK-SEAM` marker to find the exact wrap point.
+Plan 02 lock integration:
+  `handle_riposte_click` wraps the read-then-mark sequence in a shared
+  per-channel asyncio.Lock keyed `riposte:{channel_id}` via the
+  `SessionLocks` registry — the same lock the `RiposteSweeper` acquires
+  before calling `mark_expired`. This eliminates the click-at-deadline
+  race (RESEARCH Pitfall 3 / T-05-10). The `mark_expired` SQL is also
+  conditional on `status='pending'` for belt-and-suspenders idempotence.
 
 Import-linter discipline:
   This module lives under `gameplay/` so it CANNOT import from `bot/`. The
@@ -56,6 +58,7 @@ from typing import TYPE_CHECKING, Any
 
 import discord
 
+from eldritch_dm.gameplay.session_locks import SessionLocks
 from eldritch_dm.logging import get_logger
 from eldritch_dm.mcp import tools as mcp_tools
 from eldritch_dm.persistence.models import RiposteStatus, RiposteTimer
@@ -269,6 +272,7 @@ async def handle_riposte_click(
     repo: RiposteTimerRepo,
     mcp: Any,
     rate_limiter: Any,  # ChannelRateLimiter — Any to avoid hard dep
+    session_locks: SessionLocks,
     current_round_provider: Callable[[str], Awaitable[int]],
     warning_sender: Callable[..., Awaitable[None]],
     invalid_action_kind: Any,
@@ -277,22 +281,28 @@ async def handle_riposte_click(
 ) -> None:
     """Run the gate-and-dispatch sequence for a RiposteButton click.
 
-    PLAN-02-LOCK-SEAM: replace status check with `async with session_locks.acquire("riposte", channel_id):` wrapper
-
-    Plan 02 will wrap the read-then-mark sequence below in a per-channel
-    asyncio.Lock so concurrent clicks (or a race with the background sweeper)
-    cannot double-consume the same row. Plan 01 ships the correctness path
-    via a status-check; Plan 02 hardens it.
+    Plan 02 wraps the read-then-mark sequence in
+    ``session_locks.lock_for("riposte", row.channel_id)`` so concurrent
+    clicks or a race with the background sweeper cannot double-consume
+    the same row. The mark_expired SQL is additionally conditional on
+    ``status='pending'`` (belt-and-suspenders).
 
     Branching:
-      - Wrong user → ephemeral INVALID_ACTION warning; row untouched.
-      - Row missing / status != pending → RIPOSTE_EXPIRED warning.
+      - Wrong user → ephemeral INVALID_ACTION warning; row untouched (no lock).
+      - Row missing / status != pending → RIPOSTE_EXPIRED warning (no lock).
       - deadline_ts < now → mark expired ourselves, RIPOSTE_EXPIRED warning,
-        best-effort delete the public message.
+        best-effort delete the public message (under the lock).
       - Otherwise: rate_limiter.acquire → combat_action(attacker=PC,
         target=monster_uuid, weapon_or_spell=weapon_used) →
         mark_consumed_with_round(current_round) → delete public message →
-        ephemeral "✅ Riposte!" followup.
+        ephemeral "✅ Riposte!" followup (mutation steps under the lock).
+
+    Lock granularity decision:
+      We acquire the lock AFTER the wrong-user gate (no DB mutation possible
+      there — cheap rejection) and AFTER the initial repo.get (read-only).
+      We hold the lock across the SECOND status read + the mutation. This
+      keeps the lock window short (no Discord HTTP under the lock) while
+      still serializing the read-modify-write against the sweeper.
 
     Dependency injection (import-linter discipline):
       `warning_sender` is `bot.warnings.send_warning`. `invalid_action_kind`
@@ -321,67 +331,98 @@ async def handle_riposte_click(
         )
         return
 
-    # Load the row
+    # Initial row load (lock-free read — used only to learn the channel_id
+    # so we can key the lock correctly).
     row = await repo.get(timer_id)
     if row is None:
         bound_log.warning("riposte_row_missing")
         await warning_sender(interaction, riposte_expired_kind)
         return
 
-    if row.status != RiposteStatus.PENDING:
-        bound_log.info("riposte_already_resolved", status=str(row.status))
-        await warning_sender(interaction, riposte_expired_kind)
-        return
+    # ── PLAN-02 LOCK: serialize the mutate path against the sweeper ─────────
+    # Critical section bounds: re-read status under the lock, then mutate.
+    # This eliminates the click-at-deadline race (RESEARCH Pitfall 3 / T-05-10).
+    async with session_locks.lock_for("riposte", row.channel_id):
+        # Re-read row INSIDE the lock — the sweeper may have flipped status
+        # to 'expired' between our initial .get() and acquiring the lock.
+        fresh = await repo.get(timer_id)
+        if fresh is None:
+            bound_log.warning("riposte_row_missing_under_lock")
+            await warning_sender(interaction, riposte_expired_kind)
+            return
 
-    # Late click — deadline passed but sweeper hasn't marked it yet
-    now = datetime.now(UTC)
-    deadline = row.deadline_ts
-    if deadline.tzinfo is None:
-        deadline = deadline.replace(tzinfo=UTC)
-    if deadline < now:
-        bound_log.info("riposte_late_click_self_expire")
-        try:
-            await repo.mark_expired(timer_id)
-        except Exception:  # noqa: BLE001
-            bound_log.warning("riposte_mark_expired_failed")
-        # Best-effort delete the public message
+        if fresh.status != RiposteStatus.PENDING:
+            bound_log.info("riposte_already_resolved", status=str(fresh.status))
+            await warning_sender(interaction, riposte_expired_kind)
+            return
+
+        # Late click — deadline passed but sweeper hasn't reached this row yet.
+        now = datetime.now(UTC)
+        deadline = fresh.deadline_ts
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=UTC)
+        if deadline < now:
+            bound_log.info("riposte_late_click_self_expire")
+            try:
+                await repo.mark_expired(timer_id)
+            except Exception:  # noqa: BLE001
+                bound_log.warning("riposte_mark_expired_failed")
+            await warning_sender(interaction, riposte_expired_kind)
+            # Best-effort delete the public message — OUTSIDE the lock would
+            # be cleaner (Discord HTTP latency), but keeping it inside is
+            # acceptable for the late-click rare path. Exit lock then delete.
+            row = fresh
+            # Fall through to post-lock delete block below by setting flag
+            late_click_delete = True
+        else:
+            late_click_delete = False
+            # Successful click path
+            current_round = await current_round_provider(fresh.channel_id)
+
+            if rate_limiter is not None:
+                await rate_limiter.acquire(fresh.channel_id)
+
+            try:
+                await mcp_tools.combat_action(
+                    mcp,
+                    action="attack",
+                    attacker=fresh.character_id,
+                    target=fresh.monster_uuid or "",
+                    weapon_or_spell=fresh.weapon_used,
+                )
+            except Exception:  # noqa: BLE001
+                bound_log.exception("riposte_combat_action_error")
+                await warning_sender(interaction, riposte_expired_kind)
+                return
+
+            try:
+                await repo.mark_consumed_with_round(timer_id, current_round)
+            except Exception:  # noqa: BLE001
+                bound_log.exception("riposte_mark_consumed_error")
+                await interaction.followup.send(
+                    content="⚔️ Riposte! (state save failed)", ephemeral=True
+                )
+                return
+
+            row = fresh
+            success_round = current_round
+            success_consumed = True
+    # ── END LOCK ────────────────────────────────────────────────────────────
+
+    # Best-effort delete the public message (outside the lock — Discord HTTP
+    # latency must not stall click-vs-sweeper serialization).
+    if late_click_delete:
         try:
             if row.message_id and interaction.channel is not None:
                 msg = await interaction.channel.fetch_message(int(row.message_id))
                 await msg.delete()
         except Exception:  # noqa: BLE001
             bound_log.debug("riposte_public_message_delete_failed")
-        await warning_sender(interaction, riposte_expired_kind)
         return
 
-    # Successful click path
-    current_round = await current_round_provider(row.channel_id)
-
-    if rate_limiter is not None:
-        await rate_limiter.acquire(row.channel_id)
-
-    try:
-        await mcp_tools.combat_action(
-            mcp,
-            action="attack",
-            attacker=row.character_id,
-            target=row.monster_uuid or "",
-            weapon_or_spell=row.weapon_used,
-        )
-    except Exception:  # noqa: BLE001
-        bound_log.exception("riposte_combat_action_error")
-        await warning_sender(interaction, riposte_expired_kind)
+    # Success path post-lock
+    if not success_consumed:
         return
-
-    try:
-        await repo.mark_consumed_with_round(timer_id, current_round)
-    except Exception:  # noqa: BLE001
-        bound_log.exception("riposte_mark_consumed_error")
-        # The combat_action already fired; we still owe the user a UI response.
-        await interaction.followup.send(content="⚔️ Riposte! (state save failed)", ephemeral=True)
-        return
-
-    # Best-effort delete the public message — riposte resolved
     try:
         if row.message_id and interaction.channel is not None:
             msg = await interaction.channel.fetch_message(int(row.message_id))
@@ -394,6 +435,6 @@ async def handle_riposte_click(
         channel_id=row.channel_id,
         character_id=row.character_id,
         monster_uuid=row.monster_uuid,
-        consumed_in_round=current_round,
+        consumed_in_round=success_round,
     )
     await interaction.followup.send(content="⚔️ Riposte!", ephemeral=True)

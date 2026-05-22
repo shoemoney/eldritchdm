@@ -98,10 +98,19 @@ class RiposteTimerRepo:
         self._logger.debug("mark_consumed_ok", id=id_)
 
     async def mark_expired(self, id_: int) -> None:
-        """Set status='expired' for a timer."""
+        """Set status='expired' for a timer, conditional on still-pending.
+
+        Phase 5 Plan 02: the SQL is ``WHERE id=? AND status='pending'`` so that
+        a sweeper-vs-click race produces a no-op on the loser (correct
+        behavior + idempotent). The shared ``SessionLocks`` lock in
+        ``RiposteSweeper._expire_row`` and ``handle_riposte_click`` serializes
+        the two paths; this conditional UPDATE is the belt-and-suspenders.
+        """
         async def _do(conn: aiosqlite.Connection) -> None:
             await conn.execute(
-                "UPDATE riposte_timers SET status = 'expired' WHERE id = ?", (id_,)
+                "UPDATE riposte_timers SET status = 'expired' "
+                "WHERE id = ? AND status = 'pending'",
+                (id_,),
             )
 
         await self._writer_queue.submit(_do)

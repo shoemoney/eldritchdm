@@ -1223,6 +1223,18 @@ class RiposteButton(
             parsed = parse_game_state(text)
             return parsed.round_number
 
+        # Plan 02: shared per-channel SessionLocks registry; serializes the
+        # read-then-mark mutate path against RiposteSweeper.mark_expired.
+        # Falls back to a freshly-constructed empty registry on the unusual
+        # path where the bot has not yet finished setup_hook (so that tests
+        # and edge cases still function — though in production the bot's
+        # registry is always attached).
+        from eldritch_dm.gameplay.session_locks import SessionLocks  # noqa: PLC0415
+
+        session_locks = getattr(bot, "session_locks", None)
+        if session_locks is None:
+            session_locks = SessionLocks()
+
         await handle_riposte_click(
             interaction=interaction,
             timer_id=self.timer_id,
@@ -1230,6 +1242,7 @@ class RiposteButton(
             repo=repo,
             mcp=bot.mcp,
             rate_limiter=getattr(bot, "rate_limiter", None),
+            session_locks=session_locks,
             current_round_provider=_current_round_provider,
             warning_sender=send_warning,
             invalid_action_kind=WarningKind.INVALID_ACTION,
