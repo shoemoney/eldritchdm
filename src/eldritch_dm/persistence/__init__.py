@@ -24,6 +24,7 @@ from eldritch_dm.persistence.models import (
     RiposteTimer,
     SanitizerAuditRow,
 )
+from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo, PCClassInfo
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
 from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
@@ -40,6 +41,7 @@ __all__ = [
     "PersistentView",
     "RiposteTimer",
     "SanitizerAuditRow",
+    "PCClassInfo",
     # Enums
     "ChannelState",
     "RiposteStatus",
@@ -48,4 +50,5 @@ __all__ = [
     "PersistentViewRepo",
     "RiposteTimerRepo",
     "SanitizerAuditRepo",
+    "PCClassesRepo",
 ]

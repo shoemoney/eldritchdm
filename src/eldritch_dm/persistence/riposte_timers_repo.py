@@ -44,12 +44,14 @@ class RiposteTimerRepo:
         """Insert a new RiposteTimer row.
 
         The DB assigns the AUTOINCREMENT id; returns the model with id populated.
+        Includes the Phase 5 `consumed_in_round` column (None on insert).
         """
         sql = """
             INSERT INTO riposte_timers
                 (channel_id, character_id, user_id, monster_uuid, weapon_used,
-                 message_id, custom_id, deadline_ts, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                 message_id, custom_id, deadline_ts, status, consumed_in_round,
+                 created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
         """
 
         async def _do(conn: aiosqlite.Connection) -> dict:
@@ -65,6 +67,7 @@ class RiposteTimerRepo:
                     timer.custom_id,
                     timer.deadline_ts.isoformat(),
                     timer.status,
+                    timer.consumed_in_round,
                 ),
             )
             row_id = cursor.lastrowid
@@ -104,6 +107,66 @@ class RiposteTimerRepo:
         await self._writer_queue.submit(_do)
         self._logger.debug("mark_expired_ok", id=id_)
 
+    async def mark_cancelled(self, id_: int) -> None:
+        """Set status='cancelled' for a timer.
+
+        Idempotent — does NOT overwrite a row already in 'consumed' state (a
+        consumed riposte is final). Calling twice on a pending row is safe.
+        """
+        async def _do(conn: aiosqlite.Connection) -> None:
+            await conn.execute(
+                "UPDATE riposte_timers SET status = 'cancelled' "
+                "WHERE id = ? AND status != 'consumed'",
+                (id_,),
+            )
+
+        await self._writer_queue.submit(_do)
+        self._logger.debug("mark_cancelled_ok", id=id_)
+
+    async def update_message_ref(
+        self,
+        id_: int,
+        *,
+        message_id: str,
+        custom_id: str,
+        deadline_ts: datetime,
+    ) -> None:
+        """Atomically backfill message_id, custom_id, and deadline_ts.
+
+        Phase 5 Plan 01 RESEARCH Pitfall 1: callers insert a riposte row BEFORE
+        sending the public channel message (we need the row id for custom_id),
+        then send the channel message, then call this to write the real
+        message_id and recompute the deadline AFTER channel.send returns. This
+        keeps the TTL accurate even if Discord's API was slow.
+        """
+        async def _do(conn: aiosqlite.Connection) -> None:
+            await conn.execute(
+                "UPDATE riposte_timers SET message_id = ?, custom_id = ?, "
+                "deadline_ts = ? WHERE id = ?",
+                (message_id, custom_id, deadline_ts.isoformat(), id_),
+            )
+
+        await self._writer_queue.submit(_do)
+        self._logger.debug("update_message_ref_ok", id=id_, message_id=message_id)
+
+    async def mark_consumed_with_round(self, id_: int, round_n: int) -> None:
+        """Set status='consumed' AND consumed_in_round=round_n atomically.
+
+        Phase 5 Plan 01 reaction-budget shim: the round number is the basis for
+        ``check_riposte_eligibility``'s "one reaction per round" enforcement.
+        """
+        async def _do(conn: aiosqlite.Connection) -> None:
+            await conn.execute(
+                "UPDATE riposte_timers SET status = 'consumed', "
+                "consumed_in_round = ? WHERE id = ?",
+                (round_n, id_),
+            )
+
+        await self._writer_queue.submit(_do)
+        self._logger.debug(
+            "mark_consumed_with_round_ok", id=id_, round_n=round_n
+        )
+
     # ── Reads ─────────────────────────────────────────────────────────────────
 
     async def get(self, id_: int) -> RiposteTimer | None:
@@ -122,6 +185,27 @@ class RiposteTimerRepo:
         async with open_connection(self._db_path) as conn:
             async with conn.execute(
                 "SELECT * FROM riposte_timers WHERE status = 'pending' ORDER BY deadline_ts ASC"
+            ) as cur:
+                rows = await cur.fetchall()
+        return [_row_to_model(r) for r in rows]
+
+    async def list_for_character(
+        self,
+        channel_id: str,
+        character_id: str,
+    ) -> list[RiposteTimer]:
+        """Return ALL timer rows for (channel_id, character_id), ordered by id ASC.
+
+        Includes every status (pending/consumed/expired/cancelled). Used by
+        ``check_riposte_eligibility`` to enforce per-round reaction budget
+        against the bot-side shim (RESEARCH Q1).
+        """
+        async with open_connection(self._db_path) as conn:
+            async with conn.execute(
+                "SELECT * FROM riposte_timers "
+                "WHERE channel_id = ? AND character_id = ? "
+                "ORDER BY id ASC",
+                (channel_id, character_id),
             ) as cur:
                 rows = await cur.fetchall()
         return [_row_to_model(r) for r in rows]

@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS persistent_views (
     FOREIGN KEY(channel_id) REFERENCES channel_sessions(channel_id) ON DELETE CASCADE
 );
 
+-- Phase 5 Plan 01 note: an additive `consumed_in_round INTEGER` column is added
+-- at bootstrap time via an idempotent ALTER TABLE in persistence/bootstrap.py.
+-- It is NOT included in this CREATE TABLE so existing self-host DBs (Phase 1+)
+-- remain compatible — the migration is a no-op on already-migrated DBs.
+-- The column shimmies dm20's missing reaction-budget tracking (RESEARCH Q1):
+-- when a Riposte is consumed, we record the round so the eligibility check can
+-- enforce "one reaction per round per PC".
 CREATE TABLE IF NOT EXISTS riposte_timers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id TEXT NOT NULL,
@@ -75,6 +82,21 @@ CREATE TABLE IF NOT EXISTS combat_conditions (
     applied_round INTEGER NOT NULL,
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(channel_id) REFERENCES channel_sessions(channel_id) ON DELETE CASCADE
+);
+
+-- Phase 5 Plan 01: per-character subclass at Discord-bot side.
+-- dm20's `get_character` text output OMITS subclass (RESEARCH Q2 finding),
+-- so the bot must persist (class_name, subclass) at character-ingest time
+-- to perform Riposte eligibility checks (Battle Master Fighter, RAW).
+-- class_name and subclass are stored case-folded + whitespace-collapsed by the
+-- repo so eligibility comparisons are stable regardless of input casing.
+CREATE TABLE IF NOT EXISTS pc_classes (
+    channel_id TEXT NOT NULL,
+    character_id TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    subclass TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (channel_id, character_id),
+    FOREIGN KEY (channel_id) REFERENCES channel_sessions(channel_id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_views_channel ON persistent_views(channel_id);

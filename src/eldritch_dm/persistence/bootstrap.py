@@ -92,6 +92,22 @@ async def bootstrap(db_path: str | None = None) -> Path:
         await conn.executescript(schema_sql)
         await conn.commit()
 
+        # Phase 5 Plan 01 additive migration: add `consumed_in_round INTEGER` to
+        # riposte_timers if missing. Guarded by try/except so re-running bootstrap
+        # on an already-migrated DB is a no-op (RESEARCH Q1 shim for reaction
+        # budget — dm20 has no native reaction tracking).
+        try:
+            await conn.execute(
+                "ALTER TABLE riposte_timers ADD COLUMN consumed_in_round INTEGER"
+            )
+            await conn.commit()
+            log.info("riposte_timers_migrated_consumed_in_round")
+        except aiosqlite.OperationalError as exc:
+            if "duplicate column name" in str(exc).lower():
+                pass  # already migrated; do NOT log
+            else:
+                raise
+
         # Report which tables were created/verified
         cursor = await conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"

@@ -96,6 +96,11 @@ class RiposteTimer(BaseModel):
 
     Tracks the timed riposte button for a Discord user. The background sweeper
     marks PENDING timers as EXPIRED when deadline_ts passes.
+
+    Phase 5 Plan 01 adds the `consumed_in_round` shim column (RESEARCH Q1): when
+    a Riposte click succeeds, the bot records the combat round so the
+    eligibility check can enforce one reaction per PC per round (dm20 has no
+    native reaction-budget tracking).
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -111,6 +116,11 @@ class RiposteTimer(BaseModel):
     deadline_ts: datetime
     status: RiposteStatus = RiposteStatus.PENDING
     created_at: datetime
+    # Phase 5 Plan 01 reaction-budget shim: round in which the riposte was
+    # consumed. None for pending/expired/cancelled rows. Eligibility check
+    # rejects new riposte surfaces when ANY row with consumed_in_round ==
+    # current_round exists for the PC.
+    consumed_in_round: int | None = None
 
 
 class SanitizerAuditRow(BaseModel):
