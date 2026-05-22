@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready_for_audit
-last_updated: "2026-05-22T13:30:00.000Z"
+last_updated: "2026-05-22T18:05:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -14,7 +14,7 @@ progress:
 
 # EldritchDM — State
 
-**Last updated:** 2026-05-22 (Phase 5 Plan 03 COMPLETE — self-host polish + Phase 5 closure; bootstrap.py preflight + run.py entrypoint + launchd plist + systemd unit + install/uninstall scripts + 4 new docs/* files + README expansion (First Session in 10 Minutes, Self-Hosting, Running as a Service, Known Limitations, License & Third-Party AGPL note); REQUIREMENTS.md COMBAT-09 wording corrected per D-C, all Phase 5 reqs [x]; ROADMAP Phase 5 [x]; PHASE 5 COMPLETE → v1.0 ready for `/gsd:audit-milestone v1.0`)
+**Last updated:** 2026-05-22 (v1.0 milestone audit BLOCKERS closed via hotfix series 4c15641/e22be5b/25cb7a0 + closure commit; audit status `gaps_found` → `passed`; 71/73 reqs satisfied (G-3 SAN-01 + G-4 OPS-02 deferred to v1.1); 864 passing / 873 collected; awaiting human `/gsd:complete-milestone v1.0`)
 **Milestone:** v1.0 — feature-complete; awaiting human-verify checkpoint then milestone audit
 **Mode:** YOLO + autonomous loop via `/loop /gsd-autonomous`
 
@@ -152,3 +152,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 - 2026-05-22: Phase 5 Plan 01 COMPLETE — Wave 0 schema (consumed_in_round ALTER + pc_classes table), combat_outcome_parser, gameplay/reactions (eligibility + surface + handle_click), MonsterDriver (random target per D-B), RiposteButton.callback promoted from Phase 2 stub, _maybe_surface_riposte DELETED (D-A, atomic commit 1d2edc8); COMBAT-09 + COMBAT-10 functionally satisfied; PLAN-02-LOCK-SEAM marker at src/eldritch_dm/gameplay/reactions.py:280; 64 new tests; 798 default passing
 - 2026-05-22: Phase 5 Plan 02 COMPLETE — gameplay/session_locks (namespaced asyncio.Lock registry), gameplay/riposte_sweeper (RESEARCH Pattern 4 background task), PLAN-02-LOCK-SEAM marker REPLACED by real session_locks.lock_for wrapper at reactions.py:345, conditional mark_expired SQL, setup_hook starts sweeper AFTER rehydration + close() stops sweeper FIRST in OPS-04 chain, OPS-01 resume drill (6 tests in test_riposte_restart.py, 0.20s wall-clock); COMBAT-11 + OPS-01 functionally satisfied; 28 net new tests; 826 default passing; zero new pip deps
 - 2026-05-22: Phase 5 Plan 03 COMPLETE — src/eldritch_dm/bootstrap.py (3-stage preflight: schema → oMLX → MCP, exit codes 0/1/2/3 per RESEARCH Pattern 5, re-exports persistence.bootstrap for legacy callers); run.py (project-root entrypoint with --check-only/--no-preflight CLI flags, ELDRITCH_ALLOW_OFFLINE_START=1 escape hatch, SIGTERM→KeyboardInterrupt handler); .env.example audited (MCP_RATE_LIMIT_MS=200 added per RESEARCH Q9, OMLX_CACHE_STRATEGY orphan removed with explanatory comment); pyproject.toml [project.scripts] eldritch-dm + [project.urls] (D-23, D-25); docs/launchd.plist.example (com.shoemoney.eldritch-dm with dict-form KeepAlive + ThrottleInterval=10 per RESEARCH Pattern 7, DISCORD_TOKEN anti-pattern callout); docs/eldritch-dm.service.example (systemd user unit, HOST-07 best-effort); docs/dm20-troubleshooting.md + docs/character-ingest-formats.md (the two top self-hoster pain points); scripts/install-launchd.sh + uninstall-launchd.sh (idempotent, DRY_RUN safe); README expanded with First Session in 10 Minutes + Self-Hosting + Running as a Service + Known Limitations (Battle Master RAW only, public Riposte button, no DISCORD_TOKEN in plist) + License & Third-Party (PyMuPDF AGPL note); REQUIREMENTS.md COMBAT-09 wording corrected per D-C (Swashbuckler removed); all Phase 5 reqs ticked [x]; ROADMAP Phase 5 [x]; 29 net new tests across test_bootstrap_preflight.py + test_run_entrypoint.py; zero new pip deps; PHASE 5 COMPLETE; v1.0 milestone awaiting `/gsd:audit-milestone v1.0`
+- 2026-05-22: v1.0 milestone audit ran → status `gaps_found` (2 BLOCKERS: G-1 ReadyButton no orchestrator start + G-2 SanitizerAuditRepo never instantiated; 2 WARNINGS: G-3 SAN-01 modal coverage + G-4 OPS-02 DM_OFFLINE warning). `.planning/v1.0-MILESTONE-AUDIT.md` written with full gap inventory.
+- 2026-05-22: v1.0 audit BLOCKERS closed via hotfix series on `main` (3 atomic commits + 1 closure):
+    - `4c15641` fix(audit-v1.0): G-1 — ReadyButton.callback all-ready branch now starts orchestrator via `bot.orchestrator.start_orchestrator_for_channel(...)`. RED→GREEN gate: tests/integration/test_lobby_to_exploration_flow.py.
+    - `e22be5b` fix(audit-v1.0): G-2 — SanitizerAuditRepo wired into EldritchBot.setup_hook + DeclareActionModal.on_submit via `make_async_audit_callback`. SAN-05 now satisfied at runtime. RED→GREEN gate: tests/integration/test_sanitizer_audit_persistence.py (2 tests).
+    - `25cb7a0` docs(audit-v1.0): ticked 11 implemented-but-unticked requirements (MCP-01..05, MCP-07, LOC-05, SAN-02..04, SAN-06).
+    - Closure: this entry — audit doc status flipped `gaps_found` → `passed`, SAN-05 ticked. Test baseline: 864 passing / 873 collected (was 861 / 870). 7/7 import-linter contracts kept. G-3 + G-4 explicitly deferred to v1.1 per audit recommendation.
+    - **Next action:** human re-runs `/gsd:complete-milestone v1.0`. `status: ready_for_audit` retained on STATE.md until that gate.

@@ -91,7 +91,7 @@
 - [x] **SAN-02**: Sanitizer strips control tokens: `<tool_call>`, `<|im_start|>`, `<|im_end|>`, `SYSTEM:`, `ASSISTANT:`, `<player_action>`, `</player_action>`
 - [x] **SAN-03**: 500-char hard cap on modal input; over-cap truncates with a flag
 - [x] **SAN-04**: Sanitizer wraps output in `<player_action speaker="..." user_id="...">…</player_action>` for downstream consumption
-- [ ] **SAN-05**: Audit row written to `sanitizer_audit` whenever stripping occurs
+- [x] **SAN-05**: Audit row written to `sanitizer_audit` whenever stripping occurs
 - [x] **SAN-06**: Adversarial test corpus (≥30 scenarios) for sanitizer in CI: injection attempts, tool-call forgery, sentinel breakout
 
 ### Self-Host (HOST)
