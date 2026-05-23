@@ -9,19 +9,33 @@
 
 **Created with ♥ by [Jeremy Schoemaker](https://shoemoney.com)** — open source, Apache 2.0-licensed, contributions welcome. 🤝
 
+```mermaid
+flowchart LR
+    Player([👥 Player]) -->|slash commands<br/>+ buttons| Discord[🎮 Discord]
+    Discord -->|HTTPS WS| Bot[🐉 EldritchDM<br/>discord.py orchestrator]
+    Bot -->|MCP tools| oMLX[🧠 oMLX :8765<br/>dm20 rules engine<br/>+ ShoeGPT narration]
+    Bot -.->|character ingest LLM<br/>pluggable backend| Ingest{Ingest Backend}
+    Ingest -.-> oMLX
+    Ingest -.-> Ollama[🦙 Ollama :11434]
+    Ingest -.-> OR[☁️ OpenRouter API]
+```
+
+> 🚀 **Just want to get it running?** Jump to [`INSTALL.md`](INSTALL.md) for a step-by-step walkthrough with diagrams. This README is the project tour.
+
 ---
 
 ## 🤔 What is this?
 
 🎭 **EldritchDM** is the missing piece between "I want to play D&D" and "the whole party can show up at the same time." It's a Discord bot that wears the costume of an evocative, gritty, ancient Dungeon Master named **ShoeGPT** — but underneath that costume is a clockwork brain that *cannot* hallucinate HP, *cannot* forget your conditions, and *cannot* let illegal moves slip through.
 
-🧠 The trick is the **three-brain architecture**:
+🧠 The trick is the **three-brain architecture** (plus a pluggable ingest backend):
 
 | Brain | What it does | Tech |
 |---|---|---|
 | 🗣️ **The Voice** | Narrates the world, plays NPCs, paints scenes | [oMLX](https://github.com/macabdul9/omlx) running the `ShoeGPT` model (Gemma 4, 4-bit) on Apple Silicon |
 | 🧮 **The Brain** | Computes every die roll, HP change, AC check, turn boundary | [`dm20-protocol`](https://github.com/Polloinfilzato/dm20-protocol) — a complete D&D 5e engine exposed as MCP tools |
 | 🎮 **The Orchestrator** | This bot — speaks Discord, gatekeeps turns, surfaces timed reactions, ingests character sheets | `discord.py 2.7+` plus a small local SQLite for Discord-specific state |
+| 📥 **Ingest Backend** | OCR'd character sheets → structured JSON | Pluggable: oMLX / Ollama / OpenRouter (see [`INSTALL.md`](INSTALL.md)) |
 
 🛡️ **The integrity contract:** ShoeGPT *narrates* what happens, but the math is always done by deterministic Python code. If a goblin hits an AC of 14, you can audit every step. If your fighter rolls a natural 20, the engine doubles the damage dice — not the LLM's imagination.
 
@@ -60,7 +74,7 @@ eldritch-dm                  # PATH-installed CLI from `pip install -e .`
 
 🎉 Now invite the bot to a Discord server, type `/start_game` in a channel, and let the dice fall.
 
-> 💡 **First time?** Jump to [First Session in 10 Minutes](#-first-session-in-10-minutes) for a step-by-step walkthrough.
+> 💡 **First time?** Jump to [First Session in 10 Minutes](#-first-session-in-10-minutes) for a step-by-step walkthrough, or open [`INSTALL.md`](INSTALL.md) for the deep guided install with diagrams.
 
 ---
 
@@ -80,33 +94,37 @@ eldritch-dm                  # PATH-installed CLI from `pip install -e .`
                               │  for channel↔campaign state, │
                               │  view registry, ⏱️ riposte   │
                               │  timers, sanitizer audit     │
-                              └──────────────┬───────────────┘
-                                             │ HTTP — MCP tool calls
-                                             ▼
-                              ┌──────────────────────────────┐
-                              │ 🧠 oMLX `:8765`              │
-                              │   ├─ 🗣️  ShoeGPT model      │
-                              │   │      (narration)         │
-                              │   └─ 🛠️  MCP gateway         │
-                              │          /v1/mcp/execute     │
-                              └──────────────┬───────────────┘
-                                             │ 116 tools across 5 servers
-                ┌────────────────────┬───────┴────────┬───────────────────┐
-                ▼                    ▼                ▼                   ▼
-        ┌───────────────┐   ┌───────────────┐  ┌──────────┐      ┌───────────────┐
-        │ 🧮 dm20       │   │ 🎲 dice       │  │ 📚 dnd   │      │ 🌐 fetch      │
-        │ (97 tools)    │   │ (4 tools)     │  │ (8 tools)│      │ (1 tool)      │
-        │ campaigns,    │   │ d20kh1,       │  │ SRD,     │      │ HTTP fetcher  │
-        │ characters,   │   │ exploding,    │  │ monsters │      │               │
-        │ combat,       │   │ keep-highest, │  │ by CR    │      │               │
-        │ Claudmaster,  │   │ etc.          │  │          │      │               │
-        │ Party Mode,   │   │               │  │          │      │               │
-        │ adventures,   │   │               │  │          │      │               │
-        │ rulebook RAG  │   │               │  │          │      │               │
-        └───────────────┘   └───────────────┘  └──────────┘      └───────────────┘
+                              └──┬──────────────────────────┬┘
+                                 │ HTTP — MCP tool calls    │ ingest LLM
+                                 │ (gameplay — ALWAYS oMLX) │ (pluggable)
+                                 ▼                          ▼
+                ┌──────────────────────────────┐  ┌────────────────────────────────────────┐
+                │ 🧠 oMLX `:8765`              │  │   📥 Ingest Backend (Pluggable, D-27)  │
+                │   ├─ 🗣️  ShoeGPT model      │  │  ┌──────────┐ ┌──────────┐ ┌─────────┐ │
+                │   │      (narration)         │  │  │  🧠 oMLX │ │ 🦙 Ollama│ │☁️ Open- │ │
+                │   └─ 🛠️  MCP gateway         │  │  │  :8765   │ │  :11434  │ │  Router │ │
+                │          /v1/mcp/execute     │  │  │ (default)│ │  (local) │ │  (cloud)│ │
+                └──────────────┬───────────────┘  │  └────┬─────┘ └────┬─────┘ └────┬────┘ │
+                               │ 116 tools                │            │            │      │
+                               │ across 5 servers         └────────────┴────────────┘      │
+              ┌────────────┬───┴────────┬──────────────┐  OCR sheet → JSON translator only │
+              ▼            ▼            ▼              ▼  └─────────────────────────────────┘
+       ┌──────────────┐┌──────────┐┌──────────┐ ┌──────────┐
+       │ 🧮 dm20      ││ 🎲 dice  ││ 📚 dnd   │ │ 🌐 fetch │
+       │ (97 tools)   ││ (4 tools)││ (8 tools)│ │ (1 tool) │
+       │ campaigns,   ││ d20kh1,  ││ SRD,     │ │ HTTP     │
+       │ characters,  ││ exploding││ monsters │ │ fetcher  │
+       │ combat,      ││ keep-hi, ││ by CR    │ │          │
+       │ Claudmaster, ││ etc.     ││          │ │          │
+       │ Party Mode,  ││          ││          │ │          │
+       │ adventures,  ││          ││          │ │          │
+       │ rulebook RAG ││          ││          │ │          │
+       └──────────────┘└──────────┘└──────────┘ └──────────┘
 ```
 
 🧩 **Why this is cool:** because dm20 already implements a complete D&D engine (~70% of what you'd think a custom AI DM needs), EldritchDM doesn't *reimplement* any of it. We just wrap it in a Discord skin, add the timed-reaction UI, and let oMLX narrate. It's the rare "stand on the shoulders of giants" project where the giants are already configured on your laptop.
+
+> 🔑 **Read the diagram carefully:** gameplay (the left column — dm20, dice, dnd, fetch) **always** routes through oMLX. The right column is the ingest backend, which is the *only* swappable piece. Picking Ollama or OpenRouter for ingest does NOT remove the oMLX dependency.
 
 ---
 
@@ -193,6 +211,8 @@ python run.py
 
 If you see `🎲 EldritchDM connected as ShoeGPT#0001 — let the games begin!` in stdout, you win. 🏆
 
+> 📖 **Want a diagram-rich, hand-held walkthrough?** [`INSTALL.md`](INSTALL.md) covers OS-specific paths (macOS launchd, Linux systemd), backend selection (oMLX / Ollama / OpenRouter), and the full preflight troubleshooting tree.
+
 ---
 
 ## 🔑 Configuration: the `.env` file
@@ -223,8 +243,73 @@ Then open it and fill in the secrets. Every variable, what it does, and a sane d
 | `EMBED_EDIT_RATE_LIMIT` | ❌ | `1.0` | 📡 Max Discord embed edits per second per message |
 | `MAX_MODAL_INPUT_CHARS` | ❌ | `500` | ✂️ Hard cap on player free-text in modals |
 | `PARTY_MODE_PORT` | ❌ | `8080` | 🌐 Port dm20 Party Mode HTTP server listens on |
+| `INGEST_BACKEND` | ❌ | `omlx` | 📥 Which backend translates OCR'd character sheets to JSON. `omlx` / `ollama` / `openrouter`. See [`INSTALL.md`](INSTALL.md#-pick-your-ingest-backend-d-27). |
+| `INGEST_ENDPOINT` | ❌ | (backend default) | ⚙️ Override the ingest endpoint. Leave blank for the backend default. |
+| `INGEST_MODEL_OVERRIDE` | ❌ | (falls back to `OMLX_MODEL`) | ⚙️ Override the ingest model id. For OpenRouter, a full slug like `anthropic/claude-3.5-sonnet`. |
+| `OPENROUTER_API_KEY` | ✅* | — | ✅ Required when `INGEST_BACKEND=openrouter`. Get one at [openrouter.ai/keys](https://openrouter.ai/keys). |
+
+*conditional — only required when `INGEST_BACKEND=openrouter`.
 
 The full annotated template lives in [`.env.example`](.env.example).
+
+---
+
+## 🔌 Ingest Backend Selection (v1.0+ D-27)
+
+When a player uploads a character sheet (PNG, JPG, or scanned PDF), EldritchDM runs OCR to get raw text, then asks an LLM to translate that text into a structured JSON character object that dm20 can ingest. **That second step — the OCR-text → JSON translator — is the one piece of the stack where you have a choice.** 🎚️
+
+Three backends are supported, all behind the same internal interface. Pick the one that matches your priorities:
+
+```mermaid
+flowchart TD
+    Start([📥 Need to translate<br/>OCR'd character sheet → JSON]) --> Q1{All-local +<br/>best simplicity?}
+    Q1 -- Yes --> oMLX([🧠 INGEST_BACKEND=omlx<br/>uses ShoeGPT at :8765<br/><b>← default</b>])
+    Q1 -- No --> Q2{All-local +<br/>different model server?}
+    Q2 -- Yes --> Ollama([🦙 INGEST_BACKEND=ollama<br/>uses Ollama at :11434])
+    Q2 -- No --> Q3{Best-quality OK<br/>with API fees<br/>+ cloud trip?}
+    Q3 -- Yes --> OR([☁️ INGEST_BACKEND=openrouter<br/>uses any model on OpenRouter])
+    Q3 -- No --> oMLX
+```
+
+### 📊 Backend comparison
+
+| | 🧠 oMLX (default) | 🦙 Ollama | ☁️ OpenRouter |
+|---|---|---|---|
+| **Endpoint** | `http://localhost:8765/v1` | `http://localhost:11434/v1` | `https://openrouter.ai/api/v1` |
+| **Auth needed** | None | None | API key required |
+| **Speed (latency)** | Fast (~4-8s) — already loaded | Fast (~3-7s) — local | Slower (~5-15s) — network round-trip |
+| **Cost** | Free | Free | Per-token (varies by model) |
+| **Quality** | Good (Gemma 4 4-bit) | Depends on model picked | Best — frontier models available |
+| **Privacy** | 🔒 100% local | 🔒 100% local | ⚠️ Character sheet text sent to OpenRouter |
+| **Setup steps** | Zero (already required for gameplay) | Install + pull a model | Sign up + paste API key |
+
+### ⚙️ Env snippets
+
+**oMLX (default — nothing to set if you're happy with this):**
+
+```env
+# oMLX (default)
+INGEST_BACKEND=omlx
+```
+
+**Ollama (point at your local Ollama daemon):**
+
+```env
+# Ollama
+INGEST_BACKEND=ollama
+INGEST_MODEL_OVERRIDE=llama3.1:8b-instruct
+```
+
+**OpenRouter (use any frontier model — best for hard-to-read handwriting):**
+
+```env
+# OpenRouter
+INGEST_BACKEND=openrouter
+OPENROUTER_API_KEY=sk-or-v1-...
+INGEST_MODEL_OVERRIDE=anthropic/claude-3.5-sonnet
+```
+
+> 💡 **dm20 MCP (the rules engine) is ALWAYS at oMLX.** This backend selection only affects the character-sheet schema translator. You still need oMLX running locally — picking Ollama or OpenRouter here does NOT remove the oMLX dependency. Gameplay (combat, narration, turn order, dice) cannot be moved to Ollama or OpenRouter in v1.
 
 ---
 
@@ -263,7 +348,7 @@ This creates a dm20 campaign + Claudmaster session + Party Mode server, and post
 /upload_character_file file: <attached PNG/JPG/PDF>
 ```
 
-(Photo or PDF — OCR + oMLX schema translation + review modal. ~6-15s. See `docs/character-ingest-formats.md` for the full format support matrix and confidence-gating rules.)
+(Photo or PDF — OCR + ingest-backend schema translation + review modal. ~6-15s. See `docs/character-ingest-formats.md` for the full format support matrix and confidence-gating rules.)
 
 Or click "Enter manually" in any confirmation modal to type fields directly (homebrew-friendly).
 
@@ -312,6 +397,34 @@ result = await mcp.call("dm20__combat_action",
 ```
 
 Under the hood: `httpx.AsyncClient` with `connect=2s`, `read=30s`, `write=5s` timeouts, [`tenacity`](https://github.com/jd/tenacity)-backed exponential retry on transient errors, structured exception types per tool failure, and JSON logging via [`structlog`](https://www.structlog.org/) bound to `channel_id` + `campaign_name` + `session_id` + `tool_name`. A health-check task pings `/v1/models` every 60s; three consecutive failures trip a circuit breaker that puts the bot into a degraded "🔌 DM is offline" mode where every interaction politely says "try again in a moment" instead of timing out cryptically.
+
+### 🎬 A combat click, end-to-end
+
+Here's what actually happens when a player taps the `[⚔️ Attack]` button. Notice the LLM only ever sees *facts*, never math:
+
+```mermaid
+sequenceDiagram
+    participant P as 👤 Player
+    participant D as Discord
+    participant B as 🐉 Bot
+    participant M as 🧠 oMLX MCP
+    participant dm20 as 🧮 dm20
+
+    P->>D: clicks [⚔️ Attack]
+    D->>B: interaction (custom_id contains user_id + actor)
+    B->>B: defer (within 3s)
+    B->>B: turn gatekeeper checks current actor
+    B->>M: dm20__combat_action(attack, weapon, target)
+    M->>dm20: route + compute (Python, deterministic)
+    dm20-->>M: result (HP delta, narrative facts)
+    M-->>B: result
+    B->>M: dm20__party_resolve_action (LLM narrates with facts)
+    M-->>B: narrative text
+    B->>D: edit combat_embed via EmbedCoalescer
+    D->>P: render updated embed
+```
+
+The dice are rolled by dm20. The HP delta is computed by dm20. The LLM gets handed *"the longsword hit for 9 slashing; the goblin is now at 4/12 HP and Bloodied"* and asked to dress it up. **It cannot lie about the number** — the embed renders the number from the dm20 result, not from the narration.
 
 ### 💾 The Local SQLite (`src/eldritch_dm/persistence/`)
 
@@ -374,9 +487,17 @@ EldritchDM v1 is feature-complete. Here's the 5-phase history:
 | 4️⃣ | Gameplay (Exploration + Combat) | Party Mode binding, action batching, turn gatekeeping, 8-player load | ✅ Complete |
 | 5️⃣ | Reactions + Self-Host Polish | Riposte timed UI, restart-survival sweeper, README, launchd recipe | ✅ Complete |
 
+> 🎉 **v1.0 shipped 2026-05-23.** Tag `v1.0` · 5 phases · 873 tests · 71/73 requirements satisfied (97%). See [`.planning/milestones/v1.0-MILESTONE-AUDIT.md`](.planning/milestones/v1.0-MILESTONE-AUDIT.md) for the milestone audit.
+
 📜 Full details in [`.planning/ROADMAP.md`](.planning/ROADMAP.md) and [`.planning/REQUIREMENTS.md`](.planning/REQUIREMENTS.md). Planning artifacts are committed alongside the code — open them up to see *why* every decision was made. 🔍
 
-**v2 deferred:** YAML-configurable Riposte eligibility (Swashbuckler, homebrew), smart Claudmaster-driven monster targeting, additional reactions (Shield, Counterspell, Hellish Rebuke per REACT-01/02/03), voice/TTS narration, map/grid visuals.
+**v1.1 lookahead** (see [`.planning/ROADMAP.md`](.planning/ROADMAP.md) for the full list):
+
+- 🔒 SAN-01 / OPS-02 closure (the two requirements deferred from the v1.0 audit)
+- 🎯 Smart MonsterDriver — Claudmaster-routed monster targeting instead of round-robin
+- 📝 YAML-configurable Riposte eligibility — opt Swashbuckler / Brute / homebrew subclasses back in without code changes
+
+**v2 deferred:** smart Claudmaster-driven monster targeting, additional reactions (Shield, Counterspell, Hellish Rebuke per REACT-01/02/03), voice/TTS narration, map/grid visuals.
 
 ---
 
