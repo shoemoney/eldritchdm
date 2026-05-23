@@ -11,11 +11,40 @@ IMPORTANT: This module must NOT import eldritch_dm.persistence,
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
 
 from pydantic import AnyHttpUrl, NonNegativeInt, PositiveFloat, PositiveInt
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# ── Backend defaults (D-27) ───────────────────────────────────────────────────
+# Centralized so .env.example, Settings, and tests stay in sync.
+_OLLAMA_DEFAULT_ENDPOINT: str = "http://localhost:11434/v1"
+_OPENROUTER_DEFAULT_ENDPOINT: str = "https://openrouter.ai/api/v1"
+# Local backends advertise no auth; the OpenAI client still wants a non-empty
+# string, so we send a sentinel that is obviously not a real key.
+_LOCAL_BACKEND_API_KEY: str = "not-needed"
+
+
+@dataclass(frozen=True, slots=True)
+class IngestConfig:
+    """Resolved endpoint + model + api_key for the ingest LLM (D-27).
+
+    Produced by ``Settings.resolve_ingest_config()``. Centralizes the
+    backend-selection logic so cog code, tests, and docs all agree.
+
+    Attributes:
+        endpoint: Full OpenAI-compatible base URL (e.g. ``http://localhost:8765/v1``).
+        model:    Model id to send in ``chat.completions.create(model=...)``.
+                  For OpenRouter, this is a full slug like ``anthropic/claude-3.5-sonnet``.
+        api_key:  Auth token. ``"not-needed"`` for local backends (omlx, ollama);
+                  the real ``OPENROUTER_API_KEY`` for openrouter.
+    """
+
+    endpoint: str
+    model: str
+    api_key: str
 
 
 class Settings(BaseSettings):
@@ -53,6 +82,38 @@ class Settings(BaseSettings):
     omlx_circuit_breaker_threshold: PositiveInt = 3
     omlx_ingest_model: str | None = None
 
+    # ── Ingest LLM backend (D-27) ─────────────────────────────────────────────
+    # Three backends supported for the character-sheet schema translator
+    # (the ONLY direct LLM call site in this codebase — dm20 owns narration
+    # internally and is not affected by this choice). All three speak the
+    # OpenAI-compatible Chat Completions API.
+    #
+    # - "omlx"       → http://localhost:8765/v1 (default; same server hosts dm20 MCP)
+    # - "ollama"     → http://localhost:11434/v1 (alternative local backend)
+    # - "openrouter" → https://openrouter.ai/api/v1 (cloud — requires API key)
+    #
+    # IMPORTANT: dm20 MCP (the rules engine) is always at the oMLX endpoint
+    # (omlx_endpoint + /mcp/execute). Switching the ingest backend to ollama
+    # or openrouter does NOT move dm20 — it still needs oMLX running locally.
+    ingest_backend: Literal["omlx", "ollama", "openrouter"] = "omlx"
+
+    # Override the ingest endpoint independently of omlx_endpoint. If unset,
+    # the default is derived from `ingest_backend`:
+    #   omlx       → omlx_endpoint
+    #   ollama     → http://localhost:11434/v1
+    #   openrouter → https://openrouter.ai/api/v1
+    ingest_endpoint: AnyHttpUrl | None = None
+
+    # Model id sent to the ingest backend. If unset, falls back to
+    # `omlx_ingest_model`, then `omlx_model`. For OpenRouter, this should be
+    # a full route like "anthropic/claude-3.5-sonnet" or
+    # "meta-llama/llama-3.1-70b-instruct".
+    ingest_model_override: str | None = None
+
+    # Required for openrouter backend. Looks like `sk-or-v1-...`. Get one at
+    # https://openrouter.ai/keys.
+    openrouter_api_key: str | None = None
+
     # ── SQLite persistence ────────────────────────────────────────────────────
     eldritch_db_path: str = "./eldritch.sqlite3"
     eldritch_db_busy_timeout_ms: PositiveInt = 5000
@@ -87,12 +148,64 @@ class Settings(BaseSettings):
             return []
         return [int(gid.strip()) for gid in self.discord_guild_ids.split(",") if gid.strip()]
 
+    # ── Ingest backend resolution (D-27) ──────────────────────────────────────
+    def resolve_ingest_config(self) -> IngestConfig:
+        """Return the resolved (endpoint, model, api_key) for the ingest LLM.
+
+        Centralizes the backend-selection logic so all callers agree. The
+        ingest pipeline is the ONLY direct LLM call site in this codebase
+        (dm20 owns narration internally), so this is the only knob that
+        ever needs to change to repoint LLM inference.
+
+        Resolution rules:
+          * endpoint = ``ingest_endpoint`` if set, else the backend default:
+              - omlx       → ``omlx_endpoint``
+              - ollama     → http://localhost:11434/v1
+              - openrouter → https://openrouter.ai/api/v1
+          * model = ``ingest_model_override`` → ``omlx_ingest_model`` → ``omlx_model``.
+          * api_key = ``openrouter_api_key`` for openrouter, ``"not-needed"`` otherwise.
+
+        Returns:
+            IngestConfig dataclass with all three fields populated.
+
+        Raises:
+            ValueError: ``ingest_backend == "openrouter"`` but ``openrouter_api_key``
+                is unset. Self-hosters: set ``OPENROUTER_API_KEY`` in .env (see
+                .env.example) — get a key at https://openrouter.ai/keys.
+        """
+        # ── api_key + endpoint default selection ─────────────────────────────
+        if self.ingest_backend == "openrouter":
+            if not self.openrouter_api_key:
+                raise ValueError(
+                    "INGEST_BACKEND=openrouter requires OPENROUTER_API_KEY to be set "
+                    "(see .env.example). Get a key at https://openrouter.ai/keys."
+                )
+            api_key = self.openrouter_api_key
+            default_endpoint = _OPENROUTER_DEFAULT_ENDPOINT
+        elif self.ingest_backend == "ollama":
+            api_key = _LOCAL_BACKEND_API_KEY
+            default_endpoint = _OLLAMA_DEFAULT_ENDPOINT
+        else:  # omlx
+            api_key = _LOCAL_BACKEND_API_KEY
+            default_endpoint = str(self.omlx_endpoint)
+
+        # ── endpoint override wins over backend default ──────────────────────
+        endpoint = str(self.ingest_endpoint) if self.ingest_endpoint else default_endpoint
+
+        # ── model: explicit override → omlx_ingest_model → omlx_model ────────
+        model = self.ingest_model_override or self.omlx_ingest_model or self.omlx_model
+
+        return IngestConfig(endpoint=endpoint, model=model, api_key=api_key)
+
     def __repr__(self) -> str:
-        """Redact discord_token and other secrets from repr."""
+        """Redact discord_token and other secrets (including OPENROUTER_API_KEY) from repr."""
+        openrouter_key_repr = "***REDACTED***" if self.openrouter_api_key else "None"
         return (
             f"Settings("
             f"discord_token=***REDACTED***, "
             f"omlx_endpoint={self.omlx_endpoint!r}, "
+            f"ingest_backend={self.ingest_backend!r}, "
+            f"openrouter_api_key={openrouter_key_repr}, "
             f"eldritch_db_path={self.eldritch_db_path!r}, "
             f"log_format={self.log_format!r}"
             f")"
