@@ -1,22 +1,27 @@
-"""oMLX JSON-mode translation wrapper for the ingest pipeline.
+"""Backend-agnostic JSON-mode translation wrapper for the ingest pipeline.
 
 Converts raw OCR/PDF text into a validated CharacterSheet pydantic model
-using oMLX's chat.completions endpoint with response_format=json_object.
+using any OpenAI-compatible Chat Completions endpoint with
+``response_format=json_object``. The actual backend (oMLX / Ollama /
+OpenRouter) is selected by ``INGEST_BACKEND`` in Settings — this module
+just consumes the resolved ``AsyncOpenAI`` client and model id (D-27).
 
-Key design choices (D-22):
+Key design choices (D-22, D-27):
   - This module lives in ingest/, NOT mcp/tools.py — the import-linter contract
     forbids mcp from importing eldritch_dm.ingest (which would import schema.py).
-  - The oMLX client is an AsyncOpenAI instance; the cog creates one from settings.
+  - The OpenAI-compatible client is an AsyncOpenAI instance; the cog creates
+    it from ``Settings.resolve_ingest_config()`` (D-27 multi-backend).
   - temperature=0.05: minimal creativity, maximally deterministic JSON output.
   - TRANSLATE_SYSTEM_PROMPT embeds the JSON schema so the model knows the output shape.
   - _defensive_json_parse strips ``` fences defensively even though oMLX shouldn't emit them.
+    OpenRouter-hosted models are more likely to emit fences — defensive strip helps there too.
 
 D-22 deviation note: translate_character_sheet was planned for mcp/tools.py, but
 the import-linter contract (mcp must not import ingest) required relocation here.
 
 Public API:
-    TRANSLATE_SYSTEM_PROMPT           — str, embedded in oMLX requests
-    translate_character_sheet(...)    — async, calls oMLX, returns raw dict
+    TRANSLATE_SYSTEM_PROMPT           — str, embedded in chat requests
+    translate_character_sheet(...)    — async, calls the configured backend, returns raw dict
     translate_to_character_sheet(...) — async, full pipeline: sanitize → translate → validate
 """
 
@@ -112,15 +117,20 @@ async def translate_character_sheet(
     *,
     model: str = "ShoeGPT",
 ) -> dict[str, Any]:
-    """Call oMLX with response_format=json_object to translate character sheet text.
+    """Call the configured ingest backend with ``response_format=json_object`` (D-27).
 
-    Verified live 2026-05-21 against ShoeGPT on omlx serve :8765 —
-    JSON mode returns clean JSON with no markdown wrappers.
+    Verified live 2026-05-21 against ShoeGPT on omlx serve :8765 — JSON mode
+    returns clean JSON with no markdown wrappers. Ollama and OpenRouter
+    expose the same OpenAI-compatible surface; the defensive fence strip in
+    ``_defensive_json_parse`` covers cloud models that sometimes wrap JSON
+    in ```` ```json ```` fences despite ``response_format``.
 
     Args:
-        openai_client:    AsyncOpenAI client pointed at oMLX.
+        openai_client:    Backend-agnostic AsyncOpenAI client (oMLX, Ollama,
+                          or OpenRouter — selected by ``INGEST_BACKEND``).
         raw_text_wrapped: OCR/PDF text already wrapped in <player_action> sentinels.
-        model:            Model name (default "ShoeGPT").
+        model:            Model id (default "ShoeGPT" for legacy test call sites;
+                          real callers resolve this via Settings).
 
     Returns:
         Parsed dict from the LLM response.
@@ -161,16 +171,17 @@ async def translate_to_character_sheet(
 
     Pipeline:
       1. sanitize_player_input — wraps in <player_action> sentinels (D-22 security)
-      2. translate_character_sheet — calls oMLX JSON-mode endpoint
+      2. translate_character_sheet — calls the configured ingest backend (D-27)
       3. CharacterSheet.model_validate — pydantic v2 validation with range checks
 
     Args:
         raw_text:      Text extracted from the character sheet attachment.
-        openai_client: Async OpenAI client pointed at the oMLX endpoint.
+        openai_client: Backend-agnostic AsyncOpenAI client (oMLX / Ollama /
+                       OpenRouter — selected by ``INGEST_BACKEND``; D-27).
         speaker:       Character name for sanitizer sentinel (audit context).
         user_id:       Discord user ID (sanitizer audit context).
         channel_id:    Discord channel ID (sanitizer audit context).
-        model:         Model name to use (default "ShoeGPT").
+        model:         Model id to use (default "ShoeGPT" for legacy callers).
 
     Returns:
         (parsed_sheet, warnings):
@@ -217,8 +228,7 @@ async def translate_to_character_sheet(
         log.warning("translate_validation_error", error=str(exc))
         # Surface each field error individually for the review modal
         field_errors = [
-            f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}"
-            for e in exc.errors()
+            f"{'.'.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in exc.errors()
         ]
         warnings.extend(field_errors)
         return None, warnings

@@ -109,11 +109,38 @@ class IngestCog(commands.Cog):
     # ── Helper: construct openai client ────────────────────────────────────────
 
     def _get_openai_client(self) -> AsyncOpenAI:
-        """Construct or return the OpenAI-compatible client for oMLX."""
+        """Construct or return the backend-agnostic OpenAI-compatible client (D-27).
+
+        Resolution order:
+          1. ``bot.openai_client`` if pre-set (test injection point).
+          2. ``Settings.resolve_ingest_config()`` for endpoint + api_key
+             selected by ``INGEST_BACKEND`` (omlx, ollama, openrouter).
+
+        Raises:
+            ValueError: ``INGEST_BACKEND=openrouter`` but ``OPENROUTER_API_KEY``
+                is unset (propagated from ``resolve_ingest_config``).
+        """
         if hasattr(self.bot, "openai_client") and self.bot.openai_client is not None:
             return self.bot.openai_client
-        endpoint = str(getattr(self.bot.settings, "omlx_endpoint", "http://localhost:8765/v1"))
-        return AsyncOpenAI(base_url=endpoint, api_key="not-needed")
+        cfg = self.bot.settings.resolve_ingest_config()
+        return AsyncOpenAI(base_url=cfg.endpoint, api_key=cfg.api_key)
+
+    def _get_ingest_model(self) -> str:
+        """Return the model id to send to the ingest backend (D-27).
+
+        Resolution order: ``ingest_model_override`` → ``omlx_ingest_model``
+        → ``omlx_model``. Encapsulated in ``Settings.resolve_ingest_config``.
+
+        Falls back to a sensible default if ``resolve_ingest_config`` raises
+        (e.g. missing OPENROUTER_API_KEY) — defensive so we don't lose the
+        ability to surface the underlying error from the real call site.
+        """
+        try:
+            return self.bot.settings.resolve_ingest_config().model
+        except ValueError:
+            # Pre-empt downstream surfacing by returning omlx_model; the
+            # real backend selection error will be raised by _get_openai_client.
+            return getattr(self.bot.settings, "omlx_model", "ShoeGPT")
 
     # ── Helper: look up lobby message ──────────────────────────────────────────
 
@@ -453,8 +480,9 @@ class IngestCog(commands.Cog):
 
         effective_player_name = player_name or interaction.user.display_name
 
-        # Run the ingest pipeline
+        # Run the ingest pipeline (D-27 — backend selected by INGEST_BACKEND)
         openai_client = self._get_openai_client()
+        ingest_model = self._get_ingest_model()
         try:
             result = await ingest(
                 data,
@@ -464,6 +492,7 @@ class IngestCog(commands.Cog):
                 user_id=str(interaction.user.id),
                 openai_client=openai_client,
                 mcp_client=self.bot.mcp,
+                model=ingest_model,
             )
         except Exception as exc:
             bound_log.exception("upload_file_ingest_failed", error=str(exc))

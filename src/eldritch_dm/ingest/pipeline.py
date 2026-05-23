@@ -1,8 +1,10 @@
 """Public ingest() coroutine — end-to-end OCR/PDF → translate → validate → confidence.
 
 Accepts a Discord attachment as raw bytes, routes to OCR or PDF extraction,
-translates the text to a CharacterSheet via oMLX, validates with pydantic,
-and assembles a confidence score from four components (D-26).
+translates the text to a CharacterSheet via the configured ingest backend
+(oMLX, Ollama, or OpenRouter — selected by ``INGEST_BACKEND`` via
+``Settings.resolve_ingest_config``; D-27), validates with pydantic, and
+assembles a confidence score from four components (D-26).
 
 Confidence components:
   +0.3  OCR quality   > 0.8 (0.15 if > 0.5)
@@ -147,6 +149,7 @@ async def ingest(
     user_id: str,
     openai_client: AsyncOpenAI,
     mcp_client: MCPClient,
+    model: str = "ShoeGPT",
 ) -> IngestResult:
     """End-to-end ingest pipeline: bytes → CharacterSheet + confidence score.
 
@@ -156,8 +159,14 @@ async def ingest(
         filename:         Original filename (for logging).
         player_name:      Player display name (for sanitizer audit context).
         user_id:          Discord user snowflake (for sanitizer audit context).
-        openai_client:    AsyncOpenAI client pointed at the oMLX endpoint.
-        mcp_client:       MCPClient for dm20 class/race verification.
+        openai_client:    Backend-agnostic AsyncOpenAI client. Pointed at oMLX,
+                          Ollama, or OpenRouter — selected by ``INGEST_BACKEND``
+                          via ``Settings.resolve_ingest_config()`` (D-27).
+        mcp_client:       MCPClient for dm20 class/race verification (always
+                          oMLX — dm20 MCP is not relocatable by INGEST_BACKEND).
+        model:            Model id sent to the ingest backend. Resolved by
+                          ``Settings.resolve_ingest_config().model``; defaults
+                          to "ShoeGPT" for legacy test call sites (D-27).
 
     Returns:
         IngestResult with all fields populated.
@@ -221,13 +230,16 @@ async def ingest(
                 pdf_backend=None,
             )
 
-    # --- Step 2: Translate to CharacterSheet via oMLX ---
+    # --- Step 2: Translate to CharacterSheet via the ingest backend ---
+    # The backend is selected by INGEST_BACKEND (omlx / ollama / openrouter).
+    # The openai_client and model are resolved by the cog from Settings.
     sheet, translate_warnings = await translate_to_character_sheet(
         raw_text,
         openai_client,
         user_id=user_id,
         channel_id="ingest",
         speaker=player_name or "unknown_player",
+        model=model,
     )
 
     # --- Step 3: Confidence assembly (D-26) ---
