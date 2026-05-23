@@ -2,12 +2,12 @@
 
 > 🎲 **An open-source, local-first Discord bot that runs full Dungeons & Dragons 5e games end-to-end with an AI Dungeon Master persona called *ShoeGPT*.** No API bills. No data leaves your machine. No more "sorry can't DM tonight." Just hit `/start_game` and roll initiative.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#-license)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](#-license)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-optimized-black.svg?logo=apple)](https://www.apple.com/mac/)
 [![Status](https://img.shields.io/badge/status-v1.0--ready-green.svg)](#-roadmap)
 
-**Created with ♥ by [Jeremy Schoemaker](https://shoemoney.com)** — open source, MIT-licensed, contributions welcome. 🤝
+**Created with ♥ by [Jeremy Schoemaker](https://shoemoney.com)** — open source, Apache 2.0-licensed, contributions welcome. 🤝
 
 ---
 
@@ -402,7 +402,7 @@ CI runs the full suite plus lint (`ruff`) plus a custom rule that enforces `defe
 
 ## 🤝 Contributing
 
-EldritchDM is open source under the MIT license. **Contributions are welcome and appreciated.** 💜
+EldritchDM is open source under the Apache 2.0 license. **Contributions are welcome and appreciated.** 💜
 
 Before you open a PR:
 
@@ -429,7 +429,7 @@ Before you open a PR:
 
 ## 📜 License & Third-Party
 
-**EldritchDM itself is MIT.** © 2026 Jeremy Schoemaker — see [LICENSE](LICENSE). Use it, fork it, sell it, run it on a beach somewhere. Just don't claim you invented the dice. 🎲
+**EldritchDM itself is Apache 2.0-licensed.** © 2026 Jeremy Schoemaker — see [LICENSE](LICENSE). Use it, fork it, sell it, run it on a beach somewhere. Apache 2.0 grants you a patent license alongside the copyright license; in exchange you must preserve the LICENSE + NOTICE attribution and mark any files you modify. Just don't claim you invented the dice. 🎲
 
 **Third-party license caveat — PyMuPDF (AGPL-3.0):** The primary PDF parser used for character-sheet ingest is [PyMuPDF (`fitz`)](https://pymupdf.readthedocs.io/), which is AGPL-3.0. For **self-hosting** (the typical use case of running EldritchDM on your own machine for friends) this is fine — the AGPL only kicks in when you distribute or operate a network-accessible service. If you intend to fork EldritchDM and deploy it as a *closed-source* hosted service, swap to the MIT-licensed `pypdf` fallback (the bot ships both as runtime dependencies) by setting `EXTRA_PDF_LIB=pypdf` (planned for v2) or by hand-editing the ingest pipeline. The dual-stack design exists precisely for this license-boundary case.
 

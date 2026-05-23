@@ -1,7 +1,7 @@
 <!-- generated-by: gsd-doc-writer -->
 # Contributing to EldritchDM
 
-Welcome, and thank you for considering a contribution. EldritchDM is an open-source, MIT-licensed Discord bot for running D&D 5e games end-to-end with a local AI Dungeon Master. The project exists because we believe a "forever DM" should be possible without API bills, hosted SaaS, or surrendering the rule integrity that makes 5e feel like 5e. Contributions of every size are welcome — bug reports, doc fixes, new MCP wrappers, lint rules, or whole new features.
+Welcome, and thank you for considering a contribution. EldritchDM is an open-source, Apache 2.0-licensed Discord bot for running D&D 5e games end-to-end with a local AI Dungeon Master. The project exists because we believe a "forever DM" should be possible without API bills, hosted SaaS, or surrendering the rule integrity that makes 5e feel like 5e. Contributions of every size are welcome — bug reports, doc fixes, new MCP wrappers, lint rules, or whole new features.
 
 There is one rule that is not up for negotiation. We'll get to it in a moment.
 
@@ -139,7 +139,7 @@ Email **jeremy@shoemoney.com** directly with the details and a reproduction. You
 
 ## License
 
-EldritchDM is MIT-licensed. By contributing, you agree that your contributions are licensed under the same MIT terms (see [`LICENSE`](LICENSE)). You retain copyright on your contributions; you're granting the project the right to use, modify, and distribute them under MIT.
+EldritchDM is Apache 2.0-licensed. By contributing, you agree that your contributions are licensed under the same Apache 2.0 terms (see [`LICENSE`](LICENSE)). You retain copyright on your contributions; you're granting the project the right to use, modify, and distribute them under Apache 2.0 — including the patent grant in Section 3 of the license.
 
 ---
 

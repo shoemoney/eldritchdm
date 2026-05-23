@@ -2,14 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_for_audit
-last_updated: "2026-05-22T18:05:00.000Z"
+status: Awaiting next milestone
+last_updated: "2026-05-23T22:02:58.306Z"
+last_activity: 2026-05-23 — Milestone v1.0 completed and archived
 progress:
   total_phases: 5
-  completed_phases: 5
-  total_plans: 16
+  completed_phases: 0
+  total_plans: 0
   completed_plans: 16
-  percent: 100
+  percent: 0
 ---
 
 # EldritchDM — State
@@ -159,3 +160,14 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
     - `25cb7a0` docs(audit-v1.0): ticked 11 implemented-but-unticked requirements (MCP-01..05, MCP-07, LOC-05, SAN-02..04, SAN-06).
     - Closure: this entry — audit doc status flipped `gaps_found` → `passed`, SAN-05 ticked. Test baseline: 864 passing / 873 collected (was 861 / 870). 7/7 import-linter contracts kept. G-3 + G-4 explicitly deferred to v1.1 per audit recommendation.
     - **Next action:** human re-runs `/gsd:complete-milestone v1.0`. `status: ready_for_audit` retained on STATE.md until that gate.
+
+## Current Position
+
+Phase: Milestone v1.0 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-23 — Milestone v1.0 completed and archived
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone
