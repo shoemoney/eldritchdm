@@ -2,13 +2,14 @@
 
 ## Current State
 
-**Shipped:** v1.1 Polish — Smart MonsterDriver + audit-deferral closure + homebrew YAML extensibility · 2026-05-24
-**Tag:** `v1.1` · **Audit:** passed (10/10 reqs) · **Integration:** PASS (6/6 wires, 3/3 flows) · ~64 commits since v1.0
-**Previous:** v1.0 MVP · 2026-05-23 · 71/73 reqs (97%)
+**Current Milestone:** v1.2 Quality Flywheel (in progress, 0/3 phases) — see [`ROADMAP.md`](./ROADMAP.md)
+**Goal:** Close the loop on SmartMonsterDriver — Arize Phoenix observability + LLM-as-judge tactical scoring + production monitoring/alerting. Answers "are monsters fair AND smart" with data.
+**Previous:** v1.1 Polish · 2026-05-24 · tag `v1.1` · 10/10 reqs · integration PASS
+**Earlier:** v1.0 MVP · 2026-05-23 · 71/73 reqs (97%)
 **Repo:** https://github.com/shoemoney/eldritchdm
 **License:** Apache 2.0
 
-## Next Milestone Goals
+## Future Milestone Candidates
 
 Candidate v1.2 themes (refine in `/gsd-new-milestone`):
 
