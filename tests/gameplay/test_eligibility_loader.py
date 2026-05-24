@@ -23,7 +23,6 @@ from eldritch_dm.gameplay.eligibility_loader import (
     load_eligibility,
 )
 
-
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "eligibility"
 
 
