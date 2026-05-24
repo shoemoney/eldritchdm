@@ -24,6 +24,7 @@ does NOT pull in OTel.
 from eldritch_dm.observability.instrumentation import (
     FallbackReason,
     traced_decision,
+    traced_eval,
     traced_translate,
 )
 from eldritch_dm.observability.tracer import init_tracing, is_enabled
@@ -33,5 +34,6 @@ __all__ = [
     "init_tracing",
     "is_enabled",
     "traced_decision",
+    "traced_eval",
     "traced_translate",
 ]
