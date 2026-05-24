@@ -31,6 +31,8 @@ eldritch-dm = "eldritch_dm.bot.__main__:main"
 # Phase 9 / TD-3: v1.0 → v1.1 upgrade tool. Populates pc_classes from existing
 # dm20 characters so Riposte eligibility starts firing for legacy PCs.
 eldritch-dm-backfill-pc-classes = "eldritch_dm.tools.backfill_pc_classes:main"
+# Phase 12 / EVAL-03: LLM-as-judge tactical scoring runner.
+eldritch-dm-eval = "eldritch_dm.eval.cli:main"
 
 # Project URLs surface in `pip show` and on PyPI. (D-25)
 # TODO confirm repo URL once the repo is published — placeholder for now.
