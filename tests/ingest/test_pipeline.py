@@ -150,11 +150,18 @@ class TestIngestImagePath:
         assert result.confidence_score == pytest.approx(1.0)
 
     async def test_unsupported_bytes_returns_zero_confidence(self):
-        """Unknown magic bytes -> IngestResult with confidence 0 and warning."""
+        """Unknown magic bytes -> IngestResult with confidence 0 and warning.
+
+        Uses content_type=application/octet-stream so the _sniff_kind fallback
+        to declared content-type also fails to identify a kind, exercising the
+        ValueError-path. (Phase 14 / FLAKE-01: previously this test used
+        content_type=image/png and relied on ocrmac being installed to raise
+        UnavailableOCRBackend; now we exercise the documented error path.)
+        """
         bad_bytes = b"\x00\x01\x02\x03" * 20
         result = await ingest(
             bad_bytes,
-            content_type="image/png",
+            content_type="application/octet-stream",
             filename="garbage.bin",
             player_name="Test",
             user_id="456",
