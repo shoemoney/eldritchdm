@@ -136,7 +136,7 @@
 | 6. Debt Paydown + Cold-Start Smoke | v1.1 | 2/2 | Complete   | 2026-05-24 |
 | 7. Safety Gap Closure | v1.1 | 1/1 | Complete   | 2026-05-24 |
 | 8. YAML Riposte Eligibility | v1.1 | 1/1 | Complete   | 2026-05-24 |
-| 9. pc_classes Ingest-Backfill Script | v1.1 | 0/1 | Not started | — |
+| 9. pc_classes Ingest-Backfill Script | v1.1 | 1/1 | Complete   | 2026-05-24 |
 | 10. Smart MonsterDriver | v1.1 | 0/2 | Not started | — |
 
 ---
