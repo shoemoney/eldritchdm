@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import AnyHttpUrl, NonNegativeInt, PositiveFloat, PositiveInt
+from pydantic import AnyHttpUrl, Field, NonNegativeInt, PositiveFloat, PositiveInt
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ── Backend defaults (D-27) ───────────────────────────────────────────────────
@@ -59,6 +60,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         frozen=True,
+        populate_by_name=True,
     )
 
     # ── Discord ──────────────────────────────────────────────────────────────
@@ -135,6 +137,20 @@ class Settings(BaseSettings):
     party_poll_interval_ms: PositiveInt = 250
     # MCP rate limit: minimum ms between mutating MCP calls per channel (OPS-03)
     mcp_rate_limit_ms: PositiveInt = 200
+
+    # ── Homebrew Riposte Eligibility (Phase 8 / HOMEBREW-01 / D-29 / D-39) ────
+    # Override path for the Riposte eligibility YAML. When unset, the loader
+    # walks per-install (~/.eldritch/eligibility.yaml) then the in-repo default
+    # (database/eligibility.yaml). See gameplay.eligibility_loader.load_eligibility.
+    eligibility_yaml_path: Path | None = Field(
+        default=None,
+        alias="ELDRITCH_ELIGIBILITY_YAML",
+        description=(
+            "Override path for Riposte eligibility YAML (D-29 tier-1). "
+            "When unset, loader walks per-install (~/.eldritch/eligibility.yaml) "
+            "then in-repo default (database/eligibility.yaml)."
+        ),
+    )
 
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False

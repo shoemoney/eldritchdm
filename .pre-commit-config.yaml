@@ -15,3 +15,10 @@ repos:
         types: [python]
         files: ^src/eldritch_dm/bot/.*\.py$
         pass_filenames: true
+
+      - id: yaml-safe-load-only
+        name: enforce yaml.safe_load only in src/ (T-08-01)
+        entry: bash scripts/ci/check_safe_yaml.sh
+        language: system
+        pass_filenames: false
+        always_run: true

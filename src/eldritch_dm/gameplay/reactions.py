@@ -69,18 +69,14 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-# ── Eligibility set (D-C — strict RAW) ────────────────────────────────────────
+# ── Eligibility set (D-C — strict RAW; D-38 — in-module fallback) ────────────
 #
-# Only Battle Master Fighter has the RAW Riposte maneuver. CONTEXT.md D-04
-# previously implied Swashbuckler was on this list; that is INCORRECT —
-# Swashbuckler's "Fancy Footwork" is not Riposte (no reaction-based melee
-# counter-attack). Plan 01 ships RAW only.
-#
-# TODO(v2): Make this set configurable via a YAML file so homebrew DMs can
-# extend it (e.g. add Brute / a homebrew "Counter-Striker" archetype). The
-# YAML loader should normalize entries via the same lowercase + whitespace
-# collapse rules used by PCClassesRepo so comparisons remain stable.
-# See REQUIREMENTS REACT-* family for v2 work items.
+# Module-level fallback used when `check_riposte_eligibility` is called
+# without an injected `eligibility_set` (e.g. legacy unit tests). The
+# production path threads the loader-resolved frozenset from
+# `gameplay.eligibility_loader.load_eligibility` through `bot/setup_hook`
+# per D-38. See `database/eligibility.yaml` for the in-repo default;
+# docs/INSTALL.md explains the 3-tier precedence override.
 ELIGIBLE_CLASS_SUBCLASSES: frozenset[tuple[str, str]] = frozenset(
     {
         ("fighter", "battle master"),
@@ -119,16 +115,26 @@ async def check_riposte_eligibility(
     current_round: int,
     pc_classes_repo: PCClassesRepo,
     riposte_timers_repo: RiposteTimerRepo,
+    eligibility_set: frozenset[tuple[str, str]] | None = None,
 ) -> RiposteEligibility | None:
     """Return RiposteEligibility if the PC may riposte THIS round, else None.
 
     Rules (Phase 5 Plan 01):
       1. PC must have a row in pc_classes (was ingested with class+subclass).
-      2. (class_name, subclass) must be in ELIGIBLE_CLASS_SUBCLASSES.
+      2. (class_name, subclass) must be in the active eligibility set.
       3. No existing pending row for (channel_id, character_id) — would-be
          duplicate riposte while one is already open.
       4. No row with consumed_in_round == current_round — reaction-budget
          shim (dm20 has no native reaction tracking).
+
+    Source of `active_set` (Phase 8 D-38):
+      - When `eligibility_set` is provided (production path), it is resolved
+        by `gameplay.eligibility_loader.load_eligibility()` called once at
+        `bot.setup_hook` time and threaded through MonsterDriver. See
+        HOMEBREW-01.
+      - When `eligibility_set is None` (test fallback / pre-D-38 callers),
+        the module-level `ELIGIBLE_CLASS_SUBCLASSES` constant is used —
+        preserves v1.0 behavior.
 
     Args:
         channel_id: Discord channel snowflake string.
@@ -150,7 +156,8 @@ async def check_riposte_eligibility(
         return None
 
     key = (info.class_name, info.subclass)
-    if key not in ELIGIBLE_CLASS_SUBCLASSES:
+    active_set = eligibility_set if eligibility_set is not None else ELIGIBLE_CLASS_SUBCLASSES
+    if key not in active_set:
         return None
 
     timers = await riposte_timers_repo.list_for_character(channel_id, character_id)

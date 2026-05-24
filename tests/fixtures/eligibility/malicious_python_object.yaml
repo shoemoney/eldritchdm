@@ -1,0 +1,6 @@
+# T-08-01 / PITFALLS YAML-1 adversarial fixture.
+# safe_load MUST refuse this; if it ever runs, a sentinel file would be created
+# in the test's tmp_path (test asserts absence). Payload is harmless `touch`.
+version: 1
+mode: extend
+eligible: !!python/object/apply:os.system ['touch /tmp/eldritch_pwn_DO_NOT_RUN']

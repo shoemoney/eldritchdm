@@ -30,22 +30,14 @@ Phase 5 Plan 01.
 
 from __future__ import annotations
 
-import re
-
 import aiosqlite
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from eldritch_dm.gameplay.normalize import normalize
 from eldritch_dm.logging import get_logger
 from eldritch_dm.persistence.connection import apply_pragmas
 
 log = get_logger(__name__)
-
-_WHITESPACE_RE = re.compile(r"\s+")
-
-
-def _normalize(value: str) -> str:
-    """Lowercase + collapse runs of whitespace to a single space, strip ends."""
-    return _WHITESPACE_RE.sub(" ", value.strip().lower())
 
 
 # ── Model ─────────────────────────────────────────────────────────────────────
@@ -71,7 +63,7 @@ class PCClassInfo(BaseModel):
     def _norm(cls, v: object) -> str:
         if v is None:
             return ""
-        return _normalize(str(v))
+        return normalize(str(v))
 
 
 # ── Repo ──────────────────────────────────────────────────────────────────────
@@ -121,8 +113,8 @@ class PCClassesRepo:
             class_name: Class name; will be lowercased + whitespace-collapsed.
             subclass: Subclass name (empty string allowed for level 1-2 PCs).
         """
-        norm_class = _normalize(class_name)
-        norm_subclass = _normalize(subclass)
+        norm_class = normalize(class_name)
+        norm_subclass = normalize(subclass)
 
         sql = """
             INSERT INTO pc_classes (channel_id, character_id, class_name, subclass)

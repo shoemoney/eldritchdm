@@ -1,0 +1,6 @@
+version: 1
+mode: extend
+eligible:
+  fighter:
+    - battle master
+evil_field: 1   # extra='forbid' must reject this

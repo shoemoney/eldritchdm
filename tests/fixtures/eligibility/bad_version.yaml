@@ -1,0 +1,5 @@
+version: 2   # unsupported per D-40 — must trigger fallback
+mode: extend
+eligible:
+  fighter:
+    - battle master
