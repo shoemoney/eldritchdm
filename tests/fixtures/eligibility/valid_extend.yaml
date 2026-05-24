@@ -1,0 +1,6 @@
+version: 1
+mode: extend
+eligible:
+  Fighter:     # intentional title case for casing test
+    - BATTLE MASTER   # intentional uppercase for casing test
+    - echo knight
