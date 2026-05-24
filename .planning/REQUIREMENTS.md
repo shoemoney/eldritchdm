@@ -21,8 +21,8 @@
 
 ### HOMEBREW — Extensibility (Riposte Subclass Configuration)
 
-- [ ] **HOMEBREW-01**: YAML Riposte eligibility loader at `src/eldritch_dm/gameplay/eligibility_loader.py` with **3-tier precedence**: env override (`ELDRITCH_ELIGIBILITY_YAML`) > per-install (`~/.eldritch/eligibility.yaml`) > in-repo default (`database/eligibility.yaml`). `safe_load` only (CI grep gate against `yaml.load`). Pydantic schema with `extra='forbid'`. Fail-soft to v1.0 hardcoded defaults (Battle Master Fighter only) on bad YAML — emit structured-log warning, don't crash bot.
-- [ ] **HOMEBREW-02**: **Extend-not-override** semantics by default — user YAML adds subclasses to the RAW defaults. Explicit `mode: replace` opt-in for full override. Casing normalized via reused `_normalize` helper extracted to `gameplay/normalize.py`. Restart-to-apply (no hot-reload in v1.1).
+- [x] **HOMEBREW-01**: YAML Riposte eligibility loader at `src/eldritch_dm/gameplay/eligibility_loader.py` with **3-tier precedence**: env override (`ELDRITCH_ELIGIBILITY_YAML`) > per-install (`~/.eldritch/eligibility.yaml`) > in-repo default (`database/eligibility.yaml`). `safe_load` only (CI grep gate against `yaml.load`). Pydantic schema with `extra='forbid'`. Fail-soft to v1.0 hardcoded defaults (Battle Master Fighter only) on bad YAML — emit structured-log warning, don't crash bot.
+- [x] **HOMEBREW-02**: **Extend-not-override** semantics by default — user YAML adds subclasses to the RAW defaults. Explicit `mode: replace` opt-in for full override. Casing normalized via reused `_normalize` helper extracted to `gameplay/normalize.py`. Restart-to-apply (no hot-reload in v1.1).
 
 ### UPGRADE — Migration Tooling (TD-3 from v1.0)
 
@@ -78,8 +78,8 @@ Mapping every v1.1 requirement to its phase. Populated by gsd-roadmapper or hand
 | SAFETY-01 | Phase 7 | 07-01-PLAN-safety-bundle |
 | SAFETY-02 | Phase 7 | 07-01-PLAN-safety-bundle |
 | SAFETY-03 | Phase 7 | 07-01-PLAN-safety-bundle |
-| HOMEBREW-01 | Phase 8 | TBD |
-| HOMEBREW-02 | Phase 8 | TBD |
+| HOMEBREW-01 | Phase 8 | 8-01-PLAN-yaml-eligibility |
+| HOMEBREW-02 | Phase 8 | 8-01-PLAN-yaml-eligibility |
 | UPGRADE-01 | Phase 9 | TBD |
 | COMBAT-13 | Phase 10 | TBD |
 | COMBAT-14 | Phase 10 | TBD |
