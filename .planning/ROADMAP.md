@@ -107,7 +107,7 @@
   7. Full v1.1 test suite green; pc_classes table populated by Phase 9's backfill so eligibility checks resolve correctly during smart targeting
 **Plans**:
 - [ ] Plan 01: dm20 contract verification + smart driver core (`feat(combat-13a): smart MonsterDriver — dm20 surface check + INT-gating + LLM oracle`) — verify whether `dm20__get_claudmaster_session_state` returns `next_target` (research's open question); implement smart driver with INT-gating, pydantic validation, 1500ms timeout, random fallback
-- [ ] Plan 02: Adversarial corpus + per-round cache + closure (`test(combat-14): smart MonsterDriver adversarial corpus + cache + Phase 10 closure`) — 15-scenario corpus, per-round cache implementation, MONSTER_DRIVER env-var integration, v1.1 SUMMARY.md, REQUIREMENTS.md [x] marks, STATE.md cursor
+- [x] Plan 02: Adversarial corpus + per-round cache + closure (`test(combat-14): smart MonsterDriver adversarial corpus + cache + Phase 10 closure`) — 15-scenario corpus, per-round cache implementation, MONSTER_DRIVER env-var integration, v1.1 SUMMARY.md, REQUIREMENTS.md [x] marks, STATE.md cursor (completed 2026-05-24)
 
 ## Traceability
 
@@ -137,7 +137,7 @@
 | 7. Safety Gap Closure | v1.1 | 1/1 | Complete   | 2026-05-24 |
 | 8. YAML Riposte Eligibility | v1.1 | 1/1 | Complete   | 2026-05-24 |
 | 9. pc_classes Ingest-Backfill Script | v1.1 | 1/1 | Complete   | 2026-05-24 |
-| 10. Smart MonsterDriver | v1.1 | 0/2 | Not started | — |
+| 10. Smart MonsterDriver | v1.1 | 2/2 | Complete   | 2026-05-24 |
 
 ---
 *Last revised: 2026-05-24 after v1.1 Polish research synthesis (Stack + Features + Architecture + Pitfalls all converged on this 5-phase build order)*

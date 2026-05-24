@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Polish
 status: executing
-last_updated: "2026-05-24T08:07:09.090Z"
-last_activity: 2026-05-24 -- Phase 09 execution started
+last_updated: "2026-05-24T08:25:09.678Z"
+last_activity: 2026-05-24 -- Phase 10 execution started
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
-  percent: 60
+  completed_phases: 4
+  total_plans: 5
+  completed_plans: 5
+  percent: 80
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 09 — pc-classes-backfill
+**Current focus:** Phase 10 — smart-monsterdriver
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 09 (pc-classes-backfill) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 09
-Last activity: 2026-05-24 -- Phase 09 execution started
+Phase: 10 (smart-monsterdriver) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 10
+Last activity: 2026-05-24 -- Phase 10 execution started
 
 ## Operator Next Steps
 
