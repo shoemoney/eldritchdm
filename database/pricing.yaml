@@ -7,21 +7,29 @@
 #   Tier 2: ~/.eldritch/pricing.yaml (per-install)
 #   Tier 3: database/pricing.yaml (in-repo default — this file)
 #
-# ⚠ OPERATORS MUST REFRESH THESE VALUES BEFORE PRODUCTION USE ⚠
+# ⚠ OPERATORS: VERIFY THESE VALUES MONTHLY ⚠
 #
-# The values below are PLACEHOLDERS dated 2026-05-24. LLM provider token
-# pricing changes monthly; the v1.2 ±5%-accuracy test corpus locks the
-# calculator against whatever values are in this file (NOT against a live
-# web fetch). Before deploying:
+# Values verified 2026-05-24 against multiple sources (devtk.ai, pecollective.com,
+# pricepertoken.com). LLM provider token pricing changes regularly; refresh on
+# the cadence your cost-guard accuracy demands. Before deploying:
 #
 #   1. Check current pricing at the provider's docs:
 #      - OpenAI:    https://openai.com/api/pricing/
 #      - Anthropic: https://www.anthropic.com/pricing#anthropic-api
 #   2. Update the `input_per_million_usd` / `output_per_million_usd` rows
-#   3. Set `as_of` to today's UTC date
+#      if the provider changed pricing since this file's `as_of` date
+#   3. Set `as_of` on each updated row to today's UTC date
 #   4. Re-run `pytest tests/observability/test_cost.py` — the ±5% corpus
 #      compares against THIS FILE'S values, so any in-file update flows
 #      through to the assertions without code changes
+#
+# KNOWN SOURCE DISAGREEMENT (verified 2026-05-24):
+#   - Anthropic Opus pricing varies by generation. Opus 4 / 4.1 / 4.7 list at
+#     $15/$75 per docs.anthropic.com canonical pricing; newer Opus 4.6 lists
+#     at $5/$25 per devtk.ai (2026-05). The opus row below uses the $15/$75
+#     tier matching CLAUDE.md's pinned `claude-opus-4-7` model id. Operators
+#     using Opus 4.6 specifically should override locally via
+#     `~/.eldritch/pricing.yaml`.
 #
 # Per-row schema:
 #   model:                       string (canonical model id; lowercased on lookup)
