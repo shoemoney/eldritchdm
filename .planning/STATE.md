@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Quality Flywheel
 status: executing
-last_updated: "2026-05-24T11:25:48.134Z"
-last_activity: 2026-05-24 -- Phase 11 execution started
+last_updated: "2026-05-24T12:00:28.574Z"
+last_activity: 2026-05-24 -- Phase 12 execution started
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 7
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
+  percent: 33
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 11 — phoenix-observability
+**Current focus:** Phase 12 — llm-judge-tactical
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 11 (phoenix-observability) — EXECUTING
+Phase: 12 (llm-judge-tactical) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 11
-Last activity: 2026-05-24 -- Phase 11 execution started
+Status: Executing Phase 12
+Last activity: 2026-05-24 -- Phase 12 execution started
 
 ## Operator Next Steps
 
