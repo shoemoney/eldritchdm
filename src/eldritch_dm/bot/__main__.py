@@ -59,6 +59,14 @@ def main() -> int:
 
         init_tracing()
         start_metrics_endpoint()
+        # Phase 13 / MON-02: synchronous cold-start replay so a restart
+        # during an ongoing breach lands in degraded mode immediately,
+        # before the bot accepts the first Discord command.
+        from eldritch_dm.observability.alert_evaluator import (
+            boot_alert_evaluator,
+        )
+
+        boot_alert_evaluator(settings=settings)
     except Exception:  # noqa: BLE001 — observability is opt-in; never block boot
         log.exception("observability_init_failed")
 

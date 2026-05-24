@@ -295,5 +295,40 @@ class AlertEvaluator:
         return self._task
 
 
+# ── Boot-time helper ────────────────────────────────────────────────────────
+
+
+def boot_alert_evaluator(
+    *, tick_seconds: float | None = None, settings=None
+) -> AlertEvaluator | None:
+    """Synchronous bootstrap: load rules, run cold-start replay, return evaluator.
+
+    Phase 13 design choice (Rule-3 deviation from CONTEXT 13-02 Task 06):
+    we do the cold-start replay synchronously at boot time so a restart
+    during an ongoing breach immediately enters degraded mode BEFORE the
+    bot accepts the first Discord command. Periodic ticking on the asyncio
+    loop is started by the bot's setup_hook (future v1.3 integration) or by
+    the caller via ``ev.start(loop, ...)``.
+
+    Returns the evaluator if observability is enabled, else None.
+    """
+    from eldritch_dm.observability.alerts_loader import load_alerts
+    from eldritch_dm.observability.metrics_endpoint import (
+        is_metrics_endpoint_enabled,
+    )
+    from eldritch_dm.observability.tracer import is_enabled as is_tracing_enabled
+
+    if not (is_tracing_enabled() or is_metrics_endpoint_enabled()):
+        return None
+
+    rules = load_alerts(settings)
+    ev = AlertEvaluator(rules)
+    if tick_seconds is not None:
+        ev._tick_seconds = tick_seconds
+    # Cold-start replay — synchronous, must complete before returning.
+    ev.cold_start_replay()
+    return ev
+
+
 # field re-exported for potential future serialization needs; no current use.
 _ = field
