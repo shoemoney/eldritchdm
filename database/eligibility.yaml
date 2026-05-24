@@ -1,0 +1,24 @@
+# EldritchDM — Riposte Eligibility (in-repo default)
+#
+# This file ships the v1.0 RAW set: only Battle Master Fighter is eligible
+# for Riposte. Self-hosters can extend this set without editing code by
+# creating ~/.eldritch/eligibility.yaml or by setting
+# $ELDRITCH_ELIGIBILITY_YAML to point at a custom file. See docs/INSTALL.md
+# for examples of `mode: extend` (default) and `mode: replace`.
+#
+# Restart the bot to apply changes — there is no hot-reload in v1.1.
+# Format reference (extend semantics):
+#
+#   version: 1
+#   mode: extend
+#   eligible:
+#     fighter:
+#       - battle master
+#       - echo knight   # homebrew example
+#     rogue:
+#       - swashbuckler  # homebrew example
+version: 1
+mode: extend
+eligible:
+  fighter:
+    - battle master
