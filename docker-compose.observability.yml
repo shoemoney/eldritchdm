@@ -1,0 +1,47 @@
+# EldritchDM — Optional Phoenix observability stack (Phase 11 / OBS-02).
+#
+# Bring up:    docker compose -f docker-compose.observability.yml up -d
+# Tear down:   docker compose -f docker-compose.observability.yml down
+# UI:          http://localhost:6006
+#
+# Then enable instrumentation in your .env:
+#   OBSERVABILITY_ENABLED=true
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
+#
+# See README "Optional: observability stack" for the full recipe.
+#
+# Note (D-69 simplification): a separate otel-collector sidecar is omitted —
+# Phoenix's image natively accepts OTLP HTTP at :6006 and :4318. Operators
+# wanting a buffered collector hop (rate limiting, fan-out, etc.) can add
+# an `otel/opentelemetry-collector-contrib:latest` service on the
+# `eldritch_obs` network and repoint OTEL_EXPORTER_OTLP_ENDPOINT.
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: eldritch_phoenix
+    restart: unless-stopped
+    ports:
+      - "6006:6006"   # UI + unified OTLP HTTP endpoint (Phoenix default)
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP (standard OTel port — override path)
+    environment:
+      - PHOENIX_WORKING_DIR=/mnt/data
+    volumes:
+      - phoenix-data:/mnt/data
+    networks:
+      - eldritch_obs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:6006/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  phoenix-data:
+    driver: local
+
+networks:
+  eldritch_obs:
+    driver: bridge

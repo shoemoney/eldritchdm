@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-cache",
+  "title": "Cache hit rate per (channel, round)",
+  "description": "D-56 per-round cache effectiveness — high hit rate means the SmartMonsterDriver is re-using an LLM decision within the same combat round, which is the design intent. Low hit rate near 0% would indicate the cache key is broken.",
+  "span_filter": {
+    "span_name": "eldritch.monster.decision"
+  },
+  "metric": {
+    "field": "eldritch.driver.path",
+    "aggregations": ["hit_rate"],
+    "hit_rate_value": "cache",
+    "group_by": ["eldritch.channel.id", "eldritch.combat.round"]
+  },
+  "time_window": "24h",
+  "query_recipe": "Phoenix UI → Project 'eldritch-cache' → Filter span_name='eldritch.monster.decision' → Compute (count where eldritch.driver.path='cache') / (total count) grouped by (eldritch.channel.id, eldritch.combat.round). Healthy: 30-60% hit rate during active combat rounds with multiple monsters."
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-fallback",
+  "title": "Fallback rate by reason",
+  "description": "Counts of fail-soft LLM fallbacks bucketed by the D-65 reason enum. Target: total fallback rate <5% weekly per AI-SPEC §7 KPIs.",
+  "span_filter": {
+    "span_name": "eldritch.monster.decision",
+    "attribute_filters": {
+      "eldritch.fallback.reason": { "present": true }
+    }
+  },
+  "metric": {
+    "field": null,
+    "aggregations": ["count"],
+    "group_by": ["eldritch.fallback.reason"]
+  },
+  "time_window": "24h",
+  "query_recipe": "Phoenix UI → Project 'eldritch-fallback' → Filter span_name='eldritch.monster.decision' AND eldritch.fallback.reason IS NOT NULL → Count spans grouped by 'eldritch.fallback.reason' (timeout|json_parse|hallucinated_id|refusal|generic|rate_limit). Compare to total decision count for rate."
+}

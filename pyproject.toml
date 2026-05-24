@@ -58,6 +58,14 @@ dev = [
 # Declared here so they can be pinned / audited in one place.
 mac-ocr = ["ocrmac>=1.0,<2.0"]
 linux-ocr = ["easyocr>=1.7,<2.0"]
+# Phase 11 / OBS-01: optional OpenTelemetry instrumentation.
+# Off by default — only paid when OBSERVABILITY_ENABLED=true.
+# Install with: pip install -e ".[observability]"
+observability = [
+  "opentelemetry-api>=1.27,<2.0",
+  "opentelemetry-sdk>=1.27,<2.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.27,<2.0",
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -210,6 +210,12 @@ class EldritchBot(commands.Bot):
         """
         settings = self.settings
 
+        # (0) Optional observability (Phase 11 / OBS-01). No-op when
+        # OBSERVABILITY_ENABLED is unset — does not pull opentelemetry into
+        # sys.modules. See src/eldritch_dm/observability/tracer.py.
+        from eldritch_dm.observability.tracer import init_tracing  # noqa: PLC0415
+        init_tracing()
+
         # (a) Schema bootstrap — idempotent, safe to call multiple times
         await bootstrap(settings.eldritch_db_path)
 

@@ -29,12 +29,14 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
 from eldritch_dm.ingest.schema import CharacterSheet
 from eldritch_dm.logging import get_logger
+from eldritch_dm.observability import traced_translate
 from eldritch_dm.safety.sanitizer import sanitize_player_input
 
 if TYPE_CHECKING:
@@ -116,6 +118,7 @@ async def translate_character_sheet(
     raw_text_wrapped: str,
     *,
     model: str = "ShoeGPT",
+    channel_id: str = "ingest",
 ) -> dict[str, Any]:
     """Call the configured ingest backend with ``response_format=json_object`` (D-27).
 
@@ -125,12 +128,17 @@ async def translate_character_sheet(
     ``_defensive_json_parse`` covers cloud models that sometimes wrap JSON
     in ```` ```json ```` fences despite ``response_format``.
 
+    Phase 11 / OBS-01: wrapped in ``traced_translate`` span. No-op when
+    ``OBSERVABILITY_ENABLED=false`` (the default).
+
     Args:
         openai_client:    Backend-agnostic AsyncOpenAI client (oMLX, Ollama,
                           or OpenRouter — selected by ``INGEST_BACKEND``).
         raw_text_wrapped: OCR/PDF text already wrapped in <player_action> sentinels.
         model:            Model id (default "ShoeGPT" for legacy test call sites;
                           real callers resolve this via Settings).
+        channel_id:       Audit context for the span — Discord channel ID or
+                          ``"ingest"`` for backfill/CLI callers.
 
     Returns:
         Parsed dict from the LLM response.
@@ -138,19 +146,44 @@ async def translate_character_sheet(
     Raises:
         json.JSONDecodeError: If the LLM response cannot be parsed as JSON.
     """
-    completion = await openai_client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
-            {"role": "user", "content": raw_text_wrapped},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.05,
-        max_tokens=600,
-    )
-    content = completion.choices[0].message.content or ""
-    log.debug("omlx_raw_response", char_count=len(content))
-    return _defensive_json_parse(content)
+    with traced_translate(channel_id=channel_id, model=model) as span:
+        t0 = time.monotonic()
+        parse_error = False
+        try:
+            completion = await openai_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+                    {"role": "user", "content": raw_text_wrapped},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.05,
+                max_tokens=600,
+            )
+            # Defensive usage extraction — MLX may return usage=None.
+            usage = getattr(completion, "usage", None)
+            tokens_in = (
+                getattr(usage, "prompt_tokens", 0) if usage is not None else 0
+            ) or 0
+            tokens_out = (
+                getattr(usage, "completion_tokens", 0) if usage is not None else 0
+            ) or 0
+            content = completion.choices[0].message.content or ""
+            log.debug("omlx_raw_response", char_count=len(content))
+            try:
+                parsed = _defensive_json_parse(content)
+            except ValueError:
+                parse_error = True
+                raise
+            return parsed
+        finally:
+            latency_ms = int((time.monotonic() - t0) * 1000)
+            # `tokens_in`/`tokens_out` only bound on the success-or-parse-fail
+            # path; on a pre-completion exception they remain unset. Be defensive.
+            span.set_attribute("eldritch.latency_ms", latency_ms)
+            span.set_attribute("eldritch.tokens.input", locals().get("tokens_in", 0))
+            span.set_attribute("eldritch.tokens.output", locals().get("tokens_out", 0))
+            span.set_attribute("eldritch.ingest.parse_error", parse_error)
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +244,9 @@ async def translate_to_character_sheet(
 
     # Step 2: Call oMLX (ValueError wraps json.JSONDecodeError from _defensive_json_parse)
     try:
-        data = await translate_character_sheet(openai_client, wrapped_text, model=model)
+        data = await translate_character_sheet(
+            openai_client, wrapped_text, model=model, channel_id=channel_id
+        )
     except ValueError as exc:
         log.warning("translate_json_parse_error", error=str(exc))
         warnings.append(f"oMLX returned non-JSON response: {exc}")
