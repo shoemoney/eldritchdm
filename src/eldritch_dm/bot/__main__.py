@@ -46,6 +46,22 @@ def main() -> int:
     )
     log = get_logger("eldritch_dm.bot.__main__")
 
+    # Phase 13 / MON-01: initialize observability sinks BEFORE Discord login.
+    # Both are no-ops when their respective env gates are off:
+    #   OBSERVABILITY_ENABLED=true          → OTel TracerProvider + OTLP export
+    #   OBSERVABILITY_METRICS_ENDPOINT=true → Prometheus /metrics @ :9090
+    # Discovery (Phase 13): Phase 11 defined ``init_tracing`` but no production
+    # code path ever called it. Wiring it here is a Rule-3 deviation from the
+    # Phase 11 plan that the executor identified and fixed.
+    try:
+        from eldritch_dm.observability import init_tracing
+        from eldritch_dm.observability.metrics_endpoint import start_metrics_endpoint
+
+        init_tracing()
+        start_metrics_endpoint()
+    except Exception:  # noqa: BLE001 — observability is opt-in; never block boot
+        log.exception("observability_init_failed")
+
     # SAFETY-03 / TD-1: validate DISCORD_TOKEN at the bot-launch boundary
     # with the same friendly error that run.py emits. Helper handles the
     # structured-log + stderr message; we just propagate the exit code.
