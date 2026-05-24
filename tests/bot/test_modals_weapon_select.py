@@ -180,7 +180,8 @@ class TestWeaponSelectModalValidation:
             if "weapon" in item.label.lower():
                 item._value = "Shortsword"  # type: ignore[attr-defined]
             elif "target" in item.label.lower():
-                item._value = "GOBLIN-001"  # uppercase — should be rejected  # type: ignore[attr-defined]
+                # uppercase — should be rejected
+                item._value = "GOBLIN-001"  # type: ignore[attr-defined]
 
         interaction = MagicMock()
         interaction.response = MagicMock()
