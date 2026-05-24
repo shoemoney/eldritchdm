@@ -164,7 +164,7 @@ class TestWeaponSelectModalValidation:
         interaction.followup = MagicMock()
         interaction.followup.send = AsyncMock()
 
-        with patch("eldritch_dm.bot.modals.send_warning", new_callable=AsyncMock) as mock_warn:
+        with patch("eldritch_dm.bot.modals.send_warning", new_callable=AsyncMock):
             await modal.on_submit(interaction)
             # Either send_warning was called OR callback was not called
             # (validation should reject)
