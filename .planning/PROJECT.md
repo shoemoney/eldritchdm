@@ -2,14 +2,52 @@
 
 ## Current State
 
-**Current Milestone:** v1.2 Quality Flywheel (in progress, 0/3 phases) — see [`ROADMAP.md`](./ROADMAP.md)
-**Goal:** Close the loop on SmartMonsterDriver — Arize Phoenix observability + LLM-as-judge tactical scoring + production monitoring/alerting. Answers "are monsters fair AND smart" with data.
-**Previous:** v1.1 Polish · 2026-05-24 · tag `v1.1` · 10/10 reqs · integration PASS
+**Shipped:** v1.2 Quality Flywheel — OTel observability + LLM-as-judge eval + production monitoring · 2026-05-24
+**Tag:** `v1.2` · **Audit:** passed (8/8 reqs) · 3 phases · ~53 commits · ~199 new tests
+**Previous:** v1.1 Polish · 2026-05-24 · tag `v1.1` · 10/10 reqs
 **Earlier:** v1.0 MVP · 2026-05-23 · 71/73 reqs (97%)
 **Repo:** https://github.com/shoemoney/eldritchdm
 **License:** Apache 2.0
 
-## Future Milestone Candidates
+## Next Milestone Candidates (v1.3 themes)
+
+- **v1.2.1 hotfix (recommended first)**: Refresh `database/pricing.yaml` with live 2026 vendor pricing (current ships PLACEHOLDER values; cost-guard alerts depend on this being accurate). Should be a 1-task patch within 2 weeks of v1.2 GA.
+- **Discord-native monitoring UX**: Discord DM-to-owner on budget breach / degraded mode trip (deferred from Phase 13); /admin slash command for live KPIs + cost summary.
+- **Webhook + multi-day cost rollups**: Phase 13 alerts.yaml currently does file/syslog only; v1.3 adds webhook routing + weekly/monthly cost aggregation.
+- **Eval expansion**: Crowd-sourced corpus contributions via GitHub PRs, inter-judge agreement studies (Cohen's kappa across multiple judge models), auto-detect judge-model drift.
+- **Pre-existing test flakes**: OCR backend env tests + `test_phase3_smoke` test-pollution flake — same items carried since v1.1; deserve a focused cleanup phase.
+- **UX layer**: Streaming "monster is thinking" embed (Phase 10 deferral); AOE/multi-target tactic selection (Phase 10 deferral); cross-round monster memory.
+- **Homebrew expansion**: Hot-reload `eligibility.yaml` (Phase 8 deferral — currently restart-to-apply); YAML-configurable spell-component requirements.
+
+<details>
+<summary>v1.2 milestone retrospective</summary>
+
+**Goal:** Close the loop on v1.1's SmartMonsterDriver — answer "are monsters fair AND smart" with data, not just compiles.
+
+**Shipped (8/8 requirements):**
+- OBS-01/02: OTel instrumentation (D-65 8-attribute schema, lazy-import zero-cost-when-disabled) + opt-in docker-compose Phoenix stack with 3 default dashboards
+- EVAL-01/02/03: TacticalJudge with SemVer-versioned prompt; 50-scenario Apache-2.0 corpus across 5 archetypes; `eldritch-dm-eval` CLI with `--baseline` diff (regression-detection exit codes)
+- MON-01/02/03: 5 KPI live monitors + opt-in Prometheus `:9090/metrics`; alerts.yaml degraded-mode trigger at P99>1500ms for 5min with auto-recover at <1200ms (hysteresis); cost guard with `ELDRITCH_DAILY_LLM_BUDGET_USD` cap + `eldritch-dm-cost-report` CLI
+
+**Cross-phase wiring:** P11 `traced_decision` → P12 judge spans → P13 KPI monitors → degraded-mode trigger. Each phase explicitly verifies its upstream link.
+
+**Critical follow-up:** `database/pricing.yaml` ships PLACEHOLDER token prices; v1.2.1 patch must refresh with live 2026 vendor pricing before operators rely on cost-guard alerts.
+
+</details>
+
+<details>
+<summary>v1.1 milestone retrospective</summary>
+
+**Goal:** Close v1.0 audit deferrals, add homebrew extensibility (YAML Riposte eligibility), close the v1.0 → v1.1 upgrade gap (`pc_classes` backfill), and level up combat AI from random to Claudmaster-routed targeting.
+
+**Shipped (10/10 requirements):**
+- DEBT-01/02: ruff debt zeroed (79→0); cold-start E2E regression guard with historical RED/GREEN proof at v1.0 commit `7d307a1`
+- SAFETY-01/02/03: modal sanitization across 3 modals; DM_OFFLINE warning + 30s debouncer + `@catch_circuit_open` decorator; shared `config.token_guard` helper
+- HOMEBREW-01/02: 3-tier YAML eligibility loader (env > user > repo default); `gameplay/normalize.py` extracted
+- UPGRADE-01: `eldritch-dm-backfill-pc-classes` CLI with `--dry-run` + `--force` + idempotent default
+- COMBAT-13/14: SmartMonsterDriver via existing AsyncOpenAI/oMLX client (no new MCP deps); INT-gated; 1500ms hard timeout with fail-soft to random; per-round FIFO cache; 16-scenario adversarial corpus
+
+</details>
 
 Candidate v1.2 themes (refine in `/gsd-new-milestone`):
 
