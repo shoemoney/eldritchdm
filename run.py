@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     # Inline imports so `python run.py --help` doesn't pay full startup cost.
     from eldritch_dm import bootstrap as preflight_mod
     from eldritch_dm.config import Settings
+    from eldritch_dm.config.token_guard import require_token_or_exit
     from eldritch_dm.logging import configure_logging, get_logger
 
     # Settings() may still raise pydantic.ValidationError on truly malformed
@@ -115,25 +116,11 @@ def main(argv: list[str] | None = None) -> int:
         log.info("run_check_only_complete", exit_code=code)
         return code
 
-    # Friendly DISCORD_TOKEN check (D-26) -------------------------------------
-    # From here on we're going to start the bot, which means we need a token.
-    # Emit a friendly structured log + stderr message instead of letting a
-    # pydantic ValidationError traceback hit the operator's terminal.
-    token = (settings.discord_token or "").strip()
-    if not token:
-        log.error(
-            "run_missing_discord_token",
-            hint="Copy .env.example to .env and paste your DISCORD_TOKEN.",
-            exit_code=preflight_mod.EXIT_MISSING_TOKEN,
-        )
-        print(
-            "❌ DISCORD_TOKEN is not set.\n"
-            "   Copy .env.example to .env and paste your bot token, e.g.:\n"
-            "     cp .env.example .env && $EDITOR .env\n"
-            "   (Or run `python run.py --check-only` to verify oMLX / dm20 "
-            "without a token first.)",
-            file=sys.stderr,
-        )
+    # Friendly DISCORD_TOKEN check (D-26 / SAFETY-03 / TD-1 — extracted to
+    # eldritch_dm.config.token_guard so bot/__main__.py uses the same logic
+    # and stderr text. Pre-Phase-7 this was an inline 15-line block here.
+    token = require_token_or_exit(settings, log)
+    if token is None:
         return preflight_mod.EXIT_MISSING_TOKEN
 
     if not skip_preflight:
