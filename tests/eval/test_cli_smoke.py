@@ -17,7 +17,6 @@ from openai import AsyncOpenAI
 
 from eldritch_dm.eval import cli as eval_cli
 
-
 FIXTURE_PATH = Path(__file__).parent / "dataset" / "_fixture_one_scenario.jsonl"
 
 

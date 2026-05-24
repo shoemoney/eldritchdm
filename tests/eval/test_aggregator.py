@@ -143,8 +143,16 @@ def test_aggregate_per_dimension_means_independent() -> None:
 # ── compute_baseline_diff() ──────────────────────────────────────────────────
 
 
-def _stats(overall: float, dim_overrides: dict[str, float] | None = None) -> AggregateStats:
-    base = {k: overall for k in ("tactical_intent", "meta_knowledge", "narrative_fairness", "edge_case")}
+def _stats(
+    overall: float, dim_overrides: dict[str, float] | None = None
+) -> AggregateStats:
+    dim_keys = (
+        "tactical_intent",
+        "meta_knowledge",
+        "narrative_fairness",
+        "edge_case",
+    )
+    base = dict.fromkeys(dim_keys, overall)
     if dim_overrides:
         base.update(dim_overrides)
     return AggregateStats(

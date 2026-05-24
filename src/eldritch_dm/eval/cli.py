@@ -20,7 +20,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -143,7 +143,7 @@ def _build_openai_client(*, base_url: str, api_key: str) -> AsyncOpenAI:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _scenario_to_json(r: ScenarioResult) -> dict:
@@ -222,7 +222,7 @@ async def _run_async(args: argparse.Namespace) -> int:
     exit_code = derive_exit_code(stats, baseline_diff)
 
     args.output.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     sha = _git_short_sha()
     json_path = args.output / f"eval-{timestamp}-{sha}.json"
     md_path = args.output / f"eval-{timestamp}-{sha}.md"
