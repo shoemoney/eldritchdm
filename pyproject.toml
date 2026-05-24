@@ -241,3 +241,24 @@ forbidden_modules = [
   "eldritch_dm.bot",
   "eldritch_dm.ingest",
 ]
+
+# Phase 12 / EVAL-01..03: eval/ is an offline evaluator package.
+# It may import gameplay (to invoke SmartMonsterDriver._choose_target) and
+# observability (for traced_eval spans), but must NOT import bot (Discord
+# coupling) or persistence internals (DB coupling) — eval runs against
+# stripped-down driver constructions, not live game state.
+[[tool.importlinter.contracts]]
+name = "eval must not import bot or persistence internals"
+type = "forbidden"
+source_modules = ["eldritch_dm.eval"]
+forbidden_modules = [
+  "eldritch_dm.bot",
+  "eldritch_dm.ingest",
+  "eldritch_dm.persistence.connection",
+  "eldritch_dm.persistence.bootstrap",
+  "eldritch_dm.persistence.checkpoint",
+  "eldritch_dm.persistence.channel_sessions_repo",
+  "eldritch_dm.persistence.persistent_views_repo",
+  "eldritch_dm.persistence.riposte_timers_repo",
+  "eldritch_dm.persistence.sanitizer_audit_repo",
+]
