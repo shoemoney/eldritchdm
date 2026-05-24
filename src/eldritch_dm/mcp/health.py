@@ -15,6 +15,8 @@ HealthCheck:
 from __future__ import annotations
 
 import asyncio
+import time
+from collections.abc import Callable
 from contextlib import suppress
 from enum import StrEnum
 from typing import TYPE_CHECKING
@@ -44,21 +46,45 @@ class CircuitBreaker:
             Default 3, matching omlx_circuit_breaker_threshold (D-08).
     """
 
-    def __init__(self, threshold: int = 3) -> None:
+    def __init__(
+        self,
+        threshold: int = 3,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._threshold = threshold
         self._failures = 0
         self._state = CircuitState.CLOSED
+        self._clock = clock
+        # SAFETY-02 (Phase 7): monotonic timestamp of the most recent
+        # CLOSED→OPEN transition. None when CLOSED. Consumed by
+        # DMOfflineDebouncer's 5s min-open gate so transient circuit blips
+        # do not surface a "DM offline" warning to players (OPS-02-2 / D-34).
+        # Wall-clock would be wrong here — NTP slew could falsify the gate.
+        self.opened_at: float | None = None
         self._logger = log.bind(component="circuit_breaker")
 
     @property
     def state(self) -> CircuitState:
         return self._state
 
+    @property
+    def failure_count(self) -> int:
+        """Public read of the consecutive-failures counter (SAFETY-02 consumer).
+
+        Used by the DM_OFFLINE warning template — players see ``Health check
+        failed N times in a row`` where N is this counter.
+        """
+        return self._failures
+
     def record_success(self) -> None:
         """Record a successful call; reset failure counter and close the circuit."""
         prev = self._state
         self._failures = 0
         self._state = CircuitState.CLOSED
+        # SAFETY-02: clear the open-timestamp on close so a future open
+        # transition starts a fresh min-open clock.
+        self.opened_at = None
         if prev != CircuitState.CLOSED:
             self._logger.info("circuit_closed", after_failures=self._failures)
 
@@ -67,6 +93,10 @@ class CircuitBreaker:
         self._failures += 1
         if self._failures >= self._threshold and self._state == CircuitState.CLOSED:
             self._state = CircuitState.OPEN
+            # SAFETY-02: stamp the open-transition time so DMOfflineDebouncer
+            # can compute (now - opened_at) >= min_open_seconds before
+            # surfacing the warning.
+            self.opened_at = self._clock()
             self._logger.warning("circuit_opened", failures=self._failures)
         else:
             self._logger.debug(
@@ -80,6 +110,7 @@ class CircuitBreaker:
         """Reset to CLOSED with zero failures (used in tests)."""
         self._failures = 0
         self._state = CircuitState.CLOSED
+        self.opened_at = None
 
 
 def get_circuit_state(breaker: CircuitBreaker) -> CircuitState:

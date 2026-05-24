@@ -68,6 +68,7 @@ from typing import Any
 
 import discord
 
+from eldritch_dm.bot.circuit_decorator import catch_circuit_open
 from eldritch_dm.bot.warnings import WarningKind, send_warning
 from eldritch_dm.gameplay.turn_gatekeeper import current_actor_from_game_state, is_actor
 from eldritch_dm.logging import get_logger
@@ -203,6 +204,7 @@ class ReadyButton(
     def _custom_id_str(self) -> str:
         return f"ready:{self.channel_id}"
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """Real Phase 3 ReadyButton callback — state machine implementation.
 
@@ -435,6 +437,7 @@ class DeclareActionButton(
     def _custom_id_str(self) -> str:
         return f"declare:{self.channel_id}"
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """Phase 4 DeclareActionButton callback.
 
@@ -631,6 +634,7 @@ class EndTurnButton(
             log.warning("endturn_button_game_state_error", channel_id=channel_id_str)
             return None
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """End the current actor's turn.
 
@@ -766,6 +770,7 @@ class AttackButton(
             log.warning("attack_button_game_state_error", channel_id=channel_id_str)
             return None
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle Attack button click.
 
@@ -943,6 +948,7 @@ class DodgeButton(
             log.warning("dodge_button_game_state_error", channel_id=channel_id_str)
             return None
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """Handle Dodge button click.
 
@@ -1118,6 +1124,7 @@ class CastSpellButton(
             log.warning("cast_button_game_state_error", channel_id=channel_id_str)
             return None
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """v1 stub: gates on is_actor then returns v2 message."""
         # EDM001: defer first
@@ -1189,6 +1196,7 @@ class RiposteButton(
     def _custom_id_str(self) -> str:
         return f"riposte:{self.timer_id}:{self.user_id}"
 
+    @catch_circuit_open
     async def callback(self, interaction: discord.Interaction) -> None:
         """Phase 5 Plan 01 — promoted from Phase 2 stub.
 
