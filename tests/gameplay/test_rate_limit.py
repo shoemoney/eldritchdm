@@ -141,7 +141,6 @@ async def test_acquire_never_raises():
 async def test_concurrent_acquire_monotonic_timestamps():
     """4 concurrent tasks on the same channel produce ≥200ms gaps."""
     results: list[float] = []
-    real_time_base = 0.0
     time_counter = 0.0
 
     def advancing_clock() -> float:
