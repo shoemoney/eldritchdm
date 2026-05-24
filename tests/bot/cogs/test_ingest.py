@@ -24,13 +24,12 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
 
-from eldritch_dm.bot.embeds import lobby_embed_with_joined_member, lobby_embed, PlayerStatus
+from eldritch_dm.bot.embeds import lobby_embed, lobby_embed_with_joined_member
 from eldritch_dm.ingest.schema import AbilityScores, CharacterSheet, IngestResult
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -155,7 +154,7 @@ def _make_attachment(
     return att
 
 
-def _make_cog(bot: MagicMock | None = None) -> "IngestCog":
+def _make_cog(bot: MagicMock | None = None):  # -> IngestCog
     from eldritch_dm.bot.cogs.ingest import IngestCog
     b = bot or _make_bot(_make_session())
     return IngestCog(b)

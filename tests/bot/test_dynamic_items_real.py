@@ -16,14 +16,14 @@ The bot is a MagicMock with .mcp, .channel_sessions, and .pv_repo attributes.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 
 from eldritch_dm.bot.dynamic_items import ReadyButton
 from eldritch_dm.persistence.models import ChannelSession, ChannelState
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────────
 
@@ -34,15 +34,15 @@ def _make_channel_session(
     claudmaster_session_id: str | None = "sess-abc",
     state: ChannelState = ChannelState.LOBBY,
 ) -> ChannelSession:
-    from datetime import datetime, timezone
+    from datetime import datetime
     return ChannelSession(
         channel_id=channel_id,
         campaign_name=campaign_name,
         claudmaster_session_id=claudmaster_session_id,
         dm20_party_token=None,
         state=state,
-        created_at=datetime.now(tz=timezone.utc),
-        updated_at=datetime.now(tz=timezone.utc),
+        created_at=datetime.now(tz=UTC),
+        updated_at=datetime.now(tz=UTC),
     )
 
 

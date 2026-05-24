@@ -17,14 +17,13 @@ All tests use fake clock + fake sleep for determinism (<1s total runtime).
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 
 # EmbedCoalescer is the SUT (System Under Test)
 from eldritch_dm.bot.coalescer import EmbedCoalescer
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

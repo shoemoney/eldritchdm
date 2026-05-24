@@ -15,11 +15,7 @@ Covers:
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 import discord
-import pytest
 
 from eldritch_dm.bot.qr import render_qr_for_embed
 
@@ -80,12 +76,6 @@ def test_render_qr_non_empty_output():
 
 def test_lobby_does_not_import_segno_directly():
     """After the refactor, lobby.py should not contain 'import segno'."""
-    import importlib.util
-
-    spec = importlib.util.spec_from_file_location(
-        "lobby_src",
-        "/Users/shoemoney/Services/DiscordDM/src/eldritch_dm/bot/cogs/lobby.py",
-    )
     # Read source directly to check imports without executing the module
     with open("/Users/shoemoney/Services/DiscordDM/src/eldritch_dm/bot/cogs/lobby.py") as fh:
         source = fh.read()

@@ -19,8 +19,8 @@ from unittest.mock import patch
 import pytest
 
 from eldritch_dm.bot.party_mode_parser import (
-    PartyMember,
     ParsePartyResult,
+    PartyMember,
     parse_party_mode_response,
 )
 

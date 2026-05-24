@@ -49,9 +49,10 @@ async def test_persistent_view_survives_restart(tmp_path, bot_factory):
       f) Assert bot_b.add_view called for message_id=333
       g) Dispatch same interaction shape → callback fires again
     """
+    from datetime import datetime
+
     from eldritch_dm.bot.dynamic_items import EndTurnButton
     from eldritch_dm.persistence.models import ChannelState, PersistentView
-    from datetime import datetime
 
     tmp_db = str(tmp_path / "drill.sqlite3")
 
@@ -150,8 +151,9 @@ async def test_expired_riposte_cleanup_on_restart(tmp_path, bot_factory):
     Phase 5 will replace xfail with the real cleanup assertion.
     """
     from datetime import datetime, timedelta
-    from eldritch_dm.persistence.models import ChannelState
+
     import aiosqlite
+
     from eldritch_dm.persistence.bootstrap import bootstrap
 
     tmp_db = str(tmp_path / "riposte_smoke.sqlite3")

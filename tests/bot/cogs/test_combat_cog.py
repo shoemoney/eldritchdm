@@ -121,6 +121,10 @@ def _make_bot(session: ChannelSession | None = None) -> MagicMock:
     rate_limiter = AsyncMock()
     bot.rate_limiter = rate_limiter
 
+    # Cross-cog helpers (must be AsyncMock for await compatibility)
+    bot.close_exploration_coalescer_for = AsyncMock()
+    bot.close_combat_coalescer_for = AsyncMock()
+
     return bot
 
 
@@ -551,9 +555,9 @@ class TestMonsterTurn:
             await cog.on_resolved_combat("500", {"type": "monster_action"})
 
         coalescer_mock.update.assert_awaited_once()
-        update_kwargs = coalescer_mock.update.call_args.kwargs
+        call_args = coalescer_mock.update.call_args
         # view should be None or empty for monster turn
-        passed_view = update_kwargs.get("view")
+        passed_view = call_args.kwargs.get("view")
         if passed_view is not None:
             assert len(passed_view.children) == 0
 
@@ -701,9 +705,8 @@ class TestCallbackIsolation:
                 round_number=1,
                 current_turn="Thorin",
                 initiative_order=[("Thorin", 20)],
-                current_hp={},
-                max_hp={},
-                conditions={},
+                campaign_name="TestCamp",
+                raw="",
             )
             with patch("eldritch_dm.gameplay.party_mode.parse_game_state", return_value=parsed):
                 await orchestrator._check_state_transition(

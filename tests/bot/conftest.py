@@ -14,14 +14,12 @@ Pattern from RESEARCH.md Q2 / Q6.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
-from typing import Awaitable
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 import pytest_asyncio
-
 
 # ── DB path ──────────────────────────────────────────────────────────────────
 

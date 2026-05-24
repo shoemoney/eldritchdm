@@ -11,13 +11,12 @@ import json
 import pathlib
 from typing import Any
 
-import discord
 import pytest
 
 from eldritch_dm.bot.embeds import (
+    _FOOTER_TEXT,
     EmbedColor,
     PlayerStatus,
-    _FOOTER_TEXT,
     character_confirm_embed,
     combat_embed,
     lobby_embed,

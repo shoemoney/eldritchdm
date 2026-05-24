@@ -10,10 +10,10 @@ TDD RED phase: these tests are written BEFORE the implementation.
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
+import pytest
 
 
 @pytest.fixture
@@ -54,9 +54,10 @@ def interaction_factory():
 @pytest.fixture
 def mock_bot(tmp_path):
     """Build a minimal mock EldritchBot for cog tests (no real DB, no real Discord)."""
-    from eldritch_dm.mcp.health import CircuitBreaker, CircuitState
+    from unittest.mock import AsyncMock, MagicMock
+
     from eldritch_dm.config import Settings
-    from unittest.mock import MagicMock, AsyncMock
+    from eldritch_dm.mcp.health import CircuitBreaker
 
     bot = MagicMock()
     bot.circuit_breaker = CircuitBreaker(threshold=3)
@@ -145,8 +146,9 @@ async def test_status_no_session(diagnostics_cog, interaction_factory):
 @pytest.mark.asyncio
 async def test_status_with_session(diagnostics_cog, interaction_factory):
     """/status returns state and campaign name when a session row exists."""
-    from eldritch_dm.persistence.models import ChannelSession, ChannelState
     from datetime import datetime
+
+    from eldritch_dm.persistence.models import ChannelSession, ChannelState
 
     session = ChannelSession(
         channel_id="999",

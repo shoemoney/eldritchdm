@@ -13,7 +13,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import discord
-import pytest
 
 from eldritch_dm.bot.permissions import can_act_on_character
 

@@ -189,8 +189,8 @@ class TestCombatFlowThreeRounds:
 
         with patch.object(btn, "_get_enriched_game_state", new=AsyncMock(return_value=game_state)):
             with patch("eldritch_dm.bot.dynamic_items.mcp_tools.combat_action", new=AsyncMock(return_value={"outcome": "hit"})) as mock_ca:
-                # Simulate modal submission by patching WeaponSelectModal
-                with patch("eldritch_dm.bot.dynamic_items.WeaponSelectModal") as mock_modal_cls:
+                # Simulate modal submission by patching WeaponSelectModal at its source
+                with patch("eldritch_dm.bot.modals.WeaponSelectModal") as mock_modal_cls:
                     modal_instance = MagicMock()
                     # Capture the on_submit_cb so we can call it
                     captured_cb: list = []
@@ -381,7 +381,8 @@ class TestNotYourTurnRateLimit:
 
         with patch.object(btn, "_get_enriched_game_state", new=AsyncMock(return_value=game_state)):
             with patch("eldritch_dm.bot.dynamic_items.mcp_tools.combat_action", new=AsyncMock(return_value={})):
-                with patch("eldritch_dm.bot.dynamic_items.WeaponSelectModal") as mock_modal_cls:
+                # WeaponSelectModal is imported inside the callback -- patch at the class source
+                with patch("eldritch_dm.bot.modals.WeaponSelectModal") as mock_modal_cls:
                     captured_cb: list = []
 
                     def capture_init(*, on_submit_cb):
@@ -459,8 +460,9 @@ class TestCombatCogEmbedRefresh:
             await cog.on_resolved_combat(_CHANNEL_ID, {"type": "turn_resolved"})
 
         coalescer_mock.update.assert_awaited_once()
-        update_kwargs = coalescer_mock.update.call_args.kwargs
-        embed = update_kwargs.get("embed")
+        call_args = coalescer_mock.update.call_args
+        # embed is passed as positional arg: update(embed, view=view)
+        embed = call_args.args[0] if call_args.args else call_args.kwargs.get("embed")
         assert embed is not None
 
         # The embed should have ▶️ for Gandalf (hero-002, "Gandalf")
@@ -487,8 +489,8 @@ class TestCombatCogEmbedRefresh:
             await cog.on_resolved_combat(_CHANNEL_ID, {})
 
         coalescer_mock.update.assert_awaited_once()
-        update_kwargs = coalescer_mock.update.call_args.kwargs
-        view = update_kwargs.get("view")
+        call_args = coalescer_mock.update.call_args
+        view = call_args.kwargs.get("view")
         if view is not None and len(view.children) > 0:
             custom_ids = [item.custom_id for item in view.children if hasattr(item, "custom_id")]
             assert any("hero-002" in cid for cid in custom_ids), (

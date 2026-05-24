@@ -1,6 +1,6 @@
 """Good: App command whose first body stmt is await interaction.response.defer(thinking=True)."""
-from discord import app_commands
 import discord
+from discord import app_commands
 
 
 @app_commands.command(name="ping")

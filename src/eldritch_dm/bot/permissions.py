@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 def can_act_on_character(
-    interaction: "discord.Interaction",
+    interaction: discord.Interaction,
     character_player_id: str | None,
 ) -> bool:
     """Return True if the invoking user may act on the given character.

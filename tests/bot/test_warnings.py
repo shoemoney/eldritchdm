@@ -15,8 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 import pytest
 
-from eldritch_dm.bot.warnings import WarningKind, _COPY, send_warning
-
+from eldritch_dm.bot.warnings import _COPY, WarningKind, send_warning
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

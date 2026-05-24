@@ -31,7 +31,7 @@ log = get_logger(__name__)
 class Diagnostics(commands.Cog):
     """Diagnostics cog: /ping (MCP health) + /status (channel session readout)."""
 
-    def __init__(self, bot: "EldritchBot") -> None:
+    def __init__(self, bot: EldritchBot) -> None:
         self.bot = bot
         self._logger = log.bind(cog="Diagnostics")
 
@@ -99,6 +99,6 @@ class Diagnostics(commands.Cog):
         )
 
 
-async def setup(bot: "EldritchBot") -> None:
+async def setup(bot: EldritchBot) -> None:
     """discord.py extension entry point — called by bot.load_extension(...)."""
     await bot.add_cog(Diagnostics(bot))

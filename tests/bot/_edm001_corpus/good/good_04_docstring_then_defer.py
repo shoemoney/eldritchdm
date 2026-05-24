@@ -1,6 +1,6 @@
 """Good: App command with a docstring THEN defer — docstring ignored."""
-from discord import app_commands
 import discord
+from discord import app_commands
 
 
 @app_commands.command(name="status")

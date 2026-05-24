@@ -1,6 +1,6 @@
 """Good: App command with # noqa: EDM001 on def line — explicit waiver."""
-from discord import app_commands
 import discord
+from discord import app_commands
 
 
 @app_commands.command(name="autocomplete_cmd")

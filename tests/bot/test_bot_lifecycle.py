@@ -13,13 +13,12 @@ All tests avoid real Discord API calls:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import aiosqlite
 import pytest
 
 from eldritch_dm.mcp.health import CircuitState
-
 
 # ── Test 1: setup_hook initializes all subsystems ────────────────────────────
 
@@ -181,9 +180,9 @@ async def test_no_guild_sync_when_empty(bot_settings, mocker):
 @pytest.mark.asyncio
 async def test_per_guild_sync_when_configured(tmp_db_path, monkeypatch, mocker):
     """When discord_guild_ids='123,456', tree.sync is called once per guild."""
-    from eldritch_dm.config import Settings
+
     from eldritch_dm.bot.bot import EldritchBot
-    import discord
+    from eldritch_dm.config import Settings
 
     monkeypatch.setenv("DISCORD_TOKEN", "test-token")
     settings = Settings(

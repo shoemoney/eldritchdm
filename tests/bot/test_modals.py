@@ -8,7 +8,7 @@ RESEARCH §5: Discord hard cap is 5 components per Modal.
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest

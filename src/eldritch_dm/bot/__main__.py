@@ -22,9 +22,9 @@ import sys
 def main() -> int:
     """Start EldritchDM bot. Returns exit code."""
     # Inline imports to avoid module-level side effects when imported as a library
+    from eldritch_dm.bot.bot import EldritchBot
     from eldritch_dm.config import Settings
     from eldritch_dm.logging import configure_logging
-    from eldritch_dm.bot.bot import EldritchBot
 
     # Load settings first (may raise ValidationError if required vars missing)
     settings = Settings()
