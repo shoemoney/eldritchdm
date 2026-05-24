@@ -53,6 +53,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 
 from eldritch_dm.gameplay.monster_driver import MonsterDriver
 from eldritch_dm.logging import get_logger
+from eldritch_dm.observability import traced_decision
 
 if TYPE_CHECKING:
     from openai import AsyncOpenAI
@@ -217,6 +218,12 @@ class SmartMonsterDriver(MonsterDriver):
 
         Returns one element of `targets`. Never raises. Always returns a
         non-None dict (caller guarantees `targets` is non-empty).
+
+        Phase 11 / OBS-01: the entire decision is enclosed in ONE
+        ``traced_decision`` span. The inner ``_pick_target_llm`` receives
+        the span as a kwarg and decorates it with ``driver.path``,
+        ``latency_ms``, tokens, and ``fallback.reason`` as the outcome
+        becomes known. No nested spans (D-66).
         """
         monster_id = current_actor.get("character_id", "")
         monster_int = _extract_monster_int(current_actor)
@@ -235,23 +242,39 @@ class SmartMonsterDriver(MonsterDriver):
             route=route,
         )
 
-        if route in ("random", "mixed_random"):
-            bound.info("smart_driver_path", path="random")
-            return self._random_choice(targets)
-
-        # route in ("llm", "mixed_llm")
-        chosen = await self._pick_target_llm(
-            targets,
+        # Open ONE decision span. Initial driver_path = route; inner code
+        # overrides to "cache", "smart", or "random" as the path is resolved.
+        with traced_decision(
+            monster_id=monster_id,
             channel_id=channel_id,
-            round_number=round_number,
-            current_actor=current_actor,
-            bound_log=bound,
-        )
-        if chosen is None:
-            bound.info("smart_driver_path", path="random_fallback")
-            return self._random_choice(targets)
-        bound.info("smart_driver_path", path="smart_ok")
-        return chosen
+            combat_round=round_number,
+            driver_path=route,
+        ) as span:
+            if route in ("random", "mixed_random"):
+                span.set_attribute("eldritch.driver.path", "random")
+                span.set_attribute("eldritch.tokens.input", 0)
+                span.set_attribute("eldritch.tokens.output", 0)
+                span.set_attribute("eldritch.latency_ms", 0)
+                bound.info("smart_driver_path", path="random")
+                return self._random_choice(targets)
+
+            # route in ("llm", "mixed_llm")
+            chosen = await self._pick_target_llm(
+                targets,
+                channel_id=channel_id,
+                round_number=round_number,
+                current_actor=current_actor,
+                bound_log=bound,
+                span=span,
+            )
+            if chosen is None:
+                # _pick_target_llm already set fallback.reason + latency.
+                # Mark the resolved path as random fallback.
+                span.set_attribute("eldritch.driver.path", "random")
+                bound.info("smart_driver_path", path="random_fallback")
+                return self._random_choice(targets)
+            bound.info("smart_driver_path", path="smart_ok")
+            return chosen
 
     # ── LLM oracle (Task 4) ───────────────────────────────────────────────────
 
@@ -263,6 +286,7 @@ class SmartMonsterDriver(MonsterDriver):
         round_number: int,
         current_actor: dict[str, Any],
         bound_log: Any,
+        span: Any = None,
     ) -> dict[str, Any] | None:
         """Call the LLM with a 1500ms hard deadline. Returns chosen PC or None.
 
@@ -271,6 +295,10 @@ class SmartMonsterDriver(MonsterDriver):
         Includes a per-round cache (D-56) keyed on
         `(channel_id, round_number, monster_id)`. Same key returns the cached
         choice without re-invoking the LLM.
+
+        Phase 11: when ``span`` is provided (always from ``_choose_target``;
+        ``None`` when unit-tested in isolation), attributes are stamped on
+        the SAME outer span. No nested spans, no ``get_current_span`` magic.
         """
         monster_id = current_actor.get("character_id", "")
         cache_key = (channel_id, round_number, monster_id)
@@ -280,10 +308,17 @@ class SmartMonsterDriver(MonsterDriver):
         cached = self._cache.get(cache_key)
         if cached is not None and cached.target_pc_id in candidate_ids:
             bound_log.info("smart_driver_cache_hit", target_id=cached.target_pc_id)
+            if span is not None:
+                span.set_attribute("eldritch.driver.path", "cache")
+                span.set_attribute("eldritch.tokens.input", 0)
+                span.set_attribute("eldritch.tokens.output", 0)
+                span.set_attribute("eldritch.latency_ms", 0)
             for pc in targets:
                 if pc.get("character_id") == cached.target_pc_id:
                     return pc
             # Defensive: cached id slipped out of candidate set — random fallback
+            if span is not None:
+                span.set_attribute("eldritch.fallback.reason", "hallucinated_id")
             return None
 
         candidates = [_slim_candidate(p) for p in targets]
@@ -333,6 +368,11 @@ class SmartMonsterDriver(MonsterDriver):
                 "smart_driver_timeout",
                 latency_ms=latency_ms,
             )
+            if span is not None:
+                span.set_attribute("eldritch.latency_ms", latency_ms)
+                span.set_attribute("eldritch.tokens.input", 0)
+                span.set_attribute("eldritch.tokens.output", 0)
+                span.set_attribute("eldritch.fallback.reason", "timeout")
             return None
         except Exception as exc:  # noqa: BLE001 — fail-soft per D-58
             latency_ms = int((time.monotonic() - t0) * 1000)
@@ -342,9 +382,28 @@ class SmartMonsterDriver(MonsterDriver):
                 error_type=type(exc).__name__,
                 error=str(exc)[:200],
             )
+            if span is not None:
+                span.set_attribute("eldritch.latency_ms", latency_ms)
+                span.set_attribute("eldritch.tokens.input", 0)
+                span.set_attribute("eldritch.tokens.output", 0)
+                reason = (
+                    "rate_limit"
+                    if "RateLimit" in type(exc).__name__
+                    else "generic"
+                )
+                span.set_attribute("eldritch.fallback.reason", reason)
             return None
 
         latency_ms = int((time.monotonic() - t0) * 1000)
+
+        # Defensive token extraction — MLX may return completion.usage = None.
+        usage = getattr(completion, "usage", None)
+        tokens_in = (
+            getattr(usage, "prompt_tokens", 0) if usage is not None else 0
+        ) or 0
+        tokens_out = (
+            getattr(usage, "completion_tokens", 0) if usage is not None else 0
+        ) or 0
 
         # Extract content defensively (refusal path may have None content)
         try:
@@ -352,10 +411,20 @@ class SmartMonsterDriver(MonsterDriver):
             content = (message.content or "") if message is not None else ""
         except (AttributeError, IndexError, TypeError):
             bound_log.warning("smart_driver_no_content", latency_ms=latency_ms)
+            if span is not None:
+                span.set_attribute("eldritch.latency_ms", latency_ms)
+                span.set_attribute("eldritch.tokens.input", tokens_in)
+                span.set_attribute("eldritch.tokens.output", tokens_out)
+                span.set_attribute("eldritch.fallback.reason", "refusal")
             return None
 
         if not content.strip():
             bound_log.warning("smart_driver_empty_response", latency_ms=latency_ms)
+            if span is not None:
+                span.set_attribute("eldritch.latency_ms", latency_ms)
+                span.set_attribute("eldritch.tokens.input", tokens_in)
+                span.set_attribute("eldritch.tokens.output", tokens_out)
+                span.set_attribute("eldritch.fallback.reason", "refusal")
             return None
 
         # Strict parse → fall back to regex extractor (D-51)
@@ -376,6 +445,11 @@ class SmartMonsterDriver(MonsterDriver):
                 latency_ms=latency_ms,
                 raw_preview=content[:120],
             )
+            if span is not None:
+                span.set_attribute("eldritch.latency_ms", latency_ms)
+                span.set_attribute("eldritch.tokens.input", tokens_in)
+                span.set_attribute("eldritch.tokens.output", tokens_out)
+                span.set_attribute("eldritch.fallback.reason", "json_parse")
             return None
 
         # Candidate-ID membership check (D-55)
@@ -386,6 +460,11 @@ class SmartMonsterDriver(MonsterDriver):
                 raw_target=choice.target_pc_id,
                 candidate_ids=sorted(candidate_ids),
             )
+            if span is not None:
+                span.set_attribute("eldritch.latency_ms", latency_ms)
+                span.set_attribute("eldritch.tokens.input", tokens_in)
+                span.set_attribute("eldritch.tokens.output", tokens_out)
+                span.set_attribute("eldritch.fallback.reason", "hallucinated_id")
             return None
 
         # ── Cache the validated choice (D-56) ────────────────────────────────
@@ -399,6 +478,11 @@ class SmartMonsterDriver(MonsterDriver):
             latency_ms=latency_ms,
             target_id=choice.target_pc_id,
         )
+        if span is not None:
+            span.set_attribute("eldritch.latency_ms", latency_ms)
+            span.set_attribute("eldritch.tokens.input", tokens_in)
+            span.set_attribute("eldritch.tokens.output", tokens_out)
+            span.set_attribute("eldritch.driver.path", "smart")
 
         for pc in targets:
             if pc.get("character_id") == choice.target_pc_id:
