@@ -5,6 +5,7 @@
 - ✅ **v1.0 MVP — Mechanically Honest AI Dungeon Master** — Phases 1-5 (shipped 2026-05-23) — see [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 Polish** — Phases 6-10 (shipped 2026-05-24) — see [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Quality Flywheel** — Phases 11-13 (shipped 2026-05-24) — see [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
+- 🚧 **v1.3 Hygiene Sweep** — Phase 14 (in progress) — close carried-since-v1.1 test flakes + SUMMARY frontmatter compliance
 
 ## Phases
 
@@ -51,6 +52,22 @@
 
 </details>
 
+## 🚧 v1.3 Hygiene Sweep (Phase 14)
+
+### Phase 14: Flake cleanup + planner template hardening
+**Goal**: Close the carried-since-v1.1 test flakes (OCR backend env failures + phase3_smoke test-pollution flake) and backfill `requirements_completed:` frontmatter across all v1.1+v1.2 SUMMARYs. Sets up a green-on-green test suite for v1.4 feature work.
+**Mode:** mvp (hygiene — no user-visible behavior change)
+**Depends on**: Phase 13 (v1.2 final state — full corpus to audit)
+**Requirements**: FLAKE-01, FLAKE-02, FLAKE-03
+**Success Criteria**:
+  1. Full `uv run pytest tests/` returns 0 ocrmac-related failures (skip-gated cleanly OR ocrmac installed in dev venv)
+  2. `tests/integration/test_phase3_smoke.py` passes deterministically in full-suite run; root-cause polluter identified and fixed at source
+  3. All 14 v1.1+v1.2 SUMMARY.md files have `requirements_completed:` YAML frontmatter field listing the REQ-IDs each plan satisfied
+  4. ruff + lint-imports clean; no new test failures introduced
+**Plans**:
+- [ ] Plan 01: OCR env-gate + phase3_smoke pollution root-cause + fix (`fix(14-01): OCR env-gate + phase3_smoke pollution root-cause fix (FLAKE-01, FLAKE-02)`)
+- [ ] Plan 02: SUMMARY frontmatter backfill across v1.1+v1.2 phases (`docs(14-02): backfill requirements_completed: frontmatter across all v1.1+v1.2 SUMMARYs (FLAKE-03)`)
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -73,6 +90,9 @@
 | MON-01 | 13 | 13-01-PLAN-kpi-monitors |
 | MON-02 | 13 | 13-02-PLAN-alerts-degraded-mode |
 | MON-03 | 13 | 13-03-PLAN-cost-guard |
+| FLAKE-01 | 14 | 14-01-PLAN-flake-fix |
+| FLAKE-02 | 14 | 14-01-PLAN-flake-fix |
+| FLAKE-03 | 14 | 14-02-PLAN-summary-frontmatter |
 
 ## Progress
 
@@ -91,6 +111,7 @@
 | 11. Phoenix Observability Foundation | v1.2 | 2/2 | Complete   | 2026-05-24 |
 | 12. LLM-as-Judge Tactical Scoring | v1.2 | 2/2 | Complete   | 2026-05-24 |
 | 13. Production Monitoring + Alerting | v1.2 | 3/3 | Complete   | 2026-05-24 |
+| 14. Flake cleanup + planner template hardening | v1.3 | 0/2 | Not started | — |
 
 ---
 *Last revised: 2026-05-24 after v1.1 Polish research synthesis (Stack + Features + Architecture + Pitfalls all converged on this 5-phase build order)*

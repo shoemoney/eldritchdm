@@ -2,10 +2,11 @@
 
 ## Current State
 
-**Shipped:** v1.2 Quality Flywheel — OTel observability + LLM-as-judge eval + production monitoring · 2026-05-24
-**Tag:** `v1.2` · **Audit:** passed (8/8 reqs) · 3 phases · ~53 commits · ~199 new tests
-**Previous:** v1.1 Polish · 2026-05-24 · tag `v1.1` · 10/10 reqs
-**Earlier:** v1.0 MVP · 2026-05-23 · 71/73 reqs (97%)
+**Current Milestone:** v1.3 Hygiene Sweep (in progress, 0/1 phases) — see [`ROADMAP.md`](./ROADMAP.md)
+**Goal:** Close the carried-since-v1.1 test flakes (OCR backend env + phase3_smoke pollution) and bring SUMMARY.md frontmatter into spec compliance. Single focused phase of low-risk hygiene work.
+**Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified against 2026 vendor pricing
+**Previous:** v1.2 Quality Flywheel · 2026-05-24 · tag `v1.2` · 8/8 reqs
+**Earlier:** v1.1 Polish · 2026-05-24 · tag `v1.1` · 10/10 reqs / v1.0 MVP · 2026-05-23 · 71/73 reqs
 **Repo:** https://github.com/shoemoney/eldritchdm
 **License:** Apache 2.0
 
