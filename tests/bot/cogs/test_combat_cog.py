@@ -622,7 +622,7 @@ class TestSessionStateBus:
         import asyncio
         callbacks = [exploration_cb, combat_cb]
 
-        results = await asyncio.gather(
+        await asyncio.gather(
             *[cb("500", ChannelState.EXPLORATION, ChannelState.COMBAT) for cb in callbacks],
             return_exceptions=True,
         )
@@ -696,7 +696,7 @@ class TestCallbackIsolation:
         bound_log = structlog.get_logger()
         orchestrator._last_combat_state["test-ch"] = False  # was EXPLORATION
 
-        with patch("eldritch_dm.gameplay.party_mode.mcp_tools.get_game_state") as mock_gs:
+        with patch("eldritch_dm.gameplay.party_mode.mcp_tools.get_game_state"):
             from eldritch_dm.gameplay.game_state_parser import ParsedGameState
             parsed = ParsedGameState(
                 in_combat=True,
