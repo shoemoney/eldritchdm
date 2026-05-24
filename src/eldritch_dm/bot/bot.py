@@ -306,7 +306,9 @@ class EldritchBot(commands.Bot):
         self.riposte_timers = self.riposte_timers_repo
 
         from eldritch_dm.bot.dynamic_items import RiposteButton  # noqa: PLC0415
-        from eldritch_dm.gameplay.monster_driver import MonsterDriver  # noqa: PLC0415
+        from eldritch_dm.gameplay.monster_driver_factory import (  # noqa: PLC0415
+            make_monster_driver,
+        )
 
         def _riposte_button_factory(timer_id: int, user_id: int) -> discord.ui.Item:
             return RiposteButton(timer_id=timer_id, user_id=user_id)
@@ -338,7 +340,21 @@ class EldritchBot(commands.Bot):
             except (TypeError, ValueError):
                 return None
 
-        self.monster_driver = MonsterDriver(
+        # Phase 10 D-52: factory dispatches between v1.0 random and smart
+        # drivers based on MONSTER_DRIVER env var (default "smart"). The
+        # smart driver needs an AsyncOpenAI client for the LLM oracle — we
+        # build one lazily here using the same resolved ingest config so the
+        # smart driver and the ingest pipeline talk to the same oMLX server.
+        from openai import AsyncOpenAI  # noqa: PLC0415
+
+        ingest_cfg = settings.resolve_ingest_config()
+        # Reuse a pre-set client (test injection) if present, else build one.
+        smart_openai_client = getattr(self, "openai_client", None) or AsyncOpenAI(
+            base_url=ingest_cfg.endpoint, api_key=ingest_cfg.api_key
+        )
+        self.openai_client = smart_openai_client  # expose for ingest cog reuse
+
+        self.monster_driver = make_monster_driver(
             mcp=self.mcp,
             rate_limiter=self.rate_limiter,
             pc_classes_repo=self.pc_classes,
@@ -348,6 +364,9 @@ class EldritchBot(commands.Bot):
             channel_resolver=_channel_resolver,
             ttl_seconds=settings.riposte_ttl_seconds,
             eligibility_set=self.eligibility_set,  # Phase 8 D-38
+            # Smart-driver-only kwargs — factory pops these for "random" mode
+            openai_client=smart_openai_client,
+            llm_model=ingest_cfg.model,
         )
 
         # (e3c) Phase 5 Plan 02 — shared SessionLocks + RiposteSweeper.
