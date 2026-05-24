@@ -20,9 +20,22 @@ loop (T-09-01-02) and SQLite write path (T-09-01-03) land in later commits.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from typing import Any
 
+import aiosqlite
+from pydantic import BaseModel, ConfigDict
+
+from eldritch_dm.gameplay.normalize import normalize
 from eldritch_dm.logging import get_logger
+from eldritch_dm.mcp.client import MCPClient
+from eldritch_dm.mcp.errors import (
+    MCPCircuitOpen,
+    MCPNetworkError,
+    MCPTimeoutError,
+    MCPToolError,
+)
 
 log = get_logger(__name__)
 
@@ -48,8 +61,6 @@ def resolve_dm20_url(cli_value: str | None) -> str:
       3. ``$OMLX_ENDPOINT`` with a trailing ``/v1`` stripped (matches bot)
       4. ``http://localhost:8765``
     """
-    import os
-
     if cli_value:
         return cli_value.rstrip("/")
     env_dm20 = os.environ.get("DM20_MCP_URL")
@@ -72,6 +83,134 @@ def _default_db_path() -> str:
         return Settings().eldritch_db_path
     except Exception:  # pragma: no cover — fall back if env is half-set
         return "./eldritch.sqlite3"
+
+
+# ── Models (T-09-01-02) ──────────────────────────────────────────────────────
+
+
+class BackfillRow(BaseModel):
+    """One (channel_id, character_id) row pending insertion into pc_classes."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    channel_id: str
+    character_id: str
+    class_name: str
+    subclass: str  # always "" in v1.1 (dm20 schema omits subclass — C-1)
+
+
+# ── Fetch helpers (T-09-01-02) ───────────────────────────────────────────────
+
+
+async def _list_channel_sessions_readonly(db_path: str) -> list[tuple[str, str]]:
+    """Read (channel_id, campaign_name) tuples from channel_sessions, read-only.
+
+    Always opens with ``mode=ro`` URI so this stage is safe regardless of
+    --dry-run.
+    """
+    uri = f"file:{db_path}?mode=ro"
+    async with aiosqlite.connect(uri, uri=True) as conn:
+        conn.row_factory = aiosqlite.Row
+        cur = await conn.execute(
+            "SELECT channel_id, campaign_name FROM channel_sessions"
+        )
+        rows = await cur.fetchall()
+    return [(r["channel_id"], r["campaign_name"]) for r in rows]
+
+
+def _extract_characters(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """dm20 wraps list responses inconsistently; accept either shape."""
+    if isinstance(payload, dict):
+        chars = payload.get("characters")
+        if isinstance(chars, list):
+            return chars
+        result = payload.get("result")
+        if isinstance(result, dict):
+            chars = result.get("characters")
+            if isinstance(chars, list):
+                return chars
+    return []
+
+
+async def collect_rows(
+    *,
+    db_path: str,
+    dm20_url: str,
+    client: MCPClient | None = None,
+) -> tuple[list[BackfillRow], list[tuple[str, str]]]:
+    """Walk channel_sessions, ask dm20 for characters, build BackfillRows.
+
+    Returns ``(rows, failures)`` where each failure is
+    ``(channel_id, error_message)``. The function never raises on dm20
+    errors — they're bucketed into ``failures`` so main() can compute the
+    correct exit code (D-44: all-fail → 1, some-fail → 2).
+
+    Args:
+        db_path: SQLite database path (read-only access only here).
+        dm20_url: dm20 MCP base URL (used if ``client`` is None).
+        client: Optional pre-built MCPClient. When supplied, the caller owns
+            its lifecycle (used by tests that share a respx-mocked client).
+            When None, this function creates and closes a client internally.
+    """
+    sessions = await _list_channel_sessions_readonly(db_path)
+    if not sessions:
+        return [], []
+
+    owns_client = client is None
+    if client is None:
+        client = MCPClient(dm20_url)
+
+    rows: list[BackfillRow] = []
+    failures: list[tuple[str, str]] = []
+    try:
+        for channel_id, campaign_name in sessions:
+            bound = log.bind(channel_id=channel_id, campaign_name=campaign_name)
+            try:
+                payload = await client.call(
+                    "dm20__list_characters", campaign_name=campaign_name
+                )
+            except (
+                MCPCircuitOpen,
+                MCPTimeoutError,
+                MCPNetworkError,
+                MCPToolError,
+            ) as exc:
+                bound.warning("backfill.dm20_error", error=str(exc))
+                failures.append((channel_id, str(exc)))
+                continue
+
+            characters = _extract_characters(payload)
+            for char in characters:
+                character_id = str(char.get("character_id") or char.get("id") or "")
+                class_name_raw = (
+                    char.get("character_class") or char.get("class") or ""
+                )
+                if not character_id or not class_name_raw:
+                    bound.warning(
+                        "backfill.skipping_malformed_char",
+                        character_id=character_id,
+                        class_name_raw=class_name_raw,
+                    )
+                    continue
+                # C-1: dm20 schema does not expose subclass — best-effort.
+                bound.warning(
+                    "backfill.subclass_unknown",
+                    character_id=character_id,
+                    class_name=class_name_raw,
+                )
+                rows.append(
+                    BackfillRow(
+                        channel_id=channel_id,
+                        character_id=character_id,
+                        class_name=normalize(class_name_raw),
+                        subclass="",
+                    )
+                )
+    finally:
+        if owns_client:
+            await client.aclose()
+
+    return rows, failures
 
 
 def build_parser() -> argparse.ArgumentParser:
