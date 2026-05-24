@@ -117,10 +117,18 @@ class _MetricsEndpointHandle:
 
         from prometheus_client import start_http_server  # noqa: PLC0415
 
-        # prometheus_client 0.20+ start_http_server signature:
-        # start_http_server(port, addr='', registry=REGISTRY) -> (server, thread)
-        # We need to be tolerant of older signatures that return None.
-        result = start_http_server(resolved_port, registry=self._registry)
+        # Bind address — DEFAULT to 127.0.0.1 (loopback only). Operators who
+        # want to expose metrics on the network must opt in via
+        # OBSERVABILITY_METRICS_BIND (e.g. "0.0.0.0" for all interfaces).
+        # prometheus_client's own default is 0.0.0.0 which would leak metrics
+        # to the LAN by default on a self-hoster's laptop — Rule 2 fix.
+        bind_addr = os.environ.get("OBSERVABILITY_METRICS_BIND", "127.0.0.1")
+        # prometheus_client 0.25.0 signature:
+        # start_http_server(port, addr='0.0.0.0', registry=REGISTRY) -> (server, thread)
+        # Tolerate older signatures that return None.
+        result = start_http_server(
+            resolved_port, addr=bind_addr, registry=self._registry
+        )
         if isinstance(result, tuple) and len(result) == 2:
             self._server, self._server_thread = result
         else:
