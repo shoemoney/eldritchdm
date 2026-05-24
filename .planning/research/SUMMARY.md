@@ -1,199 +1,129 @@
-# Project Research Summary — EldritchDM
+# v1.1 Polish — Research Summary
 
-**Project:** EldritchDM (ShoeGPT)
-**Domain:** Local-first Discord bot orchestrating D&D 5e with a quantized MoE LLM on Apple Silicon
-**Researched:** 2026-05-21
-**Confidence:** HIGH on stack, architecture, and Discord/SQLite pitfalls; MEDIUM on MLX-specific failure modes and AI-DM competitor feature surface.
+**Project:** EldritchDM
+**Milestone:** v1.1 Polish (post-`v1.0` ship 2026-05-23)
+**Researched:** 2026-05-23 → 2026-05-24
+**Confidence:** HIGH on closure items (SAN-01, OPS-02, TD-1, TD-2, TD-3, YAML eligibility); MEDIUM on Smart MonsterDriver (novel for this repo — dm20 tactical-tool exact surface still TBD).
+**Source files:** `STACK.md`, `FEATURES.md`, `ARCHITECTURE.md`, `PITFALLS.md` (all v1.1, written 2026-05-23).
 
-## Executive Summary
+---
 
-EldritchDM occupies an empty quadrant in the 2026 AI-DM market: **no shipping product combines local inference + rule-rigid combat + reactive Discord UI + self-host**. Fables.gg leads on memory/UI but is SaaS+LLM-as-judge; Avrae has rule rigor but no AI DM; AI Dungeon has narration but no rules. The three-brain architecture is correct and timely, but the PRD treats several of its hardest correctness questions as prompt-level concerns when they are actually post-generation enforcement, OS-level supervision, and concurrency-control problems.
+## 1. Headline
 
-The stack the PRD specifies is mostly right for 2026, with three concrete corrections: **ocrmac (Apple Vision) replaces EasyOCR as the primary OCR path on macOS**; **PyMuPDF replaces pypdf as the primary PDF parser** (with pypdf retained as an MIT-licensed fallback); and **mlx-lm.server's OpenAI tool-call parity is unreliable enough that a structured-output (`<tool_call>{json}</tool_call>`) fallback parser is mandatory from day one**. Pin `discord.py==2.7.1`, `mlx-lm==0.31.3`, model `mlx-community/Qwen3.5-35B-A3B-MLX-4bit` (with `Qwen3.5-7B-MLX-4bit` for 16 GB Macs).
+v1.1 is a **polish + extensibility milestone**, not a new product. Its job is to close the four audit deferrals from v1.0 (SAN-01 modal coverage, OPS-02 `DM_OFFLINE` warning, TD-1 `__main__` token parity, TD-2 ruff cleanup), discharge one acknowledged debt (TD-3 `pc_classes` backfill), and add **two small forward features** (YAML-configurable Riposte eligibility, Smart Claudmaster-routed monster targeting). Net dependency change is **one promoted dep** (`pyyaml` from `[dev]` → core) plus a ruff floor bump — zero new SQLite tables, zero new MCP servers, zero new Discord-side persistent View shapes. **The one constraint to keep front-of-mind:** v1.0's "mechanically honest" integrity rule (the LLM never computes game math) must survive Smart MonsterDriver intact — Claudmaster picks a target id from the candidate set; dm20 still resolves every attack, every die, every HP change.
 
-The riskiest things in the PRD as written: (1) "no math in LLM output" must be a **post-hoc validator** that strips/rejects unsanctioned digits, HP/AC keywords, and out-of-context entity names; (2) "WAL + careful locking" implies WAL solves concurrent writes, which it does not — a **single-writer asyncio.Queue plus `BEGIN IMMEDIATE` plus `busy_timeout=5000`** is required; (3) **prompt injection through the player action modal is not mentioned anywhere** — sentinels and a 500-char cap belong in v1; (4) **persistent Views need DynamicItem-style `custom_id` schemes registered in `setup_hook`**; (5) every interaction callback must **`await interaction.response.defer(thinking=True)` as its first line** — the 3s ack cliff is the most common reason an otherwise correct bot looks broken.
+## 2. Stack Delta vs v1.0
 
-## Key Findings (Top 10, Consequential)
-
-1. **Three-brain is a *logical* boundary, not a process boundary.** Voice/Brain/Orchestrator are layered modules in one async Python process. `engine/` is hermetic — no imports from `orchestrator/`, `persistence/`, or `inference/` — and is the integrity boundary that makes every die roll unit-testable without Discord.
-2. **No-math contract requires a post-hoc validator, not a prompt rule.** Regex + entity allowlist runs on every narration; on hit, re-prompt with a hard FORBIDDEN list or rewrite the sentence. Bake an adversarial ≥50-scenario test corpus into CI.
-3. **User correction (2026-05-21): backend is `oMLX` (`omlx serve`) at `http://localhost:8765/v1`, model id `ShoeGPT` (Gemma 4 4-bit under the hood); tool calls confirmed reliable.** This supersedes the original mlx-lm.server analysis. oMLX is a "production-ready LLM server for Apple Silicon" with multi-model serving + SSD paged cache (200 GB) + 8 GB hot cache. Native `response.tool_calls` is the primary path; structured `<tool_call>{...}</tool_call>` fallback stays as a defensive safety net.
-4. **WAL is not a writer-concurrency story.** One asyncio writer task draining a queue, `PRAGMA busy_timeout=5000` and `PRAGMA journal_mode=WAL` on every connection, `BEGIN IMMEDIATE` for any txn that will write, never hold a write txn across an `await llm_call()`.
-5. **Persistent Views need `discord.ui.DynamicItem` with regex `custom_id` templates** (e.g. `endturn:(?P<session_id>\d+):(?P<user_id>\d+)`). `bot.add_view()` called in `setup_hook` for every active session loaded from DB; encode minimum state in custom_id (100-char cap).
-6. **3s defer is non-negotiable.** First line of every callback: `await interaction.response.defer(thinking=True)`. Mechanical outcome lands in ~1s; LLM narration follows as a separate edit/followup. Splitting roll-from-narrate is a *correctness* requirement.
-7. **OCR on macOS should be `ocrmac` (Apple Vision via PyObjC), not EasyOCR.** ~100ms/page, no PyTorch dep, no 64 MB model download, uses the Neural Engine. EasyOCR becomes an opt-in `linux-ocr` extra. OCR-confidence gate w/ **manual-entry modal as a first-class path**.
-8. **Prompt injection is a v1 concern.** Wrap player free-text in `<player_action speaker="..." user_id="...">…</player_action>` sentinels, strip control tokens (`<tool_call>`, `<|im_start|>`, `SYSTEM:`, `ASSISTANT:`), cap modal input at 500 chars, and **disable the tool-call content-string fallback for turns that include user free-text**.
-9. **MLX server is a process that can die — treat it as such.** External supervisor (`launchd`/`pm2`/`tmux+watchdog`), health-check every 60s, circuit breaker that falls back to templated narration, `httpx.Timeout(connect=2, read=20, write=5)`. Memory pressure on Apple Silicon doesn't OOM cleanly — it grinds.
-10. **EldritchDM occupies an empty quadrant.** No 2026 product combines (local inference) × (rule-rigid combat) × (reactive Discord UI) × (self-host). Image gen, TTS, cross-server sync, LLM-as-judge — all anti-features.
-
-## Stack (Pinned Versions + PRD Diffs)
-
-### Core (HIGH confidence)
-
-| Library | Pinned | Purpose |
-|---|---|---|
-| Python | `>=3.11,<3.13` | Runtime |
-| `discord.py` | `==2.7.1` | Bot framework — Rapptz active, 2026-03-03 release |
-| `mlx-lm` | `==0.31.3` | Local inference + `mlx_lm.server` at `:8080/v1` |
-| Model | `mlx-community/Qwen3.5-35B-A3B-MLX-4bit` primary; `Qwen3.5-7B-MLX-4bit` 16 GB fallback | MoE 3B active, ~19.5 GB unified, ~90–108 tok/s on M4 Max |
-| `openai` | `>=1.55,<2.0` | Client to mlx-lm.server |
-| `aiosqlite` | `>=0.20,<0.22` | Async SQLite; serializes writes through one thread |
-| `httpx` | `>=0.27,<0.29` | Async HTTP (Open5e + non-OpenAI) |
-| `pydantic` | `>=2.8,<3.0` | LLM JSON output validation |
-| `tenacity` | `>=8.5,<10.0` | Retry/backoff on Open5e and LLM |
-| `structlog` | `>=24.4,<26.0` | Bound-context JSON logs |
-| `ocrmac` | `>=1.0,<2.0` | macOS-primary OCR via Apple Vision |
-| `PyMuPDF` | `>=1.24,<2.0` | Primary PDF parser (AGPL, fine for self-host) |
-| `pypdf` | `>=4.3,<6.0` | MIT fallback PDF parser |
-| `easyocr` (extra `linux-ocr`) | `>=1.7,<2.0` | Linux/CUDA OCR fallback |
-| `python-dotenv` | `>=1.0,<2.0` | Config |
-
-### PRD Diffs
-
-| PRD said | Research says | Why |
-|---|---|---|
-| EasyOCR primary | **ocrmac primary on macOS; EasyOCR via `linux-ocr` extra** | Apple Vision faster, no PyTorch, no 64 MB download, uses ANE |
-| pypdf | **PyMuPDF primary; pypdf MIT fallback** | ~10x faster, better multi-column, `get_pixmap()` enables OCR fallback. AGPL caveat |
-| discord.py 2.3.2+ | **`==2.7.1`** | Active again, persistent-View ergonomics improved |
-| "MLX over Ollama" | Keep mlx-lm.server but reframe rationale | Ollama 0.19+ uses MLX backend; perf gap collapsed. Keep mlx-lm.server for fewer moving parts |
-| (omitted) | Add `httpx`/`pydantic`/`tenacity`/`structlog`/`python-dotenv` | Async/runtime support layer |
-
-### Do NOT use
-
-`requests` · `aiohttp` · sync SQLAlchemy · `langchain`/`pydantic-ai`/`instructor` · `pytesseract` · bare `logging` · `nextcord`/`py-cord`.
-
-## Features
-
-### Table stakes (Avrae baseline)
-Persistent character storage · dice parser w/ adv/dis/crit · initiative tracker · per-channel concurrent sessions · rich embeds · slash command surface · ephemeral errors · 5e rules/spell/monster lookup · **full resume across restarts**.
-
-### Table stakes (AI-DM baseline)
-ShoeGPT persona · **long-term campaign memory** (#1 ChatGPT-as-DM complaint) · narrative continuity · **rule-enforced combat** · HP/AC/condition tracking that sticks · inventory persistence · NPC voice variation · **multiplayer turn discipline** · scene awareness.
-
-### Differentiators (no competitor combines these)
-- Mechanically honest narration (engine math, LLM narrates facts only)
-- Riposte timed reactive UI (8s class-gated button after monster miss)
-- OCR + PDF character ingest
-- Action-batching exploration phase
-- Local-first, zero API spend
-- MCP-style tool registry (`lookup_open5e_rule`, `search_monster_guide`, `save_session_memory`)
-- Dodge w/ auto-disadvantage
-- 8+ player initiative UI (Fables caps at 6)
-- Self-hostable single-binary install
-
-### Anti-features (deliberately NOT built)
-1. Free-form "chat with the DM" without state transitions
-2. **LLM-computed math/dice/numerical effects** (the thesis)
-3. Unbounded narration length (hard 150-word cap)
-4. LLM-as-judge for rule disputes (defer to Open5e + human table)
-5. Image/map generation
-6. Cross-server character portability / cloud sync
-7. Voice / TTS narration
-8. "Auto-DM mode" that plays without player input
-
-## Architecture
-
-### Layers (one-way deps)
-1. **Orchestrator** — Cogs + View Registry + Interaction Router + Session Manager (discord.py, async)
-2. **Engine** — pure Python, sync, hermetic. Dice/combat/initiative/skill/conditions/reactions
-3. **Inference** — MLX httpx client + Jinja prompt assembler + dual-parse tool dispatcher
-4. **Ingest** — OCR/PDF workers on `ThreadPoolExecutor(max_workers=2)`
-5. **Persistence** — aiosqlite, WAL, per-session asyncio.Lock, repositories per aggregate
-6. **External** — mlx-lm.server (`:8080/v1`), Open5e REST (cache-first), local fallback cache
-
-**Rule:** Inference never calls Engine; Engine never calls Inference or Persistence. Orchestrator conducts.
-
-### Async model
-
-| Op | Runs on |
-|---|---|
-| Discord gateway, HTTP (mlx-lm/Open5e), SQLite | asyncio loop |
-| Engine math | asyncio loop (sync) — microsecond-scale |
-| OCR, PyMuPDF/pypdf | `ThreadPoolExecutor(max_workers=2)` |
-| Embed updates | `asyncio.Queue` + render task, ≤1 edit/sec/message |
-
-### Tool-call dispatch (dual-parse, mandatory)
-
-```python
-if choice.tool_calls:                                  # native
-    calls = choice.tool_calls
-elif (m := TOOL_ENVELOPE.search(choice.content or "")):  # fallback
-    calls = [_parse_envelope(m.group("json"))]
-else:
-    return choice.content                              # final narration
-```
-
-Fallback **disabled for turns containing user free-text** (injection mitigation).
-
-### Restart recovery
-
-In `setup_hook`:
-1. Persistence connect → `PRAGMA journal_mode=WAL`, `busy_timeout=5000`.
-2. `SessionRepo.list_active()` → reload FSM state, characters, combatants, initiative, conditions.
-3. Reconstruct Session objects; `SessionManager.register(session)`.
-4. For each persistent `message_id`: build View w/ restored state, `bot.add_view(view, message_id=...)`.
-5. Register `DynamicItem` templates (EndTurnButton, RiposteButton, ReadyButton).
-6. `bot.connect()` — old buttons just work.
-
-### Concurrency (single-writer)
-
-- Per-session `asyncio.Lock` covers each read-modify-write window.
-- Pure reads take no lock — trust WAL.
-- All writes funnel through one writer task per process (asyncio.Queue) — eliminates writer/writer SQLITE_BUSY.
-- `BEGIN IMMEDIATE` for write txns; never `BEGIN` then upgrade.
-- Periodic `PRAGMA wal_checkpoint(TRUNCATE)`.
-
-## Pitfalls → Phase Mapping
-
-| # | Pitfall | Severity | Phase | Verification |
+| Change | Direction | What | Why | Risk |
 |---|---|---|---|---|
-| 1 | LLM math leakage | CRITICAL | Phase 1 (LLM client) | Adversarial 50-scenario corpus; validator on every narration |
-| 2 | Persistent Views vanish on restart | CRITICAL | Phase 2 (state machine) | Kill-and-restart mid-combat; buttons still work |
-| 3 | Discord 3s ack cliff | CRITICAL | Phase 1 + Phase 3 | Lint: every callback's first line is `interaction.response.defer(...)` |
-| 4 | Rate-limit cratering | HIGH | Phase 3 (combat) | 8-player load test, zero 429s, 300-500ms debouncer |
-| 5 | Tool-call format drift | HIGH | Phase 1 | `test_tool_calls.py` smoke test; pin model + mlx-lm; dual-parse always |
-| 6 | SQLite writer contention | HIGH | Phase 2 (persistence) | Multi-channel stress test; zero `database is locked` |
-| 7 | Context-window blowup | MEDIUM | Phase 1 cap + Phase 4 rollup | 100-turn synthetic session; token count bounded |
-| 8 | Prompt injection | HIGH | Phase 1 sanitizer + Phase 4 memory ACL | Injection corpus passes; `<player_action>` sentinels; 500-char cap |
-| 9 | OCR quality cliff | MEDIUM | Phase 2 (ingest) | Confidence gate; manual-entry modal first-class; stat-range validation |
-| 10 | Open5e downtime | MEDIUM | Phase 0 cache + Phase 4 degrade | Offline-mode session completes; 2s timeout; SRD cache shipped |
-| 11 | MLX server crashes | HIGH | Phase 1 + infra | `kill -9` drill; supervisor (launchd/pm2); 60s health ping; circuit breaker |
-| 12 | Sheet privacy leakage | HIGH (trust) | Phase 2 + Phase 4 | DM-only `/upload_sheet`; `ephemeral=True` confirmations; `visibility` ACL |
+| **`pyyaml>=6.0.3,<7.0`** | `[dev]` → core | Riposte eligibility YAML loader | YAML beats TOML for homebrew-DM author UX; `safe_load` is the only permitted API | LOW |
+| **`ruff>=0.6,<1.0`** → **`ruff>=0.15,<1.0`** | floor bump | Dev tool | 0.15.14 (2026-05-21) is current stable; clears noise floor before feature diffs | LOW |
+| `eldritch-dm-backfill` | NEW entry | `[project.scripts]` | Mirrors v1.0 `eldritch-dm` console script (D-23) | LOW |
 
-## Recommended Build Order (11 steps)
+### Explicitly NOT new
 
-| # | Step | Why this order |
+- **Zero new top-level pip packages.** No `jinja2`, `click`, `typer`, `rich`, `tqdm`, `watchfiles`, `ruamel.yaml`, `pydantic-yaml`, `pydantic-ai`, `instructor`, `langchain`, `pydantic-settings`.
+- **Zero new SQLite tables.** Backfill writes to existing `pc_classes`; YAML on disk; Smart MonsterDriver persists nothing.
+- **Zero new MCP servers.** Smart MonsterDriver adds **at most one** wrapper to `eldritch_dm.mcp.tools` (verify dm20 surface in Phase 5 spike).
+- **Zero new Discord persistent View shapes.** 7 v1.0 `DynamicItem` regex registrations suffice.
+- **Zero new SIM/PERF ruff rule families** (deferred to v1.2).
+
+## 3. Per-Deliverable Matrix
+
+| # | Deliverable | Complexity | v1.0 surface deps | Key risk | Phase |
+|---|---|---|---|---|---|
+| 1 | TD-2: Ruff cleanup (79 errors / 23 files) | S | All of `src/` | RUFF-2 — import-sort exposes masked cycle | 1 (FIRST) |
+| 2 | TD-1: `__main__` token-fix parity | XS | `run.py` D-26 helper | TD-1-1 drift from `run.py` | 2 (bundle) |
+| 3 | SAN-01: Sanitizer in 3 modals — **CharacterReviewModal + CharacterEntryModal + OptionalFieldsModal** (WeaponSelectModal scope dropped: its regex is tight enough that sanitization is redundant defense-in-depth) | S | `bot/setup_hook` audit-callback wiring | SAN-EXP-1 double-sanitization; SAN-EXP-2 table growth | 2 (bundle) |
+| 4 | OPS-02: `DM_OFFLINE` ephemeral | S | `bot/warnings`; `MCPCircuitOpen` | OPS-02-1 spam (30s debounce); OPS-02-2 false positives (5s min) | 2 (bundle) |
+| 5 | YAML Riposte eligibility | S | `reactions.ELIGIBLE_CLASS_SUBCLASSES`; `_normalize` | YAML-1 (`safe_load` only); YAML-3 (fail-soft); YAML-4 (extend vs replace) | 3 |
+| 6 | TD-3: `pc_classes` backfill script | M | `MCPClient` + `PCClassesRepo`; new `scripts/` subpackage + 8th import-linter contract | BF-1 PID-file lock; BF-2 idempotent re-run; BF-5 read-only dry-run | 4 (parallel w/ 3) |
+| 7 | Smart MonsterDriver | L | `monster_driver._random_choice` seam; `mcp/tools` (verify dm20 first) | MD-1 INT-band drift; MD-2 latency spiral; MD-3 timeout cascade; MD-6 garbage JSON | 5 (LAST) |
+
+## 4. Convergent Build Order (all 4 researchers agreed)
+
+**Phase 6 (was: Phase 1 in synthesizer numbering) — Ruff cleanup + cold-start E2E smoke test (FIRST, non-negotiable).** Atomic commit per ruff rule (`--select I`, `--select UP`, hand-fix). Lint-imports re-run after every batch. First commit of v1.1 is `tests/integration/test_v11_cold_start_e2e.py` (bootstrap-without-token → bootstrap-with-token → bot-start → `/start_game` → ready → narrative → attack → riposte → restart → resume; zero fixtures that pre-create state). **Gates:** `ruff check .` returns 0; lint-imports 7/7 green; pytest still 864 passing.
+
+**Phase 7 — Small-item bundle: SAN-01 + OPS-02 + TD-1.** All three touch `bot/cogs/*` and/or `bot/setup_hook.py` — bundle to avoid two passes. TD-1 extracts shared `config/token_guard.py` helper used by both `run.py` and `__main__.py` (TD-1-1). **Closes:** G-3 + G-4 + TD-1.
+
+**Phase 8 — YAML Riposte eligibility.** Smaller change than backfill; lands first so smart driver consumes an already-loaded eligibility set. New `gameplay/normalize.py` extracts `_normalize` from `pc_classes_repo`. **Closes:** active YAML req + `TODO(v2)` at `reactions.py:84-88`.
+
+**Phase 9 — `pc_classes` ingest-backfill script (parallel with Phase 8).** New `scripts/` subpackage — zero file overlap with Phase 8. Adds 8th import-linter contract block. Schedule to land after Phase 7 so PID-file diff in `setup_hook` is clean. **Closes:** TD-3.
+
+**Phase 10 — Smart MonsterDriver (LAST, largest, LLM risk).** Plan-01 is a 30-min spike to confirm dm20 exposes `claudmaster_choose_target` vs composing from `get_claudmaster_session_state`. Wrapper signature `pick_target(channel_id, monster_id, alive_pc_ids) → str` is stable either way. Up-front decisions: INT-band prompt templates (≤4 / 5-9 / ≥10) with temp 0.9 / 0.6 / 0.3; hard 1500ms `asyncio.wait_for` deadline with `random.choice` fallback; per-(round, monster_id) cache + batched goblin prompts; pydantic `TargetDecision` + adversarial corpus (≥15 cases); coalition cap (no more than `ceil(monsters/2)` may target one PC). **Logs D-28** ("LLM-as-oracle path keeps dm20 the rules-engine of record; supersedes D-B's optimistic 'route via Claudmaster' phrasing").
+
+## 5. Top 10 Pitfalls (Severity × Likelihood)
+
+| # | ID | Sev | Pitfall | Mitigation |
+|---|---|---|---|---|
+| 1 | META | CRITICAL | Cold-start E2E gap (G-1 + D-26 recurrence) | Phase 6 `test_*_cold_start_*` smoke; every feature ships fresh-user integration test |
+| 2 | BF-1 | CRITICAL | Backfill races live bot → WAL writer conflict | `~/.eldritchdm/bot.pid` lock; backfill exits 5 on live PID |
+| 3 | MD-3 | CRITICAL | Smart driver stall → 3s Discord ack cliff | `asyncio.wait_for(1500ms)` + random fallback; never sit on "thinking" past 2s |
+| 4 | YAML-1 | CRITICAL | `yaml.load` RCE via `!!python/object/apply` | `safe_load` only; CI grep gate |
+| 5 | MD-6 | CRITICAL | Claudmaster garbage JSON / hallucinated IDs | Pydantic validator `target_id in alive_combatant_ids`; one stricter retry → random fallback; never raise from driver |
+| 6 | BF-2 | CRITICAL | Partial backfill leaves DB poisoned | One txn/PC; `INSERT … ON CONFLICT DO UPDATE`; resume-safe; failed-PC list in final report |
+| 7 | CC-1 | CRITICAL | Untracked planning artifacts contaminate executor (v1.0 Lesson 4) | `git status` first step of every phase; explicit "do NOT touch" list; Phase 6 makes noise floor zero |
+| 8 | MD-1 | HIGH | INT-4 ogre playing chess; uniform encounters | INT-band templates + temp scaling; INT≤4 sees only alive/bloodied/down, no HP numbers |
+| 9 | MD-2 | HIGH | 240 LLM calls per combat | Cache per `(monster_id, round, set(alive), set(bloodied))`; batch grouped goblins; 1500ms budget |
+| 10 | CC-2/CC-3 | HIGH | VERIFICATION.md skipped + REQUIREMENTS drift (v1.0 P-1/P-2) | Per-phase committed VERIFICATION.md + REQUIREMENTS tick diff line; milestone audit re-runs reconciliation |
+
+**Also flagged for plans:** YAML-2 (no hot reload in v1.1), YAML-4 (default `extend`), MD-4 (coalition cap), MD-5 (one decision/turn architectural), BF-3 (preflight exit 6), BF-4 (`PRAGMA user_version` check), BF-5 (read-only SQLite for `--dry-run`), SAN-EXP-1 (round-trip fixture), SAN-EXP-2 (audit sweeper), OPS-02-1/2/3, TD-1-1, RUFF-1 (`--unsafe-fixes` forbidden), RUFF-2 (lint-imports per batch), RUFF-3 (pyright after UP), CC-4 (autonomous lock).
+
+## 6. Critical Contracts to Preserve
+
+| Contract | What it means for v1.1 | Enforced by |
 |---|---|---|
-| 1 | **Persistence layer + schema** | Everything depends on it. WAL pragmas, repositories, per-session locks, single-writer queue, `BEGIN IMMEDIATE`. |
-| 2 | **Engine layer (pure Python)** | No I/O, fully testable. Write the entire 5e combat resolver and unit-test crit/miss/dodge/riposte before anyone clicks a button. |
-| 3 | **MLX client + prompt assembler + tool dispatcher (with structured-output fallback from day one)** | Validates riskiest external dep in week 2. Includes no-math validator, token cap, dual-parse, health check, circuit breaker, input sentinels. |
-| 4 | **Session manager + state machine** | Wire engine + persistence + inference without Discord. Drive from synthetic tests. |
-| 5 | **Cogs + basic Views (LOBBY only)** | Smallest possible Discord UI — validates gateway, embeds, interaction routing. |
-| 6 | **Persistent View infrastructure + recovery flow** | Build *before* any complex Views. Retrofitting persistence is painful. Kill-process-mid-lobby test must pass. |
-| 7 | **Character ingest (OCR/PDF)** | Thread-pool seam. ocrmac primary, confidence gating, manual-entry modal, DM-only, ephemeral confirmations. |
-| 8 | **EXPLORATION state + action batching** | First end-to-end gameplay loop. Modals, intent queue, batched prompts, memory writes. |
-| 9 | **COMBAT state + initiative + turn gating** | Heaviest orchestration. Embed coalescer + 8-player load test = phase exit criteria. |
-| 10 | **Reactions (dodge, riposte) + Open5e integration** | Timed buttons (with DB-persisted deadlines), cache-first rules lookup, offline mode. |
-| 11 | **Self-host packaging + docs** | Last because architecture stabilized. README, requirements.txt, .env template, schema bootstrap, MLX supervisor recipe. |
+| **dm20 integrity rule** — bot never computes game math | Smart MonsterDriver returns `target_character_id` only; dm20 resolves the attack. LLM is oracle, not calculator. | Architectural review gate |
+| **7/7 import-linter contracts** | All v1.1 stays in existing layers; backfill adds **8th block** (`scripts/` may import `mcp`/`persistence`/`config`/`logging`; not `bot`/`ingest`) | `lint-imports` CI gate, re-run after every ruff batch + after Phase 9 |
+| **EDM001 defer-discipline lint** | `await interaction.response.defer(thinking=True)` first line of every callback. SAN-01 + OPS-02 must not violate. | Custom AST lint rule |
+| **Apache 2.0 license + Co-Authored-By footer** | All v1.1 commits carry footer. License unchanged. | Commit convention |
+| **Atomic-commit + conventional-prefix discipline** | `feat(NN-…)`, `test(NN-NN)`, `fix(audit-v1.x)`, `docs(NN-…)`, `chore(NN-…)`. Bisect-friendly. | v1.0 retrospective Lesson 5 |
+| **PLAN-N-LOCK-SEAM markers** | Not expected for v1.1; listed defensively if any phase ships a temp path | Next phase's first test grep-asserts marker gone |
 
-## Open Questions
+## 7. Open Questions for Requirements Phase
 
-1. **Apple Silicon memory tier for the target user.** Default ship as 35B-A3B with 7B documented, or auto-detect at startup?
-2. **AGPL acceptability for PyMuPDF.** Fine for open self-hostable; flag for closed forks.
-3. **mlx-lm tool-calling parser flag for Qwen3.5/3.6 MoE.** Verify `--tool-call-parser qwen3_5` requirement in Phase 1 smoke test.
-4. **Linux/CUDA "secondary target" scope.** README documents Ollama 0.19+MLX + `linux-ocr` extra as "best effort" — not CI-tested.
-5. **Per-player memory visibility model.** Proposed: `visibility ∈ {public, dm_only, user_id}` with recall queries filtered by requester.
-6. **Concurrent-session ceiling.** Architecture supports 2-4 comfortably; 10+ becomes MLX-bound. Surface "ShoeGPT is thinking…" when inference semaphore held.
-7. **Riposte eligibility list.** Which 5e classes/subclasses can riposte? Needs explicit engine spec.
-8. **Adversarial test corpus authorship.** Half-day in Phase 1 to handwrite the 50-scenario no-math leakage corpus.
+| # | Question | Recommendation |
+|---|---|---|
+| 1 | dm20 tool surface — dedicated `claudmaster_choose_target` or compose from `get_claudmaster_session_state`? | 30-min Phase 10 plan-01 spike against dm20 `tool_list`. Wrapper signature `pick_target(channel_id, monster_id, alive_pc_ids) → str` is stable. |
+| 2 | YAML loader path — 3-tier (env / per-install / in-repo) or `.eldritch/`? | **3-tier env > per-install > in-repo default** per ARCHITECTURE §2.1. Ship `database/eligibility.yaml` with v1.0 D-C frozenset so vanilla installs are byte-identical. |
+| 3 | PID-file location — cwd or user-home? | **`~/.eldritchdm/bot.pid`** — launchd/systemd cwd is non-obvious. Document in CONFIGURATION.md. |
+| 4 | YAML reload trigger — SIGHUP / admin command / file-watcher? | **None in v1.1 — restart-to-apply.** Matches Foundry/5eTools convention. v1.2 candidate. |
+| 5 | Backfill `--force` semantics — overwrite or reprocess-failed? | **`--force` = overwrite existing.** Default = skip present. `--only=pc_03,pc_07` for surgical retries. |
+
+## 8. Lessons from v1.0 to Enforce in v1.1
+
+1. **REQUIREMENTS.md tick at plan closure is a hard gate.** Every plan's closure checklist includes "tick associated req(s) in `v1.1-REQUIREMENTS.md`" as a reviewable diff line. Milestone close re-runs v1.0 reconciliation script.
+2. **VERIFICATION.md is a hard gate per phase.** Template includes "cold-start E2E covered?" checkbox.
+3. **First commit of v1.1 is a fresh-install smoke test.** `tests/integration/test_v11_cold_start_e2e.py` — no `conftest` fixtures that pre-create state a fresh user wouldn't have. CI gate.
+4. **Subagent prompts list "do NOT touch" files explicitly when working tree has unrelated dirty files.** Prefer: stash/commit planning artifacts before kicking off executors.
+5. **Decision IDs continue v1.0 sequence.** v1.0 ended at D-A, D-B, D-C, …, D-26, D-F, D-27. **Next available is D-28.** Smart MonsterDriver supersedes D-B as a *new* D-28, not as an edit.
+6. **Atomic commits, conventional prefixes, one rule per ruff batch.** Phase 6: `chore(06-ruff): apply --select I` → `chore(06-ruff): apply --select UP` → `fix(06-ruff): hand-fix B904 in <file>`. Pytest + lint-imports after every batch.
+7. **Single-instance lock for `/gsd-autonomous` runs.** v1.0 stranded ~10 zsh-wrapped pytest processes. Flag in PROJECT.md "Strategy notes".
+
+---
 
 ## Confidence Assessment
 
-| Area | Confidence |
-|---|---|
-| Stack | HIGH — versions verified against PyPI 2026-05-21 |
-| Features | MEDIUM-HIGH — Avrae baseline HIGH; Fables/Franz MEDIUM |
-| Architecture | HIGH — discord.py persistence + SQLite WAL well-documented; mlx-lm tool-calling MEDIUM |
-| Pitfalls | HIGH — Discord/SQLite/LLM-leakage cross-verified; MLX failure modes MEDIUM |
+| Area | Confidence | Notes |
+|---|---|---|
+| Stack | HIGH | All 4 libs verified against PyPI 2026-05-23; Context7 confirms `safe_load` + ruff `--unsafe-fixes` |
+| Features | MEDIUM-HIGH | YAML/backfill HIGH (Foundry/Alembic/5eTools converge); Smart MonsterDriver MEDIUM-HIGH (no in-repo precedent) |
+| Architecture | HIGH | All 7 deliverables fit existing layers; one new contract block; wiring sites verified line-by-line |
+| Pitfalls | HIGH on v1.0-derived; MEDIUM on Smart MonsterDriver (novel) |
 
-**Overall:** HIGH. MEDIUM areas carry concrete mitigations (supervisor + dual-parse + smoke tests).
+**Overall:** HIGH. Closure-heavy milestone (4/7 are v1.0 deferrals with known fixes) + 2 contained features. Dominant residual risk: Smart MonsterDriver latency/integrity — addressed by hard deadline + random fallback + adversarial corpus + integrity-rule audit.
+
+## Gaps for Requirements Phase
+
+- Smart driver budget — 1500ms vs 1000ms? (Recommend 1500ms; instrument; tighten in v1.2.)
+- Backfill binary name — `eldritch-dm-backfill-pc-classes` vs `eldritch-dm-backfill`? (Recommend latter — shorter, v1.2 can subcommand.)
+- YAML `version` field — optional default 1, reject 2+ until v1.2 exists.
+- OPS-02 queue-replay for combat-critical buttons — v1.1 or v1.2? Make the call up-front.
+- Cold-start E2E test exact step list — confirm before Phase 6 plan starts.
+
+## Sources
+
+- **PyPI (2026-05-23):** PyYAML 6.0.3, ruamel.yaml 0.19.1, click 8.4.1, ruff 0.15.14
+- **Context7:** `/astral-sh/ruff` (`--unsafe-fixes` semantics), `/yaml/pyyaml` (safe_load posture)
+- **In-repo:** RETROSPECTIVE.md, v1.0-MILESTONE-AUDIT.md, PROJECT.md, debug/resolved/preflight-requires-token.md (D-26), src/eldritch_dm/gameplay/{reactions,monster_driver}.py, src/eldritch_dm/bot/{__main__,modals,setup_hook}.py, src/eldritch_dm/persistence/pc_classes_repo.py, pyproject.toml
+- **Domain general:** discord.py 2.7.1 3s ack budget; SQLite WAL single-writer semantics; pydantic v2 `ConfigDict(extra='forbid')`; Foundry VTT / 5eTools homebrew JSON convention; Alembic data-migration idempotency; Keith Ammann + Oracle-RPG monster-AI heuristics; Friends & Fables LLM-oracle + rules-engine pattern

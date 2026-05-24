@@ -15,7 +15,7 @@
 
 ### SAFETY — Audit Gap Closure (G-3 + G-4 + TD-1 from v1.0)
 
-- [ ] **SAFETY-01**: `sanitize_player_input` wired into **3 modals** (per Architecture research — Brief said 2): `WeaponSelectModal`, `CharacterReviewModal`, `OptionalFieldsModal`. Each modal submission writes a `sanitizer_audit` row when stripping occurs. Closes SAN-01.
+- [ ] **SAFETY-01**: `sanitize_player_input` wired into **3 modals** (per Synthesizer refinement of Architecture finding — Brief said 2): `CharacterReviewModal`, `CharacterEntryModal`, `OptionalFieldsModal`. `WeaponSelectModal` scope **dropped**: its regex-restricted weapon-name field is already tight enough that sanitization is redundant defense-in-depth. Each modal submission writes a `sanitizer_audit` row when stripping occurs. Closes SAN-01.
 - [ ] **SAFETY-02**: `MCPCircuitOpen` caught at cog layer (via `@catch_circuit_open` decorator OR explicit `try/except` in each MCP-touching callback). Ephemeral `WarningKind.DM_OFFLINE` dispatched to user with rate-limit debouncing (1 warning per channel per 30s). Closes OPS-02.
 - [ ] **SAFETY-03**: `python -m eldritch_dm.bot` validates `DISCORD_TOKEN` first; emits friendly structured-log + stderr error (exit `EXIT_MISSING_TOKEN=4`) on missing token instead of opaque `discord.errors.LoginFailure`. Shared helper extracted with `run.py` (no copy-paste). Closes TD-1.
 
