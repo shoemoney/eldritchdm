@@ -26,7 +26,7 @@
 
 ### UPGRADE — Migration Tooling (TD-3 from v1.0)
 
-- [ ] **UPGRADE-01**: Console script `eldritch-dm-backfill-pc-classes` (registered in `pyproject.toml [project.scripts]`) populates the `pc_classes` table from existing dm20 characters. Reuses `MCPClient` + circuit breaker (don't roll new HTTP). Idempotent re-run via `INSERT … ON CONFLICT DO NOTHING`. `--dry-run` opens SQLite read-only. `--force` reprocesses already-populated rows. PID-file lock check fails fast if bot is running. Progress reported via `rich` if installed, falls back to plain stderr. Closes TD-3.
+- [x] **UPGRADE-01**: Console script `eldritch-dm-backfill-pc-classes` (registered in `pyproject.toml [project.scripts]`) populates the `pc_classes` table from existing dm20 characters. Reuses `MCPClient` + circuit breaker (don't roll new HTTP). Idempotent re-run via CLI-level `repo.get()` pre-check + skip (repo SQL is `DO UPDATE`; gate sits at the CLI per Phase 9 C-3). `--dry-run` opens SQLite read-only (`mode=ro` URI; driver-level write prohibition). `--force` reprocesses already-populated rows. DB-lock detection returns `EXIT_FATAL`=3 with operator hint (PID-file deferred to v1.2 per Phase 9 C-2). Progress reported via plain stdout summary table + structlog console renderer (`rich` not required for v1.1). Closes TD-3. **Implemented Phase 9 Plan 01** — see `09-01-SUMMARY.md`. Caveat: subclass left empty because dm20 schema omits subclass; operators hand-edit `pc_classes` for Battle Master Riposte until v1.2 ships a richer ingest path.
 
 ### COMBAT — Smart MonsterDriver (replaces v1.0 random targeting per D-B)
 
@@ -80,7 +80,7 @@ Mapping every v1.1 requirement to its phase. Populated by gsd-roadmapper or hand
 | SAFETY-03 | Phase 7 | 07-01-PLAN-safety-bundle |
 | HOMEBREW-01 | Phase 8 | 8-01-PLAN-yaml-eligibility |
 | HOMEBREW-02 | Phase 8 | 8-01-PLAN-yaml-eligibility |
-| UPGRADE-01 | Phase 9 | TBD |
+| UPGRADE-01 | Phase 9 | 09-01-PLAN-pc-classes-backfill |
 | COMBAT-13 | Phase 10 | TBD |
 | COMBAT-14 | Phase 10 | TBD |
 

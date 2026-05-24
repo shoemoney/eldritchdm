@@ -916,6 +916,93 @@ to apply edits. Hot-reload is a v1.2 candidate.
 
 ---
 
+## v1.0 → v1.1 Upgrade: `pc_classes` Backfill
+
+If you ran v1.0 of EldritchDM, your `eldritch.sqlite3` does not have a
+populated `pc_classes` table yet. Without it, the Phase 5 Riposte
+eligibility check sees no class data for legacy PCs and **Riposte never
+fires** — silently. This is the v1.0 audit's TD-3 gap, closed by the
+following CLI tool (Phase 9 / UPGRADE-01).
+
+### When to run
+
+- Right after upgrading from v1.0 to v1.1.
+- Whenever you import characters into a campaign without going through the
+  Phase 3 character-ingest flow (which already writes `pc_classes`).
+
+You can also re-run it any time — it is idempotent by default.
+
+### Install
+
+`pip install -e .` already exposes the console script on PATH:
+
+```bash
+eldritch-dm-backfill-pc-classes --help
+```
+
+### Recommended flow
+
+```bash
+# 1) Stop the bot first (the tool will fail with EXIT_FATAL=3 if a write
+#    lock is detected; safer to halt cleanly than retry into a partial state)
+launchctl unload ~/Library/LaunchAgents/com.user.eldritch-dm.plist
+#    or:  systemctl --user stop eldritch-dm
+
+# 2) Dry-run — open SQLite read-only (mode=ro URI; driver-impossible to
+#    write) and report what WOULD change
+eldritch-dm-backfill-pc-classes --dry-run
+
+# 3) Real run — populate pc_classes from dm20
+eldritch-dm-backfill-pc-classes
+
+# 4) Restart the bot
+launchctl load ~/Library/LaunchAgents/com.user.eldritch-dm.plist
+```
+
+### Flags
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--dry-run` | off | Open SQLite read-only; report counts; never writes |
+| `--force` | off | Re-process rows already in `pc_classes` (default skips them) |
+| `--db-path PATH` | from `Settings().eldritch_db_path` | Override database location |
+| `--dm20-url URL` | `$DM20_MCP_URL` → `$OMLX_ENDPOINT` minus `/v1` → `http://localhost:8765` | dm20 MCP base URL |
+| `--verbose` / `-v` | off | Emit per-character DEBUG events |
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success — all sessions populated |
+| 1 | dm20 unreachable / bad args / DB open failure |
+| 2 | Partial — some channels populated, some failed (check stderr for which) |
+| 3 | Fatal — database is locked (stop the bot and retry) |
+
+### Caveat — `subclass` is left empty
+
+dm20's character schema does not expose a `subclass` field. The tool
+populates `class_name` (normalized lowercase) and writes `subclass=""` for
+every row. **For subclass-gated features like Battle Master Riposte**,
+operators must hand-edit `pc_classes` (or wait for the v1.2 ingest path):
+
+```bash
+sqlite3 eldritch.sqlite3 \
+  "UPDATE pc_classes SET subclass='battle master' \
+   WHERE channel_id='123…' AND character_id='abc…'"
+```
+
+The tool emits a `backfill.subclass_unknown` WARNING per row so you can
+grep stderr for the character_ids needing manual annotation.
+
+### Re-running safely
+
+Default behavior is idempotent — re-running with no flags will report
+`skipped: N` for every row already in `pc_classes` and exit 0. Use
+`--force` only when dm20's class data has drifted from what was last
+backfilled (rare).
+
+---
+
 <p align="center">
   <em>"You've crossed the threshold. The torches are lit. ShoeGPT is</em> <strong>waiting…</strong> ⏳<br>
   🐉 <strong>Roll initiative.</strong> 🐉
