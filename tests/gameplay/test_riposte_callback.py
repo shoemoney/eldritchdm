@@ -441,7 +441,6 @@ class TestPlan02ConcurrentClicksDeterministic:
         mark_consumed_done = asyncio.Event()
 
         async def get_side_effect(_id: int):
-            n = get_call_count["n"]
             get_call_count["n"] += 1
             # 1st + 2nd get calls (pre-lock for both clicks) → pending
             # 3rd get (the FIRST under-lock re-read for the winner) → pending
