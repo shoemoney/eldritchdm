@@ -126,7 +126,7 @@
 | 9. pc_classes Ingest-Backfill Script | v1.1 | 1/1 | Complete   | 2026-05-24 |
 | 10. Smart MonsterDriver | v1.1 | 2/2 | Complete   | 2026-05-24 |
 | 11. Phoenix Observability Foundation | v1.2 | 2/2 | Complete   | 2026-05-24 |
-| 12. LLM-as-Judge Tactical Scoring | v1.2 | 0/2 | Not started | — |
+| 12. LLM-as-Judge Tactical Scoring | v1.2 | 2/2 | Complete   | 2026-05-24 |
 | 13. Production Monitoring + Alerting | v1.2 | 0/3 | Not started | — |
 
 ---
