@@ -108,6 +108,7 @@ class MonsterDriver:
         channel_resolver: Callable[[str], Any],
         ttl_seconds: int = 8,
         random_choice: Callable[[Sequence[Any]], Any] = random.choice,
+        eligibility_set: frozenset[tuple[str, str]] | None = None,
     ) -> None:
         self._mcp = mcp
         self._rate_limiter = rate_limiter
@@ -118,6 +119,9 @@ class MonsterDriver:
         self._channel_resolver = channel_resolver
         self._ttl_seconds = ttl_seconds
         self._random_choice = random_choice
+        # Phase 8 D-38: loader-resolved frozenset. None → reactions falls back
+        # to the in-module ELIGIBLE_CLASS_SUBCLASSES constant (v1.0 behavior).
+        self._eligibility_set = eligibility_set
         self._log = log.bind(component="MonsterDriver")
 
     async def drive(
@@ -252,6 +256,7 @@ class MonsterDriver:
             current_round=round_number,
             pc_classes_repo=self._pc_classes_repo,
             riposte_timers_repo=self._riposte_timers_repo,
+            eligibility_set=self._eligibility_set,
         )
         if eligibility is None:
             bound_log.debug("riposte_not_eligible")

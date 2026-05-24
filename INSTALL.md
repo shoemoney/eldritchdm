@@ -846,6 +846,76 @@ You've installed EldritchDM. Now what?
 
 ---
 
+## Homebrew Riposte Eligibility
+
+By default, only Battle Master Fighters can Riposte (D&D 5e RAW). To extend
+the eligibility set for homebrew classes/subclasses without editing code,
+create a YAML file at one of these locations (closest wins):
+
+1. `$ELDRITCH_ELIGIBILITY_YAML` — explicit env-var path (highest precedence)
+2. `~/.eldritch/eligibility.yaml` — per-install user file
+3. `database/eligibility.yaml` — in-repo default. **Do not edit if you want
+   vanilla v1.0 behavior** — create a file at one of the tiers above instead.
+
+### Extend (recommended default)
+
+Adds your subclasses to the RAW set — Battle Master Fighter remains eligible:
+
+```yaml
+version: 1
+mode: extend
+eligible:
+  fighter:
+    - echo knight     # homebrew subclass
+  rogue:
+    - swashbuckler    # third-party content
+```
+
+Result: Battle Master Fighter, Echo Knight Fighter, AND Swashbuckler Rogue
+can all Riposte.
+
+### Replace (advanced — wipes RAW defaults)
+
+Fully overrides the RAW set. Battle Master Fighter will **no longer** be
+eligible unless you list it explicitly:
+
+```yaml
+version: 1
+mode: replace
+eligible:
+  fighter:
+    - battle master   # MUST include if you want to keep v1.0 default
+    - echo knight
+```
+
+> ⚠️ Footgun: an empty `eligible: {}` block under `mode: replace` produces an
+> empty eligibility set — **nobody can Riposte**. This is intentional ("no
+> one is eligible" is a legitimate house rule) but rarely what you want.
+
+### Failure semantics
+
+If the YAML file is missing, malformed, or fails schema validation,
+EldritchDM logs a `structlog.warning("eligibility.fallback", reason=...)`
+entry and **falls back to the v1.0 default** (Battle Master Fighter only).
+The bot will NOT crash — your players can still play. Grep your JSON logs
+(`grep eligibility.fallback`) to see what went wrong.
+
+### Caveat — RAW vs RAI
+
+This file extends what **the bot offers** as a Riposte reaction. It does
+NOT change what 5e RAW grants. Adding `{ranger: [hunter]}` will let Hunter
+Rangers click the Riposte button at your table, but Hunter Rangers do not
+have the Riposte maneuver in core rules. You are responsible for confirming
+RAW alignment for any homebrew you add.
+
+### Restart-to-apply
+
+Changes are read **once at bot startup**. Restart the bot
+(`launchctl unload && launchctl load …` or `systemctl --user restart eldritch-dm`)
+to apply edits. Hot-reload is a v1.2 candidate.
+
+---
+
 <p align="center">
   <em>"You've crossed the threshold. The torches are lit. ShoeGPT is</em> <strong>waiting…</strong> ⏳<br>
   🐉 <strong>Roll initiative.</strong> 🐉

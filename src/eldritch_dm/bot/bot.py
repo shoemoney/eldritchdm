@@ -22,6 +22,7 @@ from discord.ext import commands
 from eldritch_dm.bot.coalescer import ChannelEditBudget
 from eldritch_dm.bot.dm_offline_debouncer import DMOfflineDebouncer
 from eldritch_dm.config import Settings
+from eldritch_dm.gameplay.eligibility_loader import load_eligibility
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
 from eldritch_dm.gameplay.party_mode import PartyModeOrchestrator
 from eldritch_dm.gameplay.riposte_sweeper import RiposteSweeper
@@ -103,6 +104,9 @@ class EldritchBot(commands.Bot):
         self.riposte_timers: RiposteTimerRepo | None = None
         self.riposte_timers_repo: RiposteTimerRepo | None = None
         self.monster_driver: Any = None
+        # Phase 8 (HOMEBREW-01): loader-resolved Riposte eligibility frozenset.
+        # Empty until setup_hook runs; populated via load_eligibility(settings).
+        self.eligibility_set: frozenset[tuple[str, str]] = frozenset()
         # Phase 5 Plan 02 gameplay subsystems — initialized in setup_hook
         self.session_locks: SessionLocks | None = None
         self.riposte_sweeper: RiposteSweeper | None = None
@@ -287,6 +291,13 @@ class EldritchBot(commands.Bot):
         )
 
         # (e3b) Phase 5 Plan 01 — pc_classes + riposte_timers repos + MonsterDriver
+        # Phase 8 (HOMEBREW-01): resolve homebrew eligibility set ONCE at startup
+        # (D-29 / D-38). load_eligibility NEVER raises; on failure falls back to
+        # DEFAULT_ELIGIBILITY (v1.0 RAW set). Stored on the bot so cogs/tests can
+        # introspect the active set.
+        self.eligibility_set = load_eligibility(settings)
+        log.info("eligibility_loaded", count=len(self.eligibility_set))
+
         self.pc_classes = PCClassesRepo(db_path=settings.eldritch_db_path)
         self.riposte_timers_repo = RiposteTimerRepo(
             settings.eldritch_db_path, self.writer_queue
@@ -336,6 +347,7 @@ class EldritchBot(commands.Bot):
             state_provider=_default_monster_state_provider,
             channel_resolver=_channel_resolver,
             ttl_seconds=settings.riposte_ttl_seconds,
+            eligibility_set=self.eligibility_set,  # Phase 8 D-38
         )
 
         # (e3c) Phase 5 Plan 02 — shared SessionLocks + RiposteSweeper.
