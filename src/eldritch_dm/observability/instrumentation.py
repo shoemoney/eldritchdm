@@ -105,6 +105,39 @@ def traced_decision(
 
 
 @contextmanager
+def traced_eval(
+    *,
+    scenario_id: str,
+    judge_model: str,
+    driver_model: str,
+    archetype: str,
+) -> Iterator[Any]:
+    """Open a span for one TacticalJudge score() call (Phase 12 / D-81).
+
+    Span name: ``eldritch.eval.judge``. Attributes set on entry:
+      - ``eldritch.eval.scenario_id`` (str)
+      - ``eldritch.eval.judge_model`` (str)
+      - ``eldritch.eval.driver_model`` (str)
+      - ``eldritch.eval.archetype`` (str)
+
+    Additional attributes (latency_ms, tokens.input, tokens.output,
+    overall_score, error) are stamped by the caller as the verdict
+    materializes.
+
+    No-op when tracing is disabled.
+    """
+    if _TRACER is None:
+        yield _NoopSpan()
+        return
+    with _TRACER.start_as_current_span("eldritch.eval.judge") as span:
+        span.set_attribute("eldritch.eval.scenario_id", scenario_id)
+        span.set_attribute("eldritch.eval.judge_model", judge_model)
+        span.set_attribute("eldritch.eval.driver_model", driver_model)
+        span.set_attribute("eldritch.eval.archetype", archetype)
+        yield span
+
+
+@contextmanager
 def traced_translate(*, channel_id: str, model: str) -> Iterator[Any]:
     """Open a span for one ingest character-sheet translate call.
 

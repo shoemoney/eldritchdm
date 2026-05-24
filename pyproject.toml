@@ -31,6 +31,8 @@ eldritch-dm = "eldritch_dm.bot.__main__:main"
 # Phase 9 / TD-3: v1.0 → v1.1 upgrade tool. Populates pc_classes from existing
 # dm20 characters so Riposte eligibility starts firing for legacy PCs.
 eldritch-dm-backfill-pc-classes = "eldritch_dm.tools.backfill_pc_classes:main"
+# Phase 12 / EVAL-03: LLM-as-judge tactical scoring runner.
+eldritch-dm-eval = "eldritch_dm.eval.cli:main"
 
 # Project URLs surface in `pip show` and on PyPI. (D-25)
 # TODO confirm repo URL once the repo is published — placeholder for now.
@@ -237,6 +239,23 @@ forbidden_modules = ["eldritch_dm.bot"]
 name = "gameplay must not import bot or ingest"
 type = "forbidden"
 source_modules = ["eldritch_dm.gameplay"]
+forbidden_modules = [
+  "eldritch_dm.bot",
+  "eldritch_dm.ingest",
+]
+
+# Phase 12 / EVAL-01..03: eval/ is an offline evaluator package.
+# It may import gameplay (to invoke SmartMonsterDriver._choose_target) and
+# observability (for traced_eval spans), but must NOT import bot (Discord
+# coupling) or ingest (orthogonal subsystem). Persistence is NOT forbidden
+# here because gameplay/smart_monster_driver TYPE_CHECKING-imports persistence
+# repo types — eval transitively pulls them in. The hermetic property eval
+# needs is "no Discord side-effects," which the bot ban + the _NoopSentinel
+# guard in eval/runner.py together enforce.
+[[tool.importlinter.contracts]]
+name = "eval must not import bot or ingest"
+type = "forbidden"
+source_modules = ["eldritch_dm.eval"]
 forbidden_modules = [
   "eldritch_dm.bot",
   "eldritch_dm.ingest",
