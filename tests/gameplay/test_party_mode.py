@@ -160,7 +160,7 @@ async def test_prefetch_called_when_turn_id_present():
         try:
             return next(pop_responses)
         except StopIteration:
-            raise asyncio.CancelledError()
+            raise asyncio.CancelledError() from None
 
     orchestrator, _ = _make_stopped_orchestrator()
 
@@ -210,7 +210,7 @@ async def test_prefetch_not_called_without_turn_id():
         try:
             return next(pop_responses)
         except StopIteration:
-            raise asyncio.CancelledError()
+            raise asyncio.CancelledError() from None
 
     orchestrator, _ = _make_stopped_orchestrator()
 
@@ -265,7 +265,7 @@ async def test_mutating_calls_gated_by_rate_limiter():
         try:
             return next(action_pop_responses)
         except StopIteration:
-            raise asyncio.CancelledError()
+            raise asyncio.CancelledError() from None
 
     async def cancel_on_sleep(s: float) -> None:
         raise asyncio.CancelledError()
