@@ -28,6 +28,9 @@ dependencies = [
 # as `eldritch-dm` (D-23). Equivalent to `python -m eldritch_dm.bot`.
 [project.scripts]
 eldritch-dm = "eldritch_dm.bot.__main__:main"
+# Phase 9 / TD-3: v1.0 → v1.1 upgrade tool. Populates pc_classes from existing
+# dm20 characters so Riposte eligibility starts firing for legacy PCs.
+eldritch-dm-backfill-pc-classes = "eldritch_dm.tools.backfill_pc_classes:main"
 
 # Project URLs surface in `pip show` and on PyPI. (D-25)
 # TODO confirm repo URL once the repo is published — placeholder for now.
