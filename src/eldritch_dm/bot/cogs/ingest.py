@@ -537,7 +537,11 @@ class IngestCog(commands.Cog):
                 )
 
             button_label = "Review & Confirm"
-            modal_factory = lambda: CharacterReviewModal(prefill, on_submit_cb=on_review_submit)  # noqa: E731
+            modal_factory = lambda: CharacterReviewModal(  # noqa: E731
+                prefill,
+                on_submit_cb=on_review_submit,
+                sanitize_cb=getattr(self.bot, "sanitizer_audit_callback", None),
+            )
             button_style = discord.ButtonStyle.primary
         else:
             # Low confidence: Enter Character Manually button → CharacterEntryModal
@@ -554,7 +558,9 @@ class IngestCog(commands.Cog):
 
             button_label = "Enter Character Manually"
             modal_factory = lambda: CharacterEntryModal(  # noqa: E731
-                prefill or None, on_submit_cb=on_entry_submit
+                prefill or None,
+                on_submit_cb=on_entry_submit,
+                sanitize_cb=getattr(self.bot, "sanitizer_audit_callback", None),
             )
             button_style = discord.ButtonStyle.secondary
 
@@ -614,7 +620,10 @@ class IngestCog(commands.Cog):
                 campaign_name=campaign_name,
             )
 
-        modal_factory = lambda: CharacterEntryModal(on_submit_cb=on_manual_submit)  # noqa: E731
+        modal_factory = lambda: CharacterEntryModal(  # noqa: E731
+            on_submit_cb=on_manual_submit,
+            sanitize_cb=getattr(self.bot, "sanitizer_audit_callback", None),
+        )
 
         view = _ModalLaunchView(
             button_label="Enter Character",

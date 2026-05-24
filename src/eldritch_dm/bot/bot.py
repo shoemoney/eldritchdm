@@ -36,6 +36,7 @@ from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
 from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
+from eldritch_dm.safety.sanitizer import make_async_audit_callback
 
 log = get_logger(__name__)
 
@@ -72,6 +73,12 @@ class EldritchBot(commands.Bot):
         # setup_hook so the cog wiring at exploration.py:107 can pass it via
         # make_async_audit_callback(...).
         self.sanitizer_audit_repo: SanitizerAuditRepo | None = None
+        # SAFETY-01 (G-3 / Phase 7 closure): memoized sync callback that
+        # bridges sync sanitize_player_input to the async repo. Set in
+        # setup_hook AFTER sanitizer_audit_repo is built. Reused across
+        # every modal callback construction (IngestCog modals, exploration
+        # DeclareActionModal). None until setup_hook runs.
+        self.sanitizer_audit_callback: Any = None
         # Phase 3 convenience aliases — ReadyButton.callback and LobbyCog read these via
         # interaction.client (cannot use constructor injection with DynamicItem).
         # Named with trailing underscore to avoid collision with discord.Client.persistent_views
@@ -232,6 +239,14 @@ class EldritchBot(commands.Bot):
         self.sanitizer_audit_repo = SanitizerAuditRepo(
             settings.eldritch_db_path,
             self.writer_queue,
+        )
+        # SAFETY-01 (G-3 / Phase 7 closure): memoize the sanitizer audit
+        # callback once so every modal-construction site reuses the same
+        # callable. The callback closes over the running event loop and the
+        # repo; per-call construction (the pre-Phase-7 pattern in
+        # exploration.py) was redundant.
+        self.sanitizer_audit_callback = make_async_audit_callback(
+            self.sanitizer_audit_repo
         )
         # Phase 3 convenience aliases for ReadyButton.callback + LobbyCog
         # (discord.Client has a `persistent_views` property; use pv_repo instead)

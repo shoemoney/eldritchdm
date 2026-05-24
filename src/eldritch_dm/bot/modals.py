@@ -30,6 +30,8 @@ from discord import ui
 
 from eldritch_dm.bot.warnings import WarningKind, send_warning
 from eldritch_dm.ingest.schema import AbilityScores
+from eldritch_dm.persistence.models import SanitizerAuditRow
+from eldritch_dm.safety.sanitizer import sanitize_player_input
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,41 @@ MODAL_TITLE_ENTRY: str = "Enter Character"
 MODAL_TITLE_OPTIONAL: str = "Optional Details"
 
 _MAX_MODAL_COMPONENTS = 5  # Discord hard cap (RESEARCH §5)
+
+
+# ── SAFETY-01 sanitization helper ──────────────────────────────────────────────
+
+# Type alias for the sanitizer audit callback. Modals accept this as a kwarg
+# and forward it to sanitize_player_input via the audit_callback= parameter.
+# In production the callback is bot.sanitizer_audit_callback, memoized in
+# setup_hook (see SAFETY-01 / D-32-SAN / G-3 audit closure).
+SanitizeCallback = Callable[[SanitizerAuditRow], None]
+
+
+def _sanitize_modal_field(
+    raw: str,
+    *,
+    interaction: discord.Interaction,
+    sanitize_cb: SanitizeCallback | None,
+) -> str:
+    """Apply sanitize_player_input to a single modal field, returning .cleaned.
+
+    Strips ChatML / control tokens (defense in depth) on every call. When
+    sanitize_cb is provided, persists an audit row for any non-empty strip.
+    Defer-discipline (EDM001) is the caller's responsibility — this helper
+    runs AFTER interaction.response.defer(...) in every modal.on_submit.
+    """
+    display_name = str(getattr(interaction.user, "display_name", "Player"))
+    user_id = str(getattr(interaction.user, "id", "unknown"))
+    channel_id = str(interaction.channel_id) if interaction.channel_id else "unknown"
+    sanitized = sanitize_player_input(
+        raw or "",
+        speaker=display_name,
+        user_id=user_id,
+        channel_id=channel_id,
+        audit_callback=sanitize_cb,
+    )
+    return sanitized.cleaned
 
 
 # ── Ability-score helpers ──────────────────────────────────────────────────────
@@ -147,9 +184,14 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         prefill: dict[str, Any],
         *,
         on_submit_cb: Callable[[discord.Interaction, dict[str, Any]], Awaitable[None]],
+        sanitize_cb: SanitizeCallback | None = None,
     ) -> None:
         super().__init__()
         self._on_submit_cb = on_submit_cb
+        # SAFETY-01: optional async audit callback for sanitizer strip events.
+        # When None, sanitization still happens (defense in depth) — only the
+        # audit row persistence is skipped.
+        self._sanitize_cb = sanitize_cb
 
         abilities_obj = prefill.get("abilities")
         abilities_default = (
@@ -211,11 +253,26 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         """
         await interaction.response.defer(ephemeral=True, thinking=True)
 
+        # SAFETY-01 (D-32-SAN): sanitize free-text fields AFTER defer (EDM001
+        # preserved). Numeric/short fields (class, level, abilities) skip
+        # sanitization — they go through int parsing or are too short to carry
+        # ChatML smuggling.
+        clean_name = _sanitize_modal_field(
+            self.name_field.value,
+            interaction=interaction,
+            sanitize_cb=self._sanitize_cb,
+        )
+        clean_race = _sanitize_modal_field(
+            self.race_field.value,
+            interaction=interaction,
+            sanitize_cb=self._sanitize_cb,
+        )
+
         raw: dict[str, Any] = {
-            "name": self.name_field.value,
+            "name": clean_name,
             "character_class": self.class_field.value,
             "class_level": self.level_field.value,
-            "race": self.race_field.value,
+            "race": clean_race,
             "abilities_str": self.abilities_field.value,
         }
         await self._on_submit_cb(interaction, raw)
@@ -242,9 +299,12 @@ class CharacterEntryModal(_CapEnforcedModal, title=MODAL_TITLE_ENTRY):
         prefill: dict[str, Any] | None = None,
         *,
         on_submit_cb: Callable[[discord.Interaction, dict[str, Any]], Awaitable[None]],
+        sanitize_cb: SanitizeCallback | None = None,
     ) -> None:
         super().__init__()
         self._on_submit_cb = on_submit_cb
+        # SAFETY-01: optional async audit callback (see CharacterReviewModal).
+        self._sanitize_cb = sanitize_cb
         p = prefill or {}
 
         abilities_obj = p.get("abilities")
@@ -308,11 +368,23 @@ class CharacterEntryModal(_CapEnforcedModal, title=MODAL_TITLE_ENTRY):
         """Defer, collect raw field values, call the cog-supplied callback."""
         await interaction.response.defer(ephemeral=True, thinking=True)
 
+        # SAFETY-01: sanitize free-text fields AFTER defer (EDM001 preserved).
+        clean_name = _sanitize_modal_field(
+            self.name_field.value,
+            interaction=interaction,
+            sanitize_cb=self._sanitize_cb,
+        )
+        clean_race = _sanitize_modal_field(
+            self.race_field.value,
+            interaction=interaction,
+            sanitize_cb=self._sanitize_cb,
+        )
+
         raw: dict[str, Any] = {
-            "name": self.name_field.value,
+            "name": clean_name,
             "character_class": self.class_field.value,
             "class_level": self.level_field.value,
-            "race": self.race_field.value,
+            "race": clean_race,
             "abilities_str": self.abilities_field.value,
         }
         await self._on_submit_cb(interaction, raw)
@@ -341,9 +413,15 @@ class OptionalFieldsModal(_CapEnforcedModal, title=MODAL_TITLE_OPTIONAL):
         prefill: dict[str, Any] | None = None,
         *,
         on_submit_cb: Callable[[discord.Interaction, dict[str, Any]], Awaitable[None]],
+        sanitize_cb: SanitizeCallback | None = None,
     ) -> None:
         super().__init__()
         self._on_submit_cb = on_submit_cb
+        # SAFETY-01: optional async audit callback (see CharacterReviewModal).
+        # NOTE: OptionalFieldsModal has no live caller in v1.0/v1.1 — the modal
+        # is wired for SAFETY-01 completeness so that whenever the Refine
+        # button is added (Phase 8 / v2) the sanitization is already in place.
+        self._sanitize_cb = sanitize_cb
         p = prefill or {}
 
         self.subclass_field = ui.TextInput(
@@ -400,12 +478,25 @@ class OptionalFieldsModal(_CapEnforcedModal, title=MODAL_TITLE_OPTIONAL):
         """Defer, collect raw field values, call the cog-supplied callback."""
         await interaction.response.defer(ephemeral=True, thinking=True)
 
+        # SAFETY-01: sanitize free-text fields AFTER defer (EDM001 preserved).
+        # subclass and alignment are short, but they're free-text too — sanitize
+        # for defense in depth; the no-op cost is one regex pass per field.
+        def _sanitize_optional(raw_val: str | None) -> str | None:
+            if raw_val is None or raw_val == "":
+                return None
+            cleaned = _sanitize_modal_field(
+                raw_val,
+                interaction=interaction,
+                sanitize_cb=self._sanitize_cb,
+            )
+            return cleaned or None
+
         raw: dict[str, Any] = {
-            "subclass": self.subclass_field.value or None,
-            "background": self.background_field.value or None,
-            "skills": self.skills_field.value or None,
-            "spells": self.spells_field.value or None,
-            "alignment": self.alignment_field.value or None,
+            "subclass": _sanitize_optional(self.subclass_field.value),
+            "background": _sanitize_optional(self.background_field.value),
+            "skills": _sanitize_optional(self.skills_field.value),
+            "spells": _sanitize_optional(self.spells_field.value),
+            "alignment": _sanitize_optional(self.alignment_field.value),
         }
         await self._on_submit_cb(interaction, raw)
 
