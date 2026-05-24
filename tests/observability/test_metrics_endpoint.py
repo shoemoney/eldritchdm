@@ -1,7 +1,16 @@
-"""Tests for the Prometheus /metrics endpoint (Phase 13 / MON-01 / Task 05)."""
+"""Tests for the Prometheus /metrics endpoint (Phase 13 / MON-01 / Task 05).
+
+Phase 14 / FLAKE-01: ``prometheus_client`` ships in the ``[observability]``
+optional extra (not in ``[dev]``). Tests that actually start the live HTTP
+endpoint require the dep; we skip them cleanly when it isn't installed so a
+default ``pip install -e ".[dev]"`` venv reports no false failures (D-95).
+The env-gate tests (`is_metrics_endpoint_enabled`, `_noop_when_disabled`)
+don't need the dep and run unconditionally.
+"""
 
 from __future__ import annotations
 
+import importlib.util
 import time
 import urllib.request
 from datetime import UTC, datetime
@@ -16,6 +25,12 @@ from eldritch_dm.observability.metrics_endpoint import (
     stop_for_tests,
 )
 from eldritch_dm.observability.span_buffer import BufferRow, init_buffer, reset_for_tests
+
+_HAS_PROMETHEUS = importlib.util.find_spec("prometheus_client") is not None
+_requires_prometheus = pytest.mark.skipif(
+    not _HAS_PROMETHEUS,
+    reason="prometheus_client not installed (install eldritch-dm[observability] extra)",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -62,6 +77,7 @@ def test_start_metrics_endpoint_noop_when_disabled(monkeypatch):
 # ── Live endpoint serves the gauges ─────────────────────────────────────────
 
 
+@_requires_prometheus
 def test_endpoint_exposes_5_kpi_gauges(monkeypatch):
     monkeypatch.setenv("OBSERVABILITY_METRICS_ENDPOINT", "true")
     # port=0 → ephemeral; metrics_endpoint resolves the real port.
@@ -90,6 +106,7 @@ def test_endpoint_exposes_5_kpi_gauges(monkeypatch):
     )
 
 
+@_requires_prometheus
 def test_endpoint_decision_counter_increments_on_buffer_write(monkeypatch):
     monkeypatch.setenv("OBSERVABILITY_METRICS_ENDPOINT", "true")
     monkeypatch.setenv("OBSERVABILITY_METRICS_PORT", "0")
@@ -148,6 +165,7 @@ def test_endpoint_decision_counter_increments_on_buffer_write(monkeypatch):
     assert 'fallback_reason="timeout"' in body
 
 
+@_requires_prometheus
 def test_endpoint_idempotent_start(monkeypatch):
     monkeypatch.setenv("OBSERVABILITY_METRICS_ENDPOINT", "true")
     monkeypatch.setenv("OBSERVABILITY_METRICS_PORT", "0")
@@ -158,6 +176,7 @@ def test_endpoint_idempotent_start(monkeypatch):
     assert port_a == port_b
 
 
+@_requires_prometheus
 def test_endpoint_publishes_nan_for_empty_kpis(monkeypatch):
     """No spans → gauges publish NaN (Prometheus 'absent' compatible)."""
     monkeypatch.setenv("OBSERVABILITY_METRICS_ENDPOINT", "true")
