@@ -25,9 +25,9 @@ Phase 4 Plan 01 — EXPLORE-06.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from collections.abc import Callable
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 

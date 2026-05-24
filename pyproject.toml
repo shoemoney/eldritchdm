@@ -99,6 +99,12 @@ ignore = [
 # timeline lookup lines (clock.rate_limiter_acquires_per_channel.setdefault(...).append(...))
 # that exceed 100 chars; readability is better as-is than artificially wrapping.
 "tests/integration/test_8player_load.py" = ["E501"]
+# Phase 6 Plan 01: combat-flow integration test contains tabular PC/monster fixture
+# dict literals and long `with patch("eldritch_dm.bot.dynamic_items.mcp_tools.<verb>", ...)`
+# context-manager chains. Mirrors test_8player_load.py precedent — hand-wrapping the
+# fixture rows hides the column alignment that makes them readable, and stacking
+# 16+ context managers vertically obscures the actual test logic.
+"tests/integration/test_combat_flow.py" = ["E501"]
 # Gameplay test files: long mock chains and assertion messages may exceed 100 chars
 "tests/gameplay/test_rate_limit.py" = ["E501"]
 "tests/gameplay/test_exploration_batch.py" = ["E501"]

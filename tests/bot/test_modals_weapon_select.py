@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import discord
 import pytest
 
 from eldritch_dm.bot.modals import WeaponSelectModal
@@ -165,7 +164,7 @@ class TestWeaponSelectModalValidation:
         interaction.followup = MagicMock()
         interaction.followup.send = AsyncMock()
 
-        with patch("eldritch_dm.bot.modals.send_warning", new_callable=AsyncMock) as mock_warn:
+        with patch("eldritch_dm.bot.modals.send_warning", new_callable=AsyncMock):
             await modal.on_submit(interaction)
             # Either send_warning was called OR callback was not called
             # (validation should reject)
@@ -181,7 +180,8 @@ class TestWeaponSelectModalValidation:
             if "weapon" in item.label.lower():
                 item._value = "Shortsword"  # type: ignore[attr-defined]
             elif "target" in item.label.lower():
-                item._value = "GOBLIN-001"  # uppercase — should be rejected  # type: ignore[attr-defined]
+                # uppercase — should be rejected
+                item._value = "GOBLIN-001"  # type: ignore[attr-defined]
 
         interaction = MagicMock()
         interaction.response = MagicMock()

@@ -18,7 +18,6 @@ Phase 4 Plan 02.
 from __future__ import annotations
 
 import re
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -204,7 +203,6 @@ class TestEndTurnCallbackGatekeeper:
     @pytest.mark.asyncio
     async def test_endturn_no_phase2_stub_log(self) -> None:
         """EndTurnButton callback must NOT log phase2_stub_callback_invoked."""
-        import logging
         btn = EndTurnButton(channel_id=123, actor_id="hero-001", round_n=1)
         interaction = _make_interaction(user_id="111111111111111111")
 
@@ -267,7 +265,10 @@ class TestEndTurnCallbackGatekeeper:
         with patch.object(btn, "_get_enriched_game_state", AsyncMock(return_value=enriched_state)):
             with patch("eldritch_dm.bot.dynamic_items.mcp_tools") as mock_tools:
                 mock_tools.next_turn = AsyncMock(return_value={})
-                with patch("eldritch_dm.bot.dynamic_items.send_warning", new_callable=AsyncMock) as mock_warn:
+                with patch(
+                    "eldritch_dm.bot.dynamic_items.send_warning",
+                    new_callable=AsyncMock,
+                ) as mock_warn:
                     await btn.callback(interaction)
                     # NOT_YOUR_TURN warning should be sent
                     mock_warn.assert_called_once()
@@ -309,7 +310,10 @@ class TestMonsterTurnGatekeeper:
         with patch.object(btn, "_get_enriched_game_state", AsyncMock(return_value=enriched_state)):
             with patch("eldritch_dm.bot.dynamic_items.mcp_tools") as mock_tools:
                 mock_tools.combat_action = AsyncMock()
-                with patch("eldritch_dm.bot.dynamic_items.send_warning", new_callable=AsyncMock) as mock_warn:
+                with patch(
+                    "eldritch_dm.bot.dynamic_items.send_warning",
+                    new_callable=AsyncMock,
+                ) as mock_warn:
                     await btn.callback(interaction)
                     mock_warn.assert_called_once()
                     warn_kind = mock_warn.call_args[0][1]
@@ -347,7 +351,10 @@ class TestStaleRoundDetection:
             "in_combat": True,
         }
         with patch.object(btn, "_get_enriched_game_state", AsyncMock(return_value=enriched_state)):
-            with patch("eldritch_dm.bot.dynamic_items.send_warning", new_callable=AsyncMock) as mock_warn:
+            with patch(
+                "eldritch_dm.bot.dynamic_items.send_warning",
+                new_callable=AsyncMock,
+            ) as mock_warn:
                 with patch("eldritch_dm.bot.dynamic_items.mcp_tools") as mock_tools:
                     mock_tools.next_turn = AsyncMock()
                     await btn.callback(interaction)
@@ -430,7 +437,10 @@ class TestDodgeButtonCallback:
             with patch("eldritch_dm.bot.dynamic_items.mcp_tools") as mock_tools:
                 mock_tools.apply_effect = AsyncMock()
                 mock_tools.next_turn = AsyncMock()
-                with patch("eldritch_dm.bot.dynamic_items.send_warning", new_callable=AsyncMock) as mock_warn:
+                with patch(
+                    "eldritch_dm.bot.dynamic_items.send_warning",
+                    new_callable=AsyncMock,
+                ) as mock_warn:
                     await btn.callback(interaction)
                     mock_warn.assert_called_once()
                     from eldritch_dm.bot.warnings import WarningKind
@@ -538,7 +548,10 @@ class TestCastSpellButtonStub:
             "in_combat": True,
         }
         with patch.object(btn, "_get_enriched_game_state", AsyncMock(return_value=enriched_state)):
-            with patch("eldritch_dm.bot.dynamic_items.send_warning", new_callable=AsyncMock) as mock_warn:
+            with patch(
+                "eldritch_dm.bot.dynamic_items.send_warning",
+                new_callable=AsyncMock,
+            ) as mock_warn:
                 await btn.callback(interaction)
                 mock_warn.assert_called_once()
                 from eldritch_dm.bot.warnings import WarningKind

@@ -332,7 +332,10 @@ class TestSeamDeletion:
         """The deletion gate per D-A."""
         from pathlib import Path
 
-        path = Path(__file__).resolve().parents[2] / "src" / "eldritch_dm" / "bot" / "dynamic_items.py"
+        path = (
+            Path(__file__).resolve().parents[2]
+            / "src" / "eldritch_dm" / "bot" / "dynamic_items.py"
+        )
         text = path.read_text(encoding="utf-8")
         lines = text.splitlines()
         # Count any line that contains the symbol AND is not a comment/docstring line
@@ -386,7 +389,7 @@ class TestSeamDeletion:
                 ):
                     live.append(f"{path}:{i}:{line}")
         assert not live, (
-            f"Expected zero live def/call of _maybe_surface_riposte; found:\n"
+            "Expected zero live def/call of _maybe_surface_riposte; found:\n"
             + "\n".join(live)
         )
 
@@ -441,7 +444,6 @@ class TestPlan02ConcurrentClicksDeterministic:
         mark_consumed_done = asyncio.Event()
 
         async def get_side_effect(_id: int):
-            n = get_call_count["n"]
             get_call_count["n"] += 1
             # 1st + 2nd get calls (pre-lock for both clicks) → pending
             # 3rd get (the FIRST under-lock re-read for the winner) → pending

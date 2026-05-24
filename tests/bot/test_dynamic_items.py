@@ -59,12 +59,28 @@ class TestCustomIdConstruction:
             (ReadyButton, {"channel_id": 123456789}, "ready:123456789"),
             (DeclareActionButton, {"channel_id": 987654321}, "declare:987654321"),
             # Phase 4: EndTurnButton uses dm20 character UUID + round_n (BREAKING vs Phase 2 stub)
-            (EndTurnButton, {"channel_id": 111, "actor_id": "hero-001", "round_n": 1}, "endturn:111:hero-001:1"),
+            (
+                EndTurnButton,
+                {"channel_id": 111, "actor_id": "hero-001", "round_n": 1},
+                "endturn:111:hero-001:1",
+            ),
             (RiposteButton, {"timer_id": 999, "user_id": 888}, "riposte:999:888"),
             # Phase 4: new combat buttons
-            (AttackButton, {"channel_id": 222, "actor_id": "hero-001", "round_n": 2}, "attack:222:hero-001:2"),
-            (DodgeButton, {"channel_id": 333, "actor_id": "hero-001", "round_n": 3}, "dodge:333:hero-001:3"),
-            (CastSpellButton, {"channel_id": 444, "actor_id": "wizard-001", "round_n": 4}, "cast:444:wizard-001:4"),
+            (
+                AttackButton,
+                {"channel_id": 222, "actor_id": "hero-001", "round_n": 2},
+                "attack:222:hero-001:2",
+            ),
+            (
+                DodgeButton,
+                {"channel_id": 333, "actor_id": "hero-001", "round_n": 3},
+                "dodge:333:hero-001:3",
+            ),
+            (
+                CastSpellButton,
+                {"channel_id": 444, "actor_id": "wizard-001", "round_n": 4},
+                "cast:444:wizard-001:4",
+            ),
         ],
     )
     def test_custom_id_value(self, cls, kwargs, expected_custom_id) -> None:

@@ -10,8 +10,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from eldritch_dm.bot.coalescer import ChannelEditBudget, EmbedCoalescer
 
 # ── Test 7: acquire is non-blocking when budget has capacity ──────────────────

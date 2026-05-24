@@ -429,7 +429,10 @@ class TestPlan02LockIntegrated:
         from eldritch_dm.gameplay.reactions import handle_riposte_click
 
         src = inspect.getsource(handle_riposte_click)
-        assert 'session_locks.lock_for("riposte"' in src or "session_locks.lock_for('riposte'" in src, (
+        assert (
+            'session_locks.lock_for("riposte"' in src
+            or "session_locks.lock_for('riposte'" in src
+        ), (
             "handle_riposte_click must wrap the read-then-mark sequence in "
             "session_locks.lock_for('riposte', channel_id). See Plan 02 task 1."
         )

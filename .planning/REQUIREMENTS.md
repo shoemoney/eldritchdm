@@ -10,7 +10,7 @@
 
 ### DEBT — Debt Paydown + Cold-Start Discipline
 
-- [ ] **DEBT-01**: All 79 ruff errors across the 23 pre-existing files reduced to 0. Ruff floor bumped to `>=0.15,<1.0` in `pyproject.toml`. Existing rule set (`E,F,I,UP,B,ASYNC`) preserved — no new rules in v1.1.
+- [x] **DEBT-01**: All 79 ruff errors across the 23 pre-existing files reduced to 0. Ruff floor bumped to `>=0.15,<1.0` in `pyproject.toml`. Existing rule set (`E,F,I,UP,B,ASYNC`) preserved — no new rules in v1.1.
 - [ ] **DEBT-02**: Cold-start E2E smoke test (`tests/integration/test_cold_start_e2e.py`) exercises the documented quickstart path end-to-end with NO shared fixtures pre-creating state: bot.setup_hook → simulate `/start_game` → simulate ready-up → assert orchestrator task is alive in the SAME process lifetime. Closes the v1.0 audit G-1 lesson (test failed before fix, passes after).
 
 ### SAFETY — Audit Gap Closure (G-3 + G-4 + TD-1 from v1.0)
@@ -73,7 +73,7 @@ Mapping every v1.1 requirement to its phase. Populated by gsd-roadmapper or hand
 
 | REQ-ID | Phase | Source Plan |
 |---|---|---|
-| DEBT-01 | Phase 6 | TBD |
+| DEBT-01 | Phase 6 | 06-01-PLAN-ruff-cleanup |
 | DEBT-02 | Phase 6 | TBD |
 | SAFETY-01 | Phase 7 | TBD |
 | SAFETY-02 | Phase 7 | TBD |
