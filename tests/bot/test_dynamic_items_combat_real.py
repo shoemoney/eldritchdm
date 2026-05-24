@@ -18,7 +18,6 @@ Phase 4 Plan 02.
 from __future__ import annotations
 
 import re
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -204,7 +203,6 @@ class TestEndTurnCallbackGatekeeper:
     @pytest.mark.asyncio
     async def test_endturn_no_phase2_stub_log(self) -> None:
         """EndTurnButton callback must NOT log phase2_stub_callback_invoked."""
-        import logging
         btn = EndTurnButton(channel_id=123, actor_id="hero-001", round_n=1)
         interaction = _make_interaction(user_id="111111111111111111")
 

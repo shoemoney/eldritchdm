@@ -14,7 +14,6 @@ Phase 4 Plan 02.
 
 from __future__ import annotations
 
-import pytest
 
 from eldritch_dm.bot.embeds import combat_embed
 

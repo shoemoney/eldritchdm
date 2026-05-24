@@ -386,7 +386,7 @@ class TestSeamDeletion:
                 ):
                     live.append(f"{path}:{i}:{line}")
         assert not live, (
-            f"Expected zero live def/call of _maybe_surface_riposte; found:\n"
+            "Expected zero live def/call of _maybe_surface_riposte; found:\n"
             + "\n".join(live)
         )
 

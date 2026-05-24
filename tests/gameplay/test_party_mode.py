@@ -9,10 +9,8 @@ rate-limiter gating, combat-transition watcher, error resilience, cancellation.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 import eldritch_dm.mcp.tools as mcp_tools_module
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator

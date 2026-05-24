@@ -22,11 +22,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 import pytest
-import pytest_asyncio
 
 from eldritch_dm.bot.cogs.combat import CombatCog
 from eldritch_dm.persistence.models import ChannelSession, ChannelState

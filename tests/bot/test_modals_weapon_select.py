@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import discord
 import pytest
 
 from eldritch_dm.bot.modals import WeaponSelectModal
