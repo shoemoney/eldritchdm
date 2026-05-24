@@ -24,7 +24,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import discord
 import pytest
@@ -35,7 +35,6 @@ from eldritch_dm.bot.dynamic_items import AttackButton, DodgeButton, EndTurnButt
 from eldritch_dm.bot.warnings import WarningKind
 from eldritch_dm.gameplay.turn_gatekeeper import is_actor
 from eldritch_dm.persistence.models import ChannelSession, ChannelState
-
 
 # ── Test constants ────────────────────────────────────────────────────────────
 

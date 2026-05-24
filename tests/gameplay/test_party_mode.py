@@ -14,12 +14,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import eldritch_dm.mcp.tools as mcp_tools_module
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
 from eldritch_dm.gameplay.party_mode import PartyModeOrchestrator
 from eldritch_dm.mcp.rate_limit import ChannelRateLimiter
 from eldritch_dm.persistence.models import ChannelState
-
-import eldritch_dm.mcp.tools as mcp_tools_module
 
 
 def _make_stopped_orchestrator():

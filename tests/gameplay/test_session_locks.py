@@ -32,7 +32,6 @@ import pytest
 
 from eldritch_dm.gameplay.session_locks import SessionLocks
 
-
 # ── Test 1: acquire returns asyncio.Lock ─────────────────────────────────────
 
 

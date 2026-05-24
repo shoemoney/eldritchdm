@@ -15,7 +15,6 @@ import pytest
 
 from eldritch_dm.mcp.rate_limit import ChannelRateLimiter
 
-
 # ── Test 1: Single acquire returns immediately ────────────────────────────────
 
 

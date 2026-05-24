@@ -27,7 +27,6 @@ from eldritch_dm.gameplay.reactions import handle_riposte_click
 from eldritch_dm.gameplay.session_locks import SessionLocks
 from eldritch_dm.persistence.models import RiposteStatus, RiposteTimer
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 

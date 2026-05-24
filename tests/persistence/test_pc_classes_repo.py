@@ -18,7 +18,6 @@ from eldritch_dm.persistence.channel_sessions_repo import ChannelSessionRepo
 from eldritch_dm.persistence.connection import WriterQueue
 from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo, PCClassInfo
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 

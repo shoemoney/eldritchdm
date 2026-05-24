@@ -31,7 +31,6 @@ import pytest_asyncio
 from eldritch_dm.bot.cogs.combat import CombatCog
 from eldritch_dm.persistence.models import ChannelSession, ChannelState
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 

@@ -30,7 +30,6 @@ from eldritch_dm.bot.dynamic_items import (
     EndTurnButton,
 )
 
-
 # ── Template regex helpers ────────────────────────────────────────────────────
 
 def parse_custom_id(pattern: re.Pattern, custom_id: str) -> re.Match | None:

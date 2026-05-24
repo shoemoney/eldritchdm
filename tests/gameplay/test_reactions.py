@@ -31,7 +31,6 @@ from eldritch_dm.gameplay.reactions import (
 from eldritch_dm.persistence.models import RiposteStatus, RiposteTimer
 from eldritch_dm.persistence.pc_classes_repo import PCClassInfo
 
-
 # ── Test 7: ELIGIBLE_CLASS_SUBCLASSES is strict RAW ──────────────────────────
 
 

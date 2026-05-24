@@ -20,7 +20,6 @@ import pytest
 
 from eldritch_dm.bot.modals import WeaponSelectModal
 
-
 # ── Test 17: Component count ─────────────────────────────────────────────────
 
 class TestWeaponSelectModalComponents:
