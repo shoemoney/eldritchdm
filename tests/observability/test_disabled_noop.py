@@ -44,9 +44,20 @@ def test_traced_translate_disabled_yields_noop_span() -> None:
 
 
 def test_noop_span_is_not_otel_span() -> None:
-    """The no-op span must be the pure-Python sentinel — no OTel coupling."""
+    """The OTel-off span must be the pure-Python proxy — no OTel coupling.
+
+    Phase 13 / R-13-01-a renamed the proxy from ``_NoopSpan`` to
+    ``_BufferingSpan`` (because it now also writes to the local SQLite buffer
+    even when OTel is off). The invariant being protected is still:
+    the yielded object lives in ``eldritch_dm.observability``, NOT
+    ``opentelemetry``.
+    """
     with traced_decision(
         monster_id="m", channel_id="c", combat_round=1, driver_path="smart"
     ) as span:
-        # Class name should be _NoopSpan, NOT something from opentelemetry.
-        assert type(span).__name__ == "_NoopSpan"
+        cls = type(span)
+        assert cls.__module__.startswith("eldritch_dm.observability"), (
+            f"OTel-off path yielded {cls.__module__}.{cls.__name__} — "
+            "expected our pure-Python proxy"
+        )
+        assert "opentelemetry" not in cls.__module__
