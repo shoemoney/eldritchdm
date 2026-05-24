@@ -152,6 +152,21 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Phase 10 Smart MonsterDriver (D-52) ───────────────────────────────────
+    # MONSTER_DRIVER controls which driver the orchestrator constructs:
+    #   "smart"  → LLM-routed targeting (default; Phase 10)
+    #   "random" → v1.0 escape hatch (pure random)
+    #   "mixed"  → SmartMonsterDriver; per-monster INT-gating handles mixing
+    # Unknown values fall back to "smart" with a structured warning.
+    monster_driver: Literal["smart", "random", "mixed"] = Field(
+        default="smart",
+        alias="MONSTER_DRIVER",
+        description=(
+            "Phase 10 driver mode: 'smart' (LLM-routed; default), 'random' "
+            "(v1.0 escape hatch), or 'mixed' (smart with internal INT-gating)."
+        ),
+    )
+
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False
     sanitizer_verbose_audit: bool = False

@@ -30,14 +30,14 @@
 
 ### COMBAT — Smart MonsterDriver (replaces v1.0 random targeting per D-B)
 
-- [ ] **COMBAT-13**: Smart `MonsterDriver` replaces v1.0 random target selection with **Claudmaster-routed** targeting. Implementation per research convergence:
+- [x] **COMBAT-13**: Smart `MonsterDriver` replaces v1.0 random target selection with **Claudmaster-routed** targeting. Implementation per research convergence:
   - **INT-gating**: Monsters with `INT <= 4` (ogres, zombies, beasts) bypass the LLM and fall back to v1.0 random — keeps low-INT monsters in character + saves tokens.
   - **Constrained candidate set**: LLM prompt receives the live PC list with IDs; output validated against pydantic `MonsterTacticChoice` model; any deviation (hallucinated ID, malformed JSON) triggers fallback to random.
   - **Hard 1500ms deadline** per decision via `asyncio.wait_for`; on timeout, fall back to random + structured-log warning. Player never sees an embed stalled for >2s.
   - **Per-round cache** keyed on `(channel_id, round_n, monster_id)` so re-asking the same question in the same round returns cached choice (combats with re-engagement won't blow up token costs).
   - **Fairness signal**: prompt includes "PCs hit recently" so LLM is biased away from focus-fire-to-TPK without hard-coding a rule.
   - **`MONSTER_DRIVER` env var**: `smart` (default), `random` (v1.0 behavior, escape hatch), `mixed` (smart for INT≥8, random for INT<8).
-- [ ] **COMBAT-14**: Smart `MonsterDriver` adversarial test corpus at `tests/gameplay/test_monster_driver_corpus.py` with **15+ scenarios** modeled on the v1.0 sanitizer corpus pattern. Cases: malformed LLM JSON, hallucinated PC ID, empty candidate set, timeout, sub-INT bypass, focus-fire detection over multiple rounds, recursive-decision attempt, etc. Required: every scenario falls back gracefully — no exception leaks to the orchestrator.
+- [x] **COMBAT-14**: Smart `MonsterDriver` adversarial test corpus at `tests/gameplay/test_monster_driver_corpus.py` with **15+ scenarios** modeled on the v1.0 sanitizer corpus pattern. Cases: malformed LLM JSON, hallucinated PC ID, empty candidate set, timeout, sub-INT bypass, focus-fire detection over multiple rounds, recursive-decision attempt, etc. Required: every scenario falls back gracefully — no exception leaks to the orchestrator.
 
 ---
 
@@ -81,8 +81,8 @@ Mapping every v1.1 requirement to its phase. Populated by gsd-roadmapper or hand
 | HOMEBREW-01 | Phase 8 | 8-01-PLAN-yaml-eligibility |
 | HOMEBREW-02 | Phase 8 | 8-01-PLAN-yaml-eligibility |
 | UPGRADE-01 | Phase 9 | 09-01-PLAN-pc-classes-backfill |
-| COMBAT-13 | Phase 10 | TBD |
-| COMBAT-14 | Phase 10 | TBD |
+| COMBAT-13 | Phase 10 | 10-01 |
+| COMBAT-14 | Phase 10 | 10-02 |
 
 ---
 *Created: 2026-05-24 from v1.1 Polish research synthesis (STACK / FEATURES / ARCHITECTURE / PITFALLS)*

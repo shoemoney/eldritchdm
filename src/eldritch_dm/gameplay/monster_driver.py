@@ -168,8 +168,16 @@ class MonsterDriver:
             await self._advance_turn(channel_id, bound_log)
             return
 
-        # D-B: uniformly-random target
-        chosen: dict[str, Any] = self._random_choice(targets)
+        # D-B (v1.0): uniformly-random target. Phase 10 subclasses override
+        # `_choose_target` to insert the smart-driver LLM oracle without
+        # touching the rest of this flow. Note: this hook is async so smart
+        # subclasses can `await` the LLM call.
+        chosen: dict[str, Any] = await self._choose_target(
+            targets,
+            channel_id=channel_id,
+            round_number=round_number,
+            current_actor=current_actor,
+        )
         chosen_id = chosen.get("character_id", "")
         bound_log = bound_log.bind(target_id=chosen_id)
         bound_log.info("monster_driver_target_chosen")
@@ -211,6 +219,25 @@ class MonsterDriver:
 
         # Always advance the turn
         await self._advance_turn(channel_id, bound_log)
+
+    # ── hooks ─────────────────────────────────────────────────────────────────
+
+    async def _choose_target(
+        self,
+        targets: list[dict[str, Any]],
+        *,
+        channel_id: str,  # noqa: ARG002 — used by subclasses (SmartMonsterDriver)
+        round_number: int,  # noqa: ARG002 — used by subclasses
+        current_actor: dict[str, Any],  # noqa: ARG002 — used by subclasses
+    ) -> dict[str, Any]:
+        """Pick a target from the eligible list.
+
+        v1.0 default: uniformly-random selection (D-B). Subclasses (Phase 10
+        SmartMonsterDriver) override this to consult the LLM oracle. The
+        method is async so subclasses can `await` network calls; the v1.0
+        body is sync and just delegates to `_random_choice`.
+        """
+        return self._random_choice(targets)
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
