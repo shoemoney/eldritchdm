@@ -77,6 +77,12 @@ def _make_bot_with_audit_repo(channel_repo, audit_repo) -> MagicMock:
     bot.channel_sessions_repo = channel_repo
     # G-2: the new attribute the wiring step is responsible for.
     bot.sanitizer_audit_repo = audit_repo
+    # SAFETY-01 (Phase 7): exploration.py now reads the memoized callback
+    # from bot.sanitizer_audit_callback instead of constructing one per
+    # submit. Build the bridge here so the integration test still exercises
+    # the full sanitize → audit_repo.insert path.
+    from eldritch_dm.safety.sanitizer import make_async_audit_callback
+    bot.sanitizer_audit_callback = make_async_audit_callback(audit_repo)
 
     # BatchCoordinator stand-in -- DeclareActionModal awaits submit(); we
     # don't care what comes back (the followup-send branch is exercised

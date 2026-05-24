@@ -20,6 +20,7 @@ import discord
 from discord.ext import commands
 
 from eldritch_dm.bot.coalescer import ChannelEditBudget
+from eldritch_dm.bot.dm_offline_debouncer import DMOfflineDebouncer
 from eldritch_dm.config import Settings
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
 from eldritch_dm.gameplay.party_mode import PartyModeOrchestrator
@@ -36,6 +37,7 @@ from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
 from eldritch_dm.persistence.persistent_views_repo import PersistentViewRepo
 from eldritch_dm.persistence.riposte_timers_repo import RiposteTimerRepo
 from eldritch_dm.persistence.sanitizer_audit_repo import SanitizerAuditRepo
+from eldritch_dm.safety.sanitizer import make_async_audit_callback
 
 log = get_logger(__name__)
 
@@ -72,6 +74,17 @@ class EldritchBot(commands.Bot):
         # setup_hook so the cog wiring at exploration.py:107 can pass it via
         # make_async_audit_callback(...).
         self.sanitizer_audit_repo: SanitizerAuditRepo | None = None
+        # SAFETY-01 (G-3 / Phase 7 closure): memoized sync callback that
+        # bridges sync sanitize_player_input to the async repo. Set in
+        # setup_hook AFTER sanitizer_audit_repo is built. Reused across
+        # every modal callback construction (IngestCog modals, exploration
+        # DeclareActionModal). None until setup_hook runs.
+        self.sanitizer_audit_callback: Any = None
+        # SAFETY-02 (G-4 / Phase 7 closure): per-channel debouncer for
+        # WarningKind.DM_OFFLINE. Constructed in setup_hook with default
+        # debounce=30s and min-open=5s (D-34). The @catch_circuit_open
+        # decorator reads this via interaction.client.dm_offline_debouncer.
+        self.dm_offline_debouncer: DMOfflineDebouncer | None = None
         # Phase 3 convenience aliases — ReadyButton.callback and LobbyCog read these via
         # interaction.client (cannot use constructor injection with DynamicItem).
         # Named with trailing underscore to avoid collision with discord.Client.persistent_views
@@ -202,6 +215,10 @@ class EldritchBot(commands.Bot):
 
         # (c) Circuit breaker + MCP client
         self.circuit_breaker = CircuitBreaker(threshold=settings.omlx_circuit_breaker_threshold)
+        # SAFETY-02 (G-4 / Phase 7 closure): build the debouncer alongside
+        # the circuit breaker so @catch_circuit_open has both available the
+        # first time any callback fires.
+        self.dm_offline_debouncer = DMOfflineDebouncer()
         # MCPClient expects the base URL without trailing /v1
         mcp_base = str(settings.omlx_endpoint).rstrip("/")
         if mcp_base.endswith("/v1"):
@@ -232,6 +249,14 @@ class EldritchBot(commands.Bot):
         self.sanitizer_audit_repo = SanitizerAuditRepo(
             settings.eldritch_db_path,
             self.writer_queue,
+        )
+        # SAFETY-01 (G-3 / Phase 7 closure): memoize the sanitizer audit
+        # callback once so every modal-construction site reuses the same
+        # callable. The callback closes over the running event loop and the
+        # repo; per-call construction (the pre-Phase-7 pattern in
+        # exploration.py) was redundant.
+        self.sanitizer_audit_callback = make_async_audit_callback(
+            self.sanitizer_audit_repo
         )
         # Phase 3 convenience aliases for ReadyButton.callback + LobbyCog
         # (discord.Client has a `persistent_views` property; use pv_repo instead)
