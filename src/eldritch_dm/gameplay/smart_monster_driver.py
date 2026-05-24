@@ -327,7 +327,7 @@ class SmartMonsterDriver(MonsterDriver):
                 ),
                 timeout=self._llm_timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             latency_ms = int((time.monotonic() - t0) * 1000)
             bound_log.warning(
                 "smart_driver_timeout",
