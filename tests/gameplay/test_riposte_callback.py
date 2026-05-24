@@ -332,7 +332,10 @@ class TestSeamDeletion:
         """The deletion gate per D-A."""
         from pathlib import Path
 
-        path = Path(__file__).resolve().parents[2] / "src" / "eldritch_dm" / "bot" / "dynamic_items.py"
+        path = (
+            Path(__file__).resolve().parents[2]
+            / "src" / "eldritch_dm" / "bot" / "dynamic_items.py"
+        )
         text = path.read_text(encoding="utf-8")
         lines = text.splitlines()
         # Count any line that contains the symbol AND is not a comment/docstring line
