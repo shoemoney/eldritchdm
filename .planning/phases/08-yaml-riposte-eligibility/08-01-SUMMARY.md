@@ -1,6 +1,7 @@
 ---
 phase: 08-yaml-riposte-eligibility
 plan: 01
+requirements_completed: [HOMEBREW-01, HOMEBREW-02]
 subsystem: gameplay
 tags: [yaml, pydantic, homebrew, eligibility, riposte]
 requires:

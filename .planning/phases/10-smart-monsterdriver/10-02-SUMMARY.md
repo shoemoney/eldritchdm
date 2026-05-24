@@ -1,6 +1,7 @@
 ---
 phase: 10-smart-monsterdriver
 plan: "02"
+requirements_completed: [COMBAT-14]
 subsystem: gameplay/combat
 tags: [adversarial-corpus, cache, env-var, factory, fail-soft, phase-closure]
 requires: [10-01-SUMMARY.md, REQUIREMENTS.md::COMBAT-14, REQUIREMENTS.md::COMBAT-13]

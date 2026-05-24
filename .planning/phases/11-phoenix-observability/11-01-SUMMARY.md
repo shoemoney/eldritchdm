@@ -1,6 +1,7 @@
 ---
 phase: 11-phoenix-observability
 plan: "01"
+requirements_completed: [OBS-01]
 subsystem: observability
 tags: [otel, phoenix, instrumentation, lazy-import, opt-in]
 requires: []

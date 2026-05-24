@@ -1,6 +1,7 @@
 ---
 phase: 11-phoenix-observability
 plan: "02"
+requirements_completed: [OBS-02]
 subsystem: observability
 tags: [phoenix, docker, dashboards, smoke-test, self-host]
 requires:

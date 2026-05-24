@@ -1,6 +1,7 @@
 ---
 phase: 13-production-monitoring
 plan: 01
+requirements_completed: [MON-01]
 subsystem: observability
 tags: [kpi, prometheus, span-buffer, sqlite, lazy-import]
 requirements:

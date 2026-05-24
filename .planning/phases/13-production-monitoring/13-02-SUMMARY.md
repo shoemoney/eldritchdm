@@ -1,6 +1,7 @@
 ---
 phase: 13-production-monitoring
 plan: 02
+requirements_completed: [MON-02]
 subsystem: observability
 tags: [alerts, degraded-mode, hysteresis, yaml, safety-override]
 requirements:

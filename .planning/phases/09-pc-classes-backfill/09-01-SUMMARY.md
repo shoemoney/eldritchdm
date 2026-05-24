@@ -1,6 +1,7 @@
 ---
 phase: 09-pc-classes-backfill
 plan: 01
+requirements_completed: [UPGRADE-01]
 subsystem: tools
 tags: [cli, upgrade, backfill, td-3, riposte, idempotency]
 requires:
