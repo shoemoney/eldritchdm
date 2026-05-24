@@ -60,7 +60,7 @@ async def _run_orchestrator_briefly(orchestrator, channel_id="ch-1", n_loops=2):
     task = await orchestrator.start_orchestrator_for_channel(channel_id, "Camp", "sess-1")
     try:
         await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
-    except (asyncio.CancelledError, asyncio.TimeoutError):
+    except (TimeoutError, asyncio.CancelledError):
         pass
     finally:
         await orchestrator.stop_orchestrator_for_channel(channel_id)
@@ -130,7 +130,7 @@ async def test_empty_pop_sleeps_poll_interval():
             task = await orchestrator.start_orchestrator_for_channel("ch-1", "C", "s1")
             try:
                 await asyncio.wait_for(asyncio.shield(task), timeout=3.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
+            except (TimeoutError, asyncio.CancelledError):
                 pass
 
     # Should have slept the poll interval (0.250)
@@ -183,7 +183,7 @@ async def test_prefetch_called_when_turn_id_present():
         task = await orchestrator.start_orchestrator_for_channel("ch-a", "C", "s1")
         try:
             await asyncio.wait_for(task, timeout=3.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.CancelledError):
             pass
         # Task is already cancelled/done here
 
@@ -232,7 +232,7 @@ async def test_prefetch_not_called_without_turn_id():
         task = await orchestrator.start_orchestrator_for_channel("ch-b", "C", "s1")
         try:
             await asyncio.wait_for(task, timeout=3.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.CancelledError):
             pass
 
     assert len(prefetch_calls) == 0, "party_get_prefetch should NOT be called without turn_id"
@@ -285,7 +285,7 @@ async def test_mutating_calls_gated_by_rate_limiter():
         task = await orchestrator.start_orchestrator_for_channel("ch-1", "C", "s1")
         try:
             await asyncio.wait_for(task, timeout=3.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.CancelledError):
             pass
 
     # party_thinking and party_resolve_action are mutating; both should gate
@@ -346,7 +346,7 @@ async def test_combat_transition_callback_fires_once():
         task = await orchestrator.start_orchestrator_for_channel("ch-1", "C", "s1")
         try:
             await asyncio.wait_for(task, timeout=5.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.CancelledError):
             pass
 
     # Should fire exactly once for EXPLORATION->COMBAT transition
@@ -395,7 +395,7 @@ async def test_pop_error_does_not_crash_loop():
         task = await orchestrator.start_orchestrator_for_channel("ch-1", "C", "s1")
         try:
             await asyncio.wait_for(task, timeout=5.0)
-        except (asyncio.CancelledError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.CancelledError):
             pass
 
     assert error_count[0] >= 2, "Loop should have retried after pop errors"

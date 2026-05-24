@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Callable
+from collections.abc import Callable
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
