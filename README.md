@@ -656,6 +656,70 @@ The bot's local SQLite (`eldritch.sqlite3`) is small — kilobytes per session. 
 
 ---
 
+## 🔭 Optional: observability stack (Phase 11 / OBS-02)
+
+EldritchDM ships with optional OpenTelemetry instrumentation that exports
+spans to a local [Arize Phoenix](https://github.com/Arize-ai/phoenix) instance
+for debugging and dashboarding. **Default OFF** — bot startup is unaffected
+unless you opt in, and the OpenTelemetry SDK is not imported into
+`sys.modules` when disabled (verified by the lazy-import canary test).
+
+### 1. Install OTel dependencies (optional extras)
+
+```bash
+pip install -e ".[observability]"
+# or with uv:
+uv pip install -e ".[observability]"
+```
+
+### 2. Bring up Phoenix
+
+```bash
+docker compose -f docker-compose.observability.yml up -d
+```
+
+Phoenix UI: <http://localhost:6006>.
+
+### 3. Enable instrumentation in your `.env`
+
+```env
+OBSERVABILITY_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006/v1/traces
+```
+
+If your Phoenix image disables the unified port, use the standard OTLP HTTP
+port instead: `http://localhost:4318/v1/traces`.
+
+### 4. Seed the three default dashboards (one-time)
+
+```bash
+./scripts/observability/seed-dashboards.sh
+```
+
+This creates three Phoenix projects: `eldritch-latency`,
+`eldritch-fallback`, `eldritch-cache`. The script is idempotent — safe to
+re-run. If Phoenix's HTTP API has drifted and seeding fails, each
+dashboard's `query_recipe` field in `database/dashboards/*.json`
+documents the equivalent UI recipe.
+
+### 5. Run the bot — spans flow automatically
+
+```bash
+eldritch-dm
+```
+
+Within ~30 seconds of the first combat turn, spans named
+`eldritch.monster.decision` and `eldritch.ingest.translate` should appear
+in the Phoenix UI. Useful filters:
+
+| Dashboard | Span filter | Aggregation |
+|---|---|---|
+| latency | `span_name=eldritch.monster.decision` | P50/P95/P99 of `eldritch.latency_ms` grouped by `eldritch.driver.path` |
+| fallback | `span_name=eldritch.monster.decision` AND `eldritch.fallback.reason` IS NOT NULL | count grouped by `eldritch.fallback.reason` |
+| cache | `span_name=eldritch.monster.decision` | (count where `eldritch.driver.path=cache`) / total, grouped by `(eldritch.channel.id, eldritch.combat.round)` |
+
+---
+
 ## 🚀 Running as a Service
 
 You almost certainly want the bot to auto-restart on crash and survive reboot. Pick your OS:
