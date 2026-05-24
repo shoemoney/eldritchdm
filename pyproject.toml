@@ -67,6 +67,8 @@ observability = [
   "opentelemetry-api>=1.27,<2.0",
   "opentelemetry-sdk>=1.27,<2.0",
   "opentelemetry-exporter-otlp-proto-http>=1.27,<2.0",
+  # Phase 13 / MON-01: Prometheus /metrics endpoint at :9090 (opt-in).
+  "prometheus_client>=0.20,<1.0",
 ]
 
 [build-system]
