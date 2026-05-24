@@ -1,0 +1,61 @@
+# EldritchDM Alert Rules (Phase 13 / MON-02 / database/alerts.yaml)
+#
+# Loaded by ``eldritch_dm.observability.alerts_loader.load_alerts`` using the
+# 3-tier path precedence (same pattern as Phase 8's eligibility.yaml):
+#
+#   Tier 1: $ELDRITCH_ALERTS_YAML env override
+#   Tier 2: ~/.eldritch/alerts.yaml (per-install)
+#   Tier 3: database/alerts.yaml (in-repo default — this file)
+#
+# Schema (validated by pydantic v2 ``AlertsFile``):
+#   version: 1
+#   rules:
+#     - name: <unique identifier>
+#       severity: critical | high | warning
+#       kpi: latency_p99_ms | success_rate | tactical_score
+#            | refusal_rate | fallback_rate
+#       op: gt | gte | lt | lte
+#       threshold: <number>
+#       window_minutes: <int>  # default 5
+#       action: log | degrade | throttle | webhook
+#       routing: { ... }       # optional, action-specific
+#
+# IMPORTANT:
+#   - yaml.safe_load only — no Python object construction; CI grep gate
+#     enforces. Same hardening as Phase 8 eligibility.yaml.
+#   - throttle and webhook actions are ACCEPTED by the schema but emit a
+#     "v1.3 routing not yet implemented" warning at evaluation time
+#     (deferred per CONTEXT D-91 / 13-CONTEXT.md "Deferred (post-v1.2)").
+#   - Degraded mode hysteresis is fixed at recover_threshold_factor=1200/1500
+#     (AI-SPEC §7) — recover triggers when latency_p99_ms < 1200ms for
+#     window_minutes consecutive ticks.
+
+version: 1
+rules:
+  # AI-SPEC §7 Critical — Latency P99 > 1500ms for 5 min → Degraded Mode
+  - name: critical_latency_p99_breach
+    severity: critical
+    kpi: latency_p99_ms
+    op: gt
+    threshold: 1500
+    window_minutes: 5
+    action: degrade
+
+  # AI-SPEC §7 High — Fallback rate > 10% → log + maintainer ping
+  - name: high_fallback_rate
+    severity: high
+    kpi: fallback_rate
+    op: gt
+    threshold: 0.10
+    window_minutes: 5
+    action: log
+
+  # AI-SPEC §7 Warning — OpenAI 429 is observed as refusal_rate > 0.1%
+  # (refusals include rate-limit refusals from the upstream LLM)
+  - name: warning_refusal_rate
+    severity: warning
+    kpi: refusal_rate
+    op: gt
+    threshold: 0.001
+    window_minutes: 5
+    action: log
