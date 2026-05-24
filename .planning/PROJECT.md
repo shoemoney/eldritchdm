@@ -2,25 +2,40 @@
 
 ## Current State
 
-**Shipped:** v1.0 MVP — Mechanically Honest AI Dungeon Master · 2026-05-23
-**Tag:** `v1.0` · **Audit:** passed (71/73 reqs, 97%) · **Tests:** 864 passing / 873 collected
+**Shipped:** v1.1 Polish — Smart MonsterDriver + audit-deferral closure + homebrew YAML extensibility · 2026-05-24
+**Tag:** `v1.1` · **Audit:** passed (10/10 reqs) · **Integration:** PASS (6/6 wires, 3/3 flows) · ~64 commits since v1.0
+**Previous:** v1.0 MVP · 2026-05-23 · 71/73 reqs (97%)
 **Repo:** https://github.com/shoemoney/eldritchdm
-**License:** Apache 2.0 (flipped from MIT at v1.0 close — adds explicit patent grant)
+**License:** Apache 2.0
 
-## Current Milestone: v1.1 Polish
+## Next Milestone Goals
 
-**Goal:** Close v1.0 audit deferrals, level up combat AI from random-targeting to Claudmaster-routed, and add homebrew extensibility — preparing the v1.0 release for production self-hosters.
+Candidate v1.2 themes (refine in `/gsd-new-milestone`):
 
-**Target features:**
-- Close SAN-01 (sanitizer in `WeaponSelectModal` + `CharacterReviewModal`)
-- Close OPS-02 (`DM_OFFLINE` ephemeral warning on circuit-breaker open)
-- `__main__` token-fix parity (friendly error for `python -m eldritch_dm.bot`)
-- Ruff cleanup (79 errors / 23 files — 43 auto-fixable)
-- Smart MonsterDriver (Claudmaster-routed combat AI)
-- YAML-configurable Riposte eligibility (homebrew extensibility)
-- `pc_classes` ingest-backfill script (v1.0→v1.1 upgrade tool)
+- **Quality flywheel for SmartMonsterDriver** — LLM-as-judge tactical-scoring rubric + Arize Phoenix observability (deferred from Phase 10 per D-59); needed to close the loop on "are monsters fair AND smart"
+- **Streaming "monster is thinking" embed** — UX nicety once Phoenix tracing is live
+- **AOE + multi-target tactic selection** — current scope is single-target only
+- **Cross-round monster memory** — session-level state for monsters that remember prior-round actions
+- **dm20 schema extension** for subclass — closes Phase 9 C-1 workaround (currently writes `subclass=''` with operator hand-edit recipe in INSTALL.md)
+- **PID-file concurrent-backfill guard** — Phase 9 C-2 deferral
+- **Address pre-existing test flakes** — OCR backend env tests + `test_phase3_smoke` test-pollution flake; predate v1.1, deserve a focused cleanup phase
+- **Hot-reload for eligibility.yaml** — Phase 8 explicitly deferred to v1.2 (currently restart-to-apply)
 
-**Strategy note:** Ruff cleanup likely first to clear the 23-file noise that complicated v1.0 audit. Smart MonsterDriver is the largest item; YAML eligibility the smallest. Research will inform whether Claudmaster targeting has known patterns/pitfalls to leverage.
+<details>
+<summary>v1.1 milestone retrospective</summary>
+
+**Goal:** Close v1.0 audit deferrals, add homebrew extensibility (YAML Riposte eligibility), close the v1.0 → v1.1 upgrade gap (`pc_classes` backfill), and level up combat AI from random to Claudmaster-routed targeting.
+
+**Shipped (10/10 requirements):**
+- DEBT-01/02: ruff debt zeroed (79→0); cold-start E2E regression guard with historical RED/GREEN proof at v1.0 commit `7d307a1`
+- SAFETY-01/02/03: modal sanitization across 3 modals; DM_OFFLINE warning + 30s debouncer + `@catch_circuit_open` decorator; shared `config.token_guard` helper
+- HOMEBREW-01/02: 3-tier YAML eligibility loader (env > user > repo default); `gameplay/normalize.py` extracted
+- UPGRADE-01: `eldritch-dm-backfill-pc-classes` CLI with `--dry-run` (SQLite read-only) + `--force` + idempotent default
+- COMBAT-13/14: SmartMonsterDriver via existing AsyncOpenAI/oMLX client (no new MCP deps); INT-gated (≤4 random, ≥8 LLM, 5-7 mixed); 1500ms hard timeout with fail-soft to random; per-round FIFO cache; 16-scenario adversarial corpus
+
+**Strategy note for v1.2:** the Phase-10 SmartMonsterDriver lands the largest behavioral change in v1.1 but ships without an evaluation rubric or production tracing. v1.2 should prioritize the quality flywheel (LLM-as-judge + Arize Phoenix) before adding more autonomous-AI surface area.
+
+</details>
 
 ## What This Is
 
