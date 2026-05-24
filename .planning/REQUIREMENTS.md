@@ -24,7 +24,7 @@
 
 - [x] **MON-01**: KPI thresholds from AI-SPEC §7 implemented as live monitors driven by the OTel spans (OBS-01). Tracked: P99 latency (target < 1200ms), success rate (target > 98% smart without fallback), tactical score (judge-derived, target > 0.8), refusal rate (target < 0.1%), fallback rate (target < 5% weekly). Per-channel and global aggregations. Phoenix dashboard + Prometheus-compatible `/metrics` endpoint at `:9090/metrics` (toggled by `OBSERVABILITY_METRICS_ENDPOINT=true`).
 - [x] **MON-02**: Alert config via `database/alerts.yaml` (3-tier YAML loader like Phase 8): critical/high/warning thresholds + routing (file/syslog/webhook). Default rules: critical=latency P99 > 1500ms for 5min → degraded mode (force `MONSTER_DRIVER=random`), high=fallback rate > 10% → log + maintainer ping, warning=OpenAI 429 detected → throttle. Degraded mode auto-recovers when P99 returns < 1200ms for 5min.
-- [ ] **MON-03**: Cost guard — `eldritch-dm-cost-report` CLI emits daily LLM-spend estimate from token-count spans. Hard cap: env `ELDRITCH_DAILY_LLM_BUDGET_USD` (default $5); when breached, force degraded mode + structured log. Alert on $2/day threshold (AI-SPEC §6 Offline Flywheel). Tests assert the cost calculator agrees with OpenAI token-pricing within ±5%.
+- [x] **MON-03**: Cost guard — `eldritch-dm-cost-report` CLI emits daily LLM-spend estimate from token-count spans. Hard cap: env `ELDRITCH_DAILY_LLM_BUDGET_USD` (default $5); when breached, force degraded mode + structured log. Alert on $2/day threshold (AI-SPEC §6 Offline Flywheel). Tests assert the cost calculator agrees with OpenAI token-pricing within ±5%.
 
 ---
 

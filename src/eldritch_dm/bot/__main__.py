@@ -20,6 +20,7 @@ Exit codes:
 
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -67,6 +68,27 @@ def main() -> int:
         )
 
         boot_alert_evaluator(settings=settings)
+
+        # Phase 13 / MON-03: budget guard. Single sync tick at boot — picks
+        # up budget breaches that started before the restart and trips
+        # degraded mode immediately. Periodic ticking deferred to v1.3
+        # setup_hook (same pattern as AlertEvaluator).
+        from decimal import Decimal as _D
+
+        from eldritch_dm.observability.budget_guard import BudgetEvaluator
+        from eldritch_dm.observability.cost import load_pricing
+        from eldritch_dm.observability.metrics_endpoint import (
+            is_metrics_endpoint_enabled,
+        )
+        from eldritch_dm.observability.tracer import is_enabled
+
+        if is_enabled() or is_metrics_endpoint_enabled():
+            try:
+                cap = _D(os.environ.get("ELDRITCH_DAILY_LLM_BUDGET_USD", "5.00"))
+            except Exception:  # noqa: BLE001
+                log.warning("budget_guard.invalid_cap_env_falling_back_to_5_00")
+                cap = _D("5.00")
+            BudgetEvaluator(cap_usd=cap, table=load_pricing(settings)).tick()
     except Exception:  # noqa: BLE001 — observability is opt-in; never block boot
         log.exception("observability_init_failed")
 
