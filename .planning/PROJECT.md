@@ -7,6 +7,21 @@
 **Repo:** https://github.com/shoemoney/eldritchdm
 **License:** Apache 2.0 (flipped from MIT at v1.0 close — adds explicit patent grant)
 
+## Current Milestone: v1.1 Polish
+
+**Goal:** Close v1.0 audit deferrals, level up combat AI from random-targeting to Claudmaster-routed, and add homebrew extensibility — preparing the v1.0 release for production self-hosters.
+
+**Target features:**
+- Close SAN-01 (sanitizer in `WeaponSelectModal` + `CharacterReviewModal`)
+- Close OPS-02 (`DM_OFFLINE` ephemeral warning on circuit-breaker open)
+- `__main__` token-fix parity (friendly error for `python -m eldritch_dm.bot`)
+- Ruff cleanup (79 errors / 23 files — 43 auto-fixable)
+- Smart MonsterDriver (Claudmaster-routed combat AI)
+- YAML-configurable Riposte eligibility (homebrew extensibility)
+- `pc_classes` ingest-backfill script (v1.0→v1.1 upgrade tool)
+
+**Strategy note:** Ruff cleanup likely first to clear the 23-file noise that complicated v1.0 audit. Smart MonsterDriver is the largest item; YAML eligibility the smallest. Research will inform whether Claudmaster targeting has known patterns/pitfalls to leverage.
+
 ## What This Is
 
 EldritchDM is a local-first, self-hostable **Discord adapter** that exposes the `dm20` MCP server (a complete D&D 5e DM toolkit with autonomous "Claudmaster" mode) through Discord — turning any text channel into a multiplayer 5e table run by an AI Dungeon Master persona called **ShoeGPT**. We do not build a DM engine; we build the Discord skin on top of one that already exists, plus the Discord-specific affordances (timed reactive buttons, turn gatekeeping by user ID, persistent Views across restarts, photo/PDF character ingest for non-D&D-Beyond sheets). It's for tabletop players who want a "forever DM" running entirely on their own hardware with zero API spend and the rule integrity that makes 5e actually feel like 5e.
