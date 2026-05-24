@@ -133,7 +133,7 @@
 | 3. Lobby + Character Ingest | v1.0 | 3/3 | ✅ Complete | 2026-05-21 |
 | 4. Gameplay — Exploration + Combat | v1.0 | 3/3 | ✅ Complete | 2026-05-22 |
 | 5. Reactions + Self-Host Polish | v1.0 | 3/3 | ✅ Complete | 2026-05-23 |
-| 6. Debt Paydown + Cold-Start Smoke | v1.1 | 0/2 | Not started | — |
+| 6. Debt Paydown + Cold-Start Smoke | v1.1 | 1/2 | In Progress|  |
 | 7. Safety Gap Closure | v1.1 | 0/1 | Not started | — |
 | 8. YAML Riposte Eligibility | v1.1 | 0/1 | Not started | — |
 | 9. pc_classes Ingest-Backfill Script | v1.1 | 0/1 | Not started | — |
