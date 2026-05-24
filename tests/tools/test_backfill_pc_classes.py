@@ -217,3 +217,230 @@ async def test_collect_rows_partial_success_across_channels(tmp_db: str) -> None
     assert rows[0].channel_id == "good"
     assert len(failures) == 1
     assert failures[0][0] == "bad"
+
+
+# ── T-09-01-03: dry-run + force + idempotency tests ──────────────────────────
+
+
+async def _count_pc_classes(db_path: str) -> int:
+    import aiosqlite
+
+    async with aiosqlite.connect(db_path) as conn:
+        cur = await conn.execute("SELECT COUNT(*) FROM pc_classes")
+        row = await cur.fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+def _two_rows() -> list[backfill.BackfillRow]:
+    return [
+        backfill.BackfillRow(
+            channel_id="ch1",
+            character_id="c1",
+            class_name="fighter",
+            subclass="",
+        ),
+        backfill.BackfillRow(
+            channel_id="ch1",
+            character_id="c2",
+            class_name="rogue",
+            subclass="",
+        ),
+    ]
+
+
+async def test_dry_run_makes_no_writes(tmp_db: str) -> None:
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+    assert await _count_pc_classes(tmp_db) == 0
+
+    report = await backfill.apply_rows(
+        _two_rows(), db_path=tmp_db, dry_run=True, force=False
+    )
+
+    # post-state assertion — driver-level write prohibition held
+    assert await _count_pc_classes(tmp_db) == 0
+    assert report.would_insert == 2
+    assert report.would_skip == 0
+    assert report.would_update == 0
+    assert report.inserted == 0
+
+
+async def test_dry_run_uses_readonly_uri(
+    tmp_db: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify the URI passed to aiosqlite.connect includes mode=ro + uri=True."""
+    captured: dict[str, object] = {}
+    real_connect = backfill.aiosqlite.connect
+
+    def _spy(*args: object, **kwargs: object) -> object:
+        # Only capture the first apply-rows connect; collect_rows also opens
+        # read-only so spy must record every call.
+        captured.setdefault("calls", []).append((args, kwargs))  # type: ignore[union-attr]
+        return real_connect(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(backfill.aiosqlite, "connect", _spy)
+
+    await backfill.apply_rows(
+        _two_rows(), db_path=tmp_db, dry_run=True, force=False
+    )
+
+    calls = captured["calls"]
+    assert isinstance(calls, list) and calls
+    # Find at least one call whose first positional arg is a mode=ro URI
+    ro_calls = [
+        c for c in calls
+        if c[0] and isinstance(c[0][0], str) and "mode=ro" in c[0][0]
+        and c[1].get("uri") is True
+    ]
+    assert ro_calls, f"no mode=ro URI in any aiosqlite.connect call: {calls!r}"
+
+
+async def test_real_run_inserts_new_rows(tmp_db: str) -> None:
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+    report = await backfill.apply_rows(
+        _two_rows(), db_path=tmp_db, dry_run=False, force=False
+    )
+    assert report.inserted == 2
+    assert report.updated == 0
+    assert report.skipped_existing == 0
+    assert await _count_pc_classes(tmp_db) == 2
+
+
+async def test_idempotent_re_run_skips(tmp_db: str) -> None:
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+    rows = _two_rows()
+
+    first = await backfill.apply_rows(rows, db_path=tmp_db, dry_run=False, force=False)
+    assert first.inserted == 2
+
+    second = await backfill.apply_rows(rows, db_path=tmp_db, dry_run=False, force=False)
+    assert second.inserted == 0
+    assert second.skipped_existing == 2
+    assert await _count_pc_classes(tmp_db) == 2
+
+
+async def test_force_re_processes_existing(tmp_db: str) -> None:
+    """--force updates an existing row whose class_name had drifted."""
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+
+    # Seed with stale data via the repo directly.
+    from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
+
+    repo = PCClassesRepo(tmp_db)
+    await repo.upsert(
+        channel_id="ch1",
+        character_id="c1",
+        class_name="stale_class",
+        subclass="",
+    )
+
+    fresh_rows = [
+        backfill.BackfillRow(
+            channel_id="ch1",
+            character_id="c1",
+            class_name="fighter",
+            subclass="",
+        )
+    ]
+
+    report = await backfill.apply_rows(
+        fresh_rows, db_path=tmp_db, dry_run=False, force=True
+    )
+    assert report.updated == 1
+    assert report.inserted == 0
+
+    info = await repo.get("ch1", "c1")
+    assert info is not None
+    assert info.class_name == "fighter"
+
+
+async def test_db_locked_returns_exit_fatal(
+    tmp_db: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """sqlite3.OperationalError('database is locked') → EXIT_FATAL via _run()."""
+    import sqlite3 as _sqlite3
+
+    from eldritch_dm.persistence import pc_classes_repo as repo_module
+
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+
+    async def _boom(self: object, **kwargs: object) -> None:
+        raise _sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(repo_module.PCClassesRepo, "upsert", _boom)
+
+    payload = {
+        "characters": [{"character_id": "c1", "character_class": "Fighter"}]
+    }
+    parser = backfill.build_parser()
+    args = parser.parse_args(
+        ["--db-path", tmp_db, "--dm20-url", "http://localhost:8765"]
+    )
+    with respx.mock(assert_all_called=False) as router:
+        router.post("http://localhost:8765/v1/mcp/execute").mock(
+            return_value=httpx.Response(200, json=payload)
+        )
+        rc = await backfill._run(args)
+
+    assert rc == backfill.EXIT_FATAL
+
+
+async def test_main_happy_path_end_to_end(
+    tmp_db: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Full _run(): seed → dm20 mock → real write → exit 0 + summary printed."""
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+    payload = {
+        "characters": [
+            {"character_id": "c1", "character_class": "Fighter"},
+            {"character_id": "c2", "character_class": "Rogue"},
+        ]
+    }
+    parser = backfill.build_parser()
+    args = parser.parse_args(
+        ["--db-path", tmp_db, "--dm20-url", "http://localhost:8765"]
+    )
+    with respx.mock(assert_all_called=False) as router:
+        router.post("http://localhost:8765/v1/mcp/execute").mock(
+            return_value=httpx.Response(200, json=payload)
+        )
+        rc = await backfill._run(args)
+    assert rc == backfill.EXIT_OK
+    out = capsys.readouterr().out
+    assert "rows discovered: 2" in out
+    assert "inserted       : 2" in out
+    assert await _count_pc_classes(tmp_db) == 2
+
+
+async def test_main_dm20_unreachable_returns_exit_user_error(
+    tmp_db: str,
+) -> None:
+    await _seed_channel_session(tmp_db, "ch1", "campaign-1")
+    parser = backfill.build_parser()
+    args = parser.parse_args(
+        ["--db-path", tmp_db, "--dm20-url", "http://localhost:8765"]
+    )
+    with respx.mock(assert_all_called=False) as router:
+        router.post("http://localhost:8765/v1/mcp/execute").mock(
+            return_value=httpx.Response(503, json={"error": "down"})
+        )
+        rc = await backfill._run(args)
+    assert rc == backfill.EXIT_USER_ERROR
+
+
+def test_main_sync_entry_point_invokes_asyncio_run(
+    tmp_db: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Synchronous main() must wrap _run() in asyncio.run() so the
+    [project.scripts] entry can be invoked from a non-async context.
+    """
+    called: dict[str, object] = {}
+
+    async def _stub_run(args: object) -> int:
+        called["args"] = args
+        return 42
+
+    monkeypatch.setattr(backfill, "_run", _stub_run)
+    rc = backfill.main(["--db-path", tmp_db])
+    assert rc == 42
+    assert "args" in called

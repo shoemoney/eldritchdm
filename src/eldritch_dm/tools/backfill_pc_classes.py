@@ -20,7 +20,9 @@ loop (T-09-01-02) and SQLite write path (T-09-01-03) land in later commits.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import os
+import sqlite3
 import sys
 from typing import Any
 
@@ -36,6 +38,7 @@ from eldritch_dm.mcp.errors import (
     MCPTimeoutError,
     MCPToolError,
 )
+from eldritch_dm.persistence.pc_classes_repo import PCClassesRepo
 
 log = get_logger(__name__)
 
@@ -97,6 +100,20 @@ class BackfillRow(BaseModel):
     character_id: str
     class_name: str
     subclass: str  # always "" in v1.1 (dm20 schema omits subclass — C-1)
+
+
+class ApplyReport(BaseModel):
+    """Outcome of an apply_rows() invocation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    inserted: int = 0
+    updated: int = 0
+    skipped_existing: int = 0
+    would_insert: int = 0
+    would_skip: int = 0
+    would_update: int = 0
+    errors: list[str] = []
 
 
 # ── Fetch helpers (T-09-01-02) ───────────────────────────────────────────────
@@ -274,29 +291,221 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
-    """CLI entry point. Scaffold-only in T-09-01-01.
+# ── Apply (T-09-01-03) ───────────────────────────────────────────────────────
 
-    T-09-01-02 adds the dm20 fetch loop; T-09-01-03 adds the SQLite write
-    path. For now, parse args and emit a placeholder message.
+
+async def _apply_rows_dry_run(
+    rows: list[BackfillRow], *, db_path: str, force: bool
+) -> ApplyReport:
+    """Dry-run path: open SQLite read-only, count what WOULD happen.
+
+    D-43 / C-4: ``mode=ro`` URI makes writes driver-impossible. We never
+    construct PCClassesRepo here.
     """
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    uri = f"file:{db_path}?mode=ro"
+    would_insert = 0
+    would_skip = 0
+    would_update = 0
+    async with aiosqlite.connect(uri, uri=True) as conn:
+        conn.row_factory = aiosqlite.Row
+        for row in rows:
+            cur = await conn.execute(
+                "SELECT 1 FROM pc_classes "
+                "WHERE channel_id = ? AND character_id = ?",
+                (row.channel_id, row.character_id),
+            )
+            existing = await cur.fetchone()
+            if existing is None:
+                would_insert += 1
+            elif force:
+                would_update += 1
+            else:
+                would_skip += 1
+    return ApplyReport(
+        would_insert=would_insert,
+        would_skip=would_skip,
+        would_update=would_update,
+    )
+
+
+async def _apply_rows_real(
+    rows: list[BackfillRow], *, db_path: str, force: bool
+) -> ApplyReport:
+    """Real write path. Idempotency gated at the CLI (C-3) — repo SQL unchanged."""
+    repo = PCClassesRepo(db_path)
+    inserted = 0
+    updated = 0
+    skipped = 0
+    errors: list[str] = []
+    for row in rows:
+        bound = log.bind(
+            channel_id=row.channel_id, character_id=row.character_id
+        )
+        try:
+            existing = await repo.get(row.channel_id, row.character_id)
+            if existing is not None and not force:
+                skipped += 1
+                bound.debug("backfill.skip_existing")
+                continue
+            await repo.upsert(
+                channel_id=row.channel_id,
+                character_id=row.character_id,
+                class_name=row.class_name,
+                subclass=row.subclass,
+            )
+            if existing is None:
+                inserted += 1
+            else:
+                updated += 1
+        except sqlite3.OperationalError as exc:
+            # C-2: "database is locked" surfaces as EXIT_FATAL upstream.
+            if "locked" in str(exc).lower():
+                raise
+            errors.append(f"{row.channel_id}:{row.character_id}: {exc}")
+            bound.error("backfill.sqlite_error", error=str(exc))
+    return ApplyReport(
+        inserted=inserted,
+        updated=updated,
+        skipped_existing=skipped,
+        errors=errors,
+    )
+
+
+async def apply_rows(
+    rows: list[BackfillRow],
+    *,
+    db_path: str,
+    dry_run: bool,
+    force: bool,
+) -> ApplyReport:
+    """Apply rows to pc_classes (or simulate, under --dry-run).
+
+    Dry-run path NEVER constructs PCClassesRepo (D-43 / C-4): it opens
+    aiosqlite with ``mode=ro`` URI and emits would_* counters.
+
+    Real path uses PCClassesRepo with a CLI-level idempotency gate
+    (C-3): pre-check via ``repo.get`` and skip if non-None unless ``force``
+    is set, in which case ``repo.upsert`` re-applies (DO UPDATE).
+    """
+    if dry_run:
+        return await _apply_rows_dry_run(rows, db_path=db_path, force=force)
+    return await _apply_rows_real(rows, db_path=db_path, force=force)
+
+
+# ── Summary printer ──────────────────────────────────────────────────────────
+
+
+def _print_summary(
+    *,
+    args: argparse.Namespace,
+    dm20_url: str,
+    db_path: str,
+    rows: list[BackfillRow],
+    failures: list[tuple[str, str]],
+    report: ApplyReport,
+) -> None:
+    """Write a plain-text summary table to stdout."""
+    print("=" * 60)
+    print("eldritch-dm-backfill-pc-classes — summary")
+    print("=" * 60)
+    print(f"  db_path        : {db_path}")
+    print(f"  dm20_url       : {dm20_url}")
+    print(f"  mode           : {'DRY-RUN (read-only)' if args.dry_run else 'WRITE'}")
+    print(f"  force          : {args.force}")
+    print(f"  rows discovered: {len(rows)}")
+    print(f"  dm20 failures  : {len(failures)}")
+    if args.dry_run:
+        print(f"  would_insert   : {report.would_insert}")
+        print(f"  would_skip     : {report.would_skip}")
+        print(f"  would_update   : {report.would_update}")
+    else:
+        print(f"  inserted       : {report.inserted}")
+        print(f"  updated        : {report.updated}")
+        print(f"  skipped        : {report.skipped_existing}")
+        if report.errors:
+            print(f"  errors         : {len(report.errors)}")
+            for line in report.errors:
+                print(f"    - {line}")
+    print("=" * 60)
+
+
+# ── Entry point ──────────────────────────────────────────────────────────────
+
+
+async def _run(args: argparse.Namespace) -> int:
     db_path = args.db_path or _default_db_path()
     dm20_url = resolve_dm20_url(args.dm20_url)
     log.info(
-        "backfill.scaffold_invoked",
+        "backfill.start",
         db_path=db_path,
         dm20_url=dm20_url,
         dry_run=args.dry_run,
         force=args.force,
     )
-    print(
-        "eldritch-dm-backfill-pc-classes scaffold — fetch loop and "
-        "writes land in T-09-01-02 / T-09-01-03",
-        file=sys.stderr,
+
+    try:
+        rows, failures = await collect_rows(db_path=db_path, dm20_url=dm20_url)
+    except sqlite3.OperationalError as exc:
+        log.error("backfill.db_open_failed", error=str(exc))
+        print(f"ERROR: cannot open {db_path}: {exc}", file=sys.stderr)
+        return EXIT_USER_ERROR
+
+    all_failed = bool(failures) and not rows
+    partial = bool(failures) and bool(rows)
+
+    if not rows and not failures:
+        print(
+            "No channel_sessions / characters found — nothing to backfill.",
+            file=sys.stderr,
+        )
+        _print_summary(
+            args=args,
+            dm20_url=dm20_url,
+            db_path=db_path,
+            rows=[],
+            failures=[],
+            report=ApplyReport(),
+        )
+        return EXIT_OK
+
+    try:
+        report = await apply_rows(
+            rows, db_path=db_path, dry_run=args.dry_run, force=args.force
+        )
+    except sqlite3.OperationalError as exc:
+        if "locked" in str(exc).lower():
+            log.error("backfill.db_locked", error=str(exc))
+            print(
+                "FATAL: database is locked. Stop the bot before running "
+                "the backfill tool.",
+                file=sys.stderr,
+            )
+            return EXIT_FATAL
+        log.error("backfill.db_error", error=str(exc))
+        print(f"ERROR: SQLite error: {exc}", file=sys.stderr)
+        return EXIT_USER_ERROR
+
+    _print_summary(
+        args=args,
+        dm20_url=dm20_url,
+        db_path=db_path,
+        rows=rows,
+        failures=failures,
+        report=report,
     )
+
+    if all_failed:
+        return EXIT_USER_ERROR
+    if partial:
+        return EXIT_PARTIAL
     return EXIT_OK
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return asyncio.run(_run(args))
 
 
 if __name__ == "__main__":  # pragma: no cover
