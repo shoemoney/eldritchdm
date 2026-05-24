@@ -29,6 +29,20 @@ from eldritch_dm.observability.instrumentation import (
 )
 from eldritch_dm.observability.tracer import init_tracing, is_enabled
 
+# NOTE on lazy imports (Phase 13):
+#   - ``metrics_endpoint`` is NOT imported eagerly. Importing it pulls
+#     ``prometheus_client`` into ``sys.modules`` via the type annotations on
+#     ``_MetricsEndpointHandle`` (resolved at class-body evaluation time
+#     inside ``__init__``, not at module import time — so a bare
+#     ``from .metrics_endpoint import ...`` here would NOT leak prometheus
+#     by itself, but it would expand the surface importers see).
+#   - ``span_buffer`` is imported by ``instrumentation`` already (stdlib
+#     sqlite3 only — no leak).
+#   - Callers that need the metrics endpoint should
+#     ``from eldritch_dm.observability.metrics_endpoint import
+#         is_metrics_endpoint_enabled, start_metrics_endpoint``
+#     explicitly — keeps the lazy-import canaries strict.
+
 __all__ = [
     "FallbackReason",
     "init_tracing",

@@ -44,9 +44,34 @@ _VALID_MODES: frozenset[str] = frozenset({"smart", "random", "mixed"})
 def _resolve_mode(env_override: str | None) -> DriverMode:
     """Resolve the final driver mode.
 
-    Priority: env_override > Settings.monster_driver > "smart" default.
+    Priority (Phase 13 / MON-02 / R-13-02-a — degraded mode wins over EVERY
+    other signal):
+      0. observability.degraded_mode.is_active() → "random" (safety override)
+      1. env_override argument (tests + explicit overrides)
+      2. Settings.monster_driver
+      3. "smart" default
     Unknown values fall back to "smart" and emit a structured warning.
     """
+    # ── Phase 13 safety override — degraded mode forces random ──
+    # Lazy import (in-function) so this module stays import-linter-safe and
+    # observability is not pulled in when gameplay is imported in unrelated
+    # contexts (e.g. eval/runner.py reuses the factory).
+    try:
+        from eldritch_dm.observability.degraded_mode import get_degraded_mode
+
+        if get_degraded_mode().is_active():
+            log.info("monster_driver_factory_degraded_override", to="random")
+            return "random"
+    except Exception as exc:  # noqa: BLE001 — fail-soft
+        # Observability error must NEVER prevent gameplay from running. If
+        # the degraded-mode module misbehaves, fall through to the normal
+        # mode-resolution chain.
+        log.warning(
+            "monster_driver_factory_degraded_check_failed",
+            error_type=type(exc).__name__,
+            error=str(exc)[:120],
+        )
+
     raw: str | None = env_override
 
     if raw is None:
