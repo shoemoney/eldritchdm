@@ -1,6 +1,7 @@
 ---
 phase: 12-llm-judge-tactical
 plan: "01"
+requirements_completed: [EVAL-01]
 subsystem: eval
 tags: [eval, llm-as-judge, observability, pydantic]
 requires:

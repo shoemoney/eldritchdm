@@ -1,6 +1,7 @@
 ---
 phase: 06-debt-paydown-and-cold-start
 plan: 02
+requirements_completed: [DEBT-02]
 subsystem: tests
 tags: [debt, cold-start, integration, e2e, smoke, regression-guard]
 requires:

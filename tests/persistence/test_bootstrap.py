@@ -283,6 +283,10 @@ class TestPhase5Migration:
 class TestBootstrapMainRuns:
     """bootstrap.main() creates the DB file and prints a success line."""
 
+    # Note: the structlog + stdlib-root-handler teardown that bootstrap.main()
+    # would otherwise leak is now handled centrally by the autouse fixture in
+    # tests/conftest.py — see Phase 14 / FLAKE-02 root-cause analysis.
+
     def test_bootstrap_main_runs(
         self,
         tmp_path: pytest.TempPathFactory,

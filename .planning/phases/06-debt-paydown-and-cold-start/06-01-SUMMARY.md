@@ -1,6 +1,7 @@
 ---
 phase: 06-debt-paydown-and-cold-start
 plan: 01
+requirements_completed: [DEBT-01]
 subsystem: infra
 tags: [ruff, lint, debt, hygiene, formatting, import-sort]
 
@@ -57,7 +58,6 @@ patterns-established:
   - "Avoid `as <name>` in `with patch(...)` if the name is never read — drop the binding; patch still applies"
   - "For tabular fixture data (rows of similar dicts), prefer per-file-ignore E501 over per-row hand-wrap (alignment > line length)"
 
-requirements-completed: [DEBT-01]
 
 duration: ~45min
 completed: 2026-05-23

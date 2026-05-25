@@ -1,6 +1,7 @@
 ---
 phase: 10-smart-monsterdriver
 plan: "01"
+requirements_completed: [COMBAT-13]
 subsystem: gameplay/combat
 tags: [smart-driver, llm-routing, INT-gating, fail-soft]
 requires: [10-CONTEXT.md, 10-AI-SPEC.md, REQUIREMENTS.md::COMBAT-13]

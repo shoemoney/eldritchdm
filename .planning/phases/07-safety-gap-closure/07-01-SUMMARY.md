@@ -1,6 +1,7 @@
 ---
 phase: 07-safety-gap-closure
 plan: 01
+requirements_completed: [SAFETY-01, SAFETY-02, SAFETY-03]
 subsystem: bot+config+mcp+safety
 tags: [safety, audit-closure, sanitizer, circuit-breaker, modals, entrypoint, td-paydown]
 requires:

@@ -1,6 +1,7 @@
 ---
 phase: 12-llm-judge-tactical
 plan: "02"
+requirements_completed: [EVAL-02, EVAL-03]
 subsystem: eval
 tags: [eval, llm-as-judge, cli, corpus, observability]
 requires:

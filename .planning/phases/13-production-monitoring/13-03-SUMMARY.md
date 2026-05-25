@@ -1,6 +1,7 @@
 ---
 phase: 13-production-monitoring
 plan: 03
+requirements_completed: [MON-03]
 subsystem: observability
 tags: [cost, budget, cli, decimal, pricing]
 requirements:
