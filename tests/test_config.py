@@ -120,3 +120,34 @@ class TestFrozen:
         settings = get_settings()
         with pytest.raises((ValidationError, TypeError)):
             settings.log_level = "DEBUG"  # type: ignore[misc]
+
+
+class TestMcpCacheDefaults:
+    """Phase 16 MCPCACHE_* settings — defaults and overrides."""
+
+    def test_mcpcache_defaults(self, tmp_env: None) -> None:
+        settings = get_settings()
+        assert settings.mcpcache_enabled is True
+        assert settings.mcpcache_l1_size == 512
+        assert settings.mcpcache_l1_ttl_s == 300
+        assert settings.mcpcache_l2_enabled is False
+        assert settings.mcpcache_l2_ttl_s == 86400
+        assert settings.mcpcache_l2_path == "~/.eldritch/mcp_cache.sqlite"
+
+    def test_mcpcache_env_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        get_settings.cache_clear()
+        monkeypatch.setenv("DISCORD_TOKEN", "t")
+        monkeypatch.setenv("MCPCACHE_ENABLED", "false")
+        monkeypatch.setenv("MCPCACHE_L1_SIZE", "16")
+        monkeypatch.setenv("MCPCACHE_L1_TTL_S", "5")
+        monkeypatch.setenv("MCPCACHE_L2_ENABLED", "true")
+        monkeypatch.setenv("MCPCACHE_L2_TTL_S", "7")
+        monkeypatch.setenv("MCPCACHE_L2_PATH", "/tmp/cache.sqlite")
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
+        assert settings.mcpcache_enabled is False
+        assert settings.mcpcache_l1_size == 16
+        assert settings.mcpcache_l1_ttl_s == 5
+        assert settings.mcpcache_l2_enabled is True
+        assert settings.mcpcache_l2_ttl_s == 7
+        assert settings.mcpcache_l2_path == "/tmp/cache.sqlite"
+        get_settings.cache_clear()

@@ -167,6 +167,22 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Phase 16 MCP cache (MCPCACHE-01/02/03) ────────────────────────────────
+    # L1 = in-process OrderedDict LRU. Safe-by-default (TTL clears stale data).
+    # L2 = aiosqlite WAL at MCPCACHE_L2_PATH. Opt-in (adds disk write cost).
+    # Allow-list of cacheable tools is hard-coded in eldritch_dm.mcp.cache —
+    # mutations and mutable-state reads are NEVER cacheable (D-117).
+    mcpcache_enabled: bool = Field(default=True, alias="MCPCACHE_ENABLED")
+    mcpcache_l1_size: PositiveInt = Field(default=512, alias="MCPCACHE_L1_SIZE")
+    mcpcache_l1_ttl_s: PositiveInt = Field(default=300, alias="MCPCACHE_L1_TTL_S")
+    mcpcache_l2_enabled: bool = Field(default=False, alias="MCPCACHE_L2_ENABLED")
+    mcpcache_l2_ttl_s: PositiveInt = Field(default=86400, alias="MCPCACHE_L2_TTL_S")
+    mcpcache_l2_path: str = Field(
+        default="~/.eldritch/mcp_cache.sqlite",
+        alias="MCPCACHE_L2_PATH",
+        description="L2 SQLite cache file path; '~' is expanded at use site.",
+    )
+
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False
     sanitizer_verbose_audit: bool = False
