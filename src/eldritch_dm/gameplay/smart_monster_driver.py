@@ -50,7 +50,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 import discord
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from eldritch_dm.gameplay.monster_driver import MonsterDriver
 from eldritch_dm.logging import get_logger
@@ -66,8 +66,17 @@ log = get_logger(__name__)
 
 # Regex last-chance extractor (D-51 graceful degradation): if `model_validate_json`
 # fails because the LLM emitted prose around the JSON, we try to pull the
-# `target_pc_id` substring directly.
+# `target_pc_id` (legacy single-target) or `target_pc_ids` (Phase 20 AOE)
+# substring directly.
 _TARGET_RE = re.compile(r'"target_pc_id"\s*:\s*"([^"]+)"')
+# Phase 20 / D-149: match an AOE list shape `"target_pc_ids": ["a", "b", ...]`.
+# We extract the list body then split via the quoted-string regex below.
+_TARGET_LIST_RE = re.compile(r'"target_pc_ids"\s*:\s*\[([^\]]*)\]')
+_QUOTED_ID_RE = re.compile(r'"([^"]+)"')
+# Phase 20 / D-150: extract `tactic_kind` from prose when the strict parser failed.
+_TACTIC_KIND_RE = re.compile(
+    r'"tactic_kind"\s*:\s*"(single|aoe|multi_attack|breath|cone)"'
+)
 
 # D-56: per-round cache size guard. FIFO eviction.
 _DEFAULT_CACHE_MAX_SIZE = 256
@@ -77,23 +86,94 @@ Route = Literal["random", "llm", "mixed_random", "mixed_llm"]
 
 
 class MonsterTacticChoice(BaseModel):
-    """LLM-emitted tactical choice (D-55).
+    """LLM-emitted tactical choice (D-55, D-149, D-150).
 
-    `target_pc_id` is required; the candidate-ID membership check happens at
-    the call site (the Pydantic model itself does not see the runtime
-    candidate list, per AI-SPEC §4b.1).
+    Phase 20 (D-149/D-150) extended the original single-target shape to
+    a multi-target list + tactic-kind discriminator. Backwards-compat with
+    the legacy ``{"target_pc_id": "<id>"}`` shape is preserved via a
+    ``model_validator(mode="before")`` legacy coercion and a read-only
+    ``@property`` shim.
 
-    `rationale` is optional and for trace-log only — v1.1 does NOT expose it
-    to players.
+    Fields:
+      - ``target_pc_ids``: ordered list of candidate PC ids the monster
+        intends to affect. MUST be non-empty. ALL ids must be in the
+        runtime candidate set; the membership check happens at the call
+        site (the Pydantic model itself does not see the runtime
+        candidate list, per AI-SPEC §4b.1).
+      - ``tactic_kind``: discriminator for downstream resolution. Validator
+        enforces:
+          * ``"single"``      → ``len(target_pc_ids) == 1``
+          * ``"aoe"|"breath"|"cone"`` → ``len(target_pc_ids) >= 2``
+          * ``"multi_attack"`` → ``len(target_pc_ids) >= 1`` (a single
+            monster can pile multi-attack swings on one PC OR cleave
+            across two adjacent PCs)
+      - ``rationale``: optional, for trace-log only — never surfaced to
+        players (v1.1 D-57 meta-knowledge guard).
 
-    `model_config.extra="ignore"` — local models sometimes emit extra keys
-    (e.g. "confidence", "alt_target"); we tolerate them rather than failing.
+    Legacy coercion:
+      ``{"target_pc_id": "x"}`` and ``MonsterTacticChoice(target_pc_id="x")``
+      are rewritten to ``{"target_pc_ids": ["x"], "tactic_kind": "single"}``
+      so every existing call site continues to work unchanged.
+
+    ``model_config.extra="ignore"`` — local models sometimes emit extra
+    keys (e.g. "confidence", "alt_target"); we tolerate them.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    target_pc_id: str
+    target_pc_ids: list[str] = Field(..., min_length=1)
+    tactic_kind: Literal["single", "aoe", "multi_attack", "breath", "cone"] = "single"
     rationale: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_shape(cls, data: Any) -> Any:
+        """Rewrite legacy ``{target_pc_id: "x"}`` → ``{target_pc_ids: ["x"]}``.
+
+        Non-dict inputs pass through (pydantic raises its own error). A dict
+        that already contains ``target_pc_ids`` is left untouched even if
+        ``target_pc_id`` is also present (the new shape wins).
+        """
+        if not isinstance(data, dict):
+            return data
+        if "target_pc_ids" in data:
+            # New shape wins; drop the legacy key if present so it doesn't
+            # confuse downstream consumers.
+            data.pop("target_pc_id", None)
+            return data
+        if "target_pc_id" in data:
+            legacy = data.pop("target_pc_id")
+            data["target_pc_ids"] = [legacy] if isinstance(legacy, str) else legacy
+            data.setdefault("tactic_kind", "single")
+        return data
+
+    @model_validator(mode="after")
+    def _validate_kind_arity(self) -> MonsterTacticChoice:
+        """Enforce ``tactic_kind`` / ``len(target_pc_ids)`` invariants."""
+        ids = self.target_pc_ids
+        if len(set(ids)) != len(ids):
+            raise ValueError("target_pc_ids must not contain duplicates")
+        kind = self.tactic_kind
+        n = len(ids)
+        if kind == "single" and n != 1:
+            raise ValueError(
+                f"tactic_kind='single' requires exactly 1 target id; got {n}"
+            )
+        if kind in ("aoe", "breath", "cone") and n < 2:
+            raise ValueError(
+                f"tactic_kind='{kind}' requires >=2 target ids; got {n}"
+            )
+        # multi_attack accepts >=1 — lower bound already enforced by min_length.
+        return self
+
+    @property
+    def target_pc_id(self) -> str:
+        """Backwards-compat shim for D-149 / pre-Phase 20 single-target call sites.
+
+        Returns ``target_pc_ids[0]``. Always safe — ``min_length=1`` guarantees
+        the list is non-empty.
+        """
+        return self.target_pc_ids[0]
 
 
 # ── Helpers (module-level for testability) ────────────────────────────────────
