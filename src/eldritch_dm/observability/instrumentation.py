@@ -135,6 +135,7 @@ class _BufferingSpan:
             a.get("eldritch.latency_ms")
             or a.get("eldritch.mcp.cache.latency_ms")
             or a.get("eldritch.character_cache.latency_ms")
+            or a.get("eldritch.narrcache.latency_ms")
         )
         tokens_in = a.get("eldritch.tokens.input") or a.get("eldritch.mcp.cache.size_l2")
         tokens_out = a.get("eldritch.tokens.output")
@@ -154,12 +155,22 @@ class _BufferingSpan:
         #   combat_round  <- eldritch.character_cache.size
         #                    OR eldritch.character_cache.invalidation.entries_removed
         #   latency_ms    <- eldritch.character_cache.latency_ms
+        # Phase 18 narrcache: same approach — reuse BufferRow columns:
+        #   model         <- eldritch.narrcache.model
+        #   driver_path   <- eldritch.narrcache.layer
+        #                    (bypass | hit | miss | gate_reject_store | gate_reject_serve)
+        #   combat_round  <- eldritch.narrcache.size
+        #   latency_ms    <- eldritch.narrcache.latency_ms
+        #   tokens_input  <- eldritch.tokens.input  (already shared)
+        #   tokens_output <- eldritch.tokens.output (already shared)
+        #   overall_score <- eldritch.narrcache.savings_usd (float reuse)
         driver_path = (
             a.get("eldritch.driver.path")
             or a.get("eldritch.mcp.cache.layer")
             or a.get("eldritch.mcp.cache.invalidation.scope")
             or a.get("eldritch.character_cache.layer")
             or a.get("eldritch.character_cache.invalidation.scope")
+            or a.get("eldritch.narrcache.layer")
         )
         combat_round = (
             a.get("eldritch.combat.round")
@@ -171,18 +182,25 @@ class _BufferingSpan:
             else a.get("eldritch.character_cache.size")
             if a.get("eldritch.character_cache.size") is not None
             else a.get("eldritch.character_cache.invalidation.entries_removed")
+            if a.get("eldritch.character_cache.invalidation.entries_removed") is not None
+            else a.get("eldritch.narrcache.size")
         )
         model = (
             a.get("eldritch.ingest.model")
             or a.get("eldritch.eval.judge_model")
             or a.get("eldritch.mcp.tool_name")
             or a.get("eldritch.mcp.cache.invalidation.tool_name")
+            or a.get("eldritch.narrcache.model")
         )
         monster_id = (
             a.get("eldritch.monster.id")
             or a.get("eldritch.character_cache.character_id")
             or a.get("eldritch.character_cache.invalidation.character_id")
         )
+        overall_score = a.get("eldritch.eval.overall_score")
+        if overall_score is None:
+            # Phase 18 narrcache reuses overall_score for savings_usd (float).
+            overall_score = a.get("eldritch.narrcache.savings_usd")
         return BufferRow(
             span_name=self._span_name,
             monster_id=monster_id,
@@ -195,7 +213,7 @@ class _BufferingSpan:
             fallback_reason=str(fallback) if fallback is not None else None,
             model=model,
             scenario_id=a.get("eldritch.eval.scenario_id"),
-            overall_score=a.get("eldritch.eval.overall_score"),
+            overall_score=overall_score,
             refusal=(fallback == "refusal"),
             error=a.get("eldritch.error"),
         )
@@ -387,22 +405,16 @@ def traced_mcp_cache_invalidation(
     if tool_name is not None:
         fixed_attrs["eldritch.mcp.cache.invalidation.tool_name"] = tool_name
     if _TRACER is None:
-        proxy = _BufferingSpan(
-            "eldritch.mcp.cache.invalidation", fixed_attrs, None
-        )
+        proxy = _BufferingSpan("eldritch.mcp.cache.invalidation", fixed_attrs, None)
         try:
             yield proxy
         finally:
             _record_to_buffer(proxy)
         return
-    with _TRACER.start_as_current_span(
-        "eldritch.mcp.cache.invalidation"
-    ) as otel_span:
+    with _TRACER.start_as_current_span("eldritch.mcp.cache.invalidation") as otel_span:
         for k, v in fixed_attrs.items():
             otel_span.set_attribute(k, v)
-        proxy = _BufferingSpan(
-            "eldritch.mcp.cache.invalidation", fixed_attrs, otel_span
-        )
+        proxy = _BufferingSpan("eldritch.mcp.cache.invalidation", fixed_attrs, otel_span)
         try:
             yield proxy
         finally:
@@ -449,9 +461,7 @@ def traced_character_cache(
     with _TRACER.start_as_current_span("eldritch.character_cache.lookup") as otel_span:
         for k, v in fixed_attrs.items():
             otel_span.set_attribute(k, v)
-        proxy = _BufferingSpan(
-            "eldritch.character_cache.lookup", fixed_attrs, otel_span
-        )
+        proxy = _BufferingSpan("eldritch.character_cache.lookup", fixed_attrs, otel_span)
         try:
             yield proxy
         finally:
@@ -475,22 +485,63 @@ def traced_character_cache_invalidation(
     if character_id is not None:
         fixed_attrs["eldritch.character_cache.invalidation.character_id"] = character_id
     if _TRACER is None:
-        proxy = _BufferingSpan(
-            "eldritch.character_cache.invalidation", fixed_attrs, None
-        )
+        proxy = _BufferingSpan("eldritch.character_cache.invalidation", fixed_attrs, None)
         try:
             yield proxy
         finally:
             _record_to_buffer(proxy)
         return
-    with _TRACER.start_as_current_span(
-        "eldritch.character_cache.invalidation"
-    ) as otel_span:
+    with _TRACER.start_as_current_span("eldritch.character_cache.invalidation") as otel_span:
         for k, v in fixed_attrs.items():
             otel_span.set_attribute(k, v)
-        proxy = _BufferingSpan(
-            "eldritch.character_cache.invalidation", fixed_attrs, otel_span
-        )
+        proxy = _BufferingSpan("eldritch.character_cache.invalidation", fixed_attrs, otel_span)
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+
+
+# ── Phase 18 — Narration cache spans ────────────────────────────────────────
+#
+# eldritch.narrcache.call attributes:
+#   - eldritch.narrcache.model        (str)
+#   - eldritch.narrcache.layer        ("bypass" | "hit" | "miss"
+#                                      | "gate_reject_store"
+#                                      | "gate_reject_serve")
+#   - eldritch.narrcache.size         (int) — L1 size at exit
+#   - eldritch.narrcache.latency_ms   (int)
+#   - eldritch.narrcache.savings_usd  (float, populated on HIT only)
+#   - eldritch.tokens.input/output    (int)  — reused from existing schema
+
+
+@contextmanager
+def traced_narrcache(
+    *,
+    model: str,
+) -> Iterator[Any]:
+    """Open a span for one NarrCache.acompletion() call (Phase 18).
+
+    The caller (NarrCache.acompletion) is responsible for stamping
+    ``eldritch.narrcache.layer``, ``eldritch.narrcache.size``,
+    ``eldritch.narrcache.latency_ms``, ``eldritch.tokens.input``,
+    ``eldritch.tokens.output``, and on HIT ``eldritch.narrcache.savings_usd``
+    before the context manager exits. Buffer row is always written; OTel
+    export is secondary (gated on ``OBSERVABILITY_ENABLED``).
+    """
+    fixed_attrs = {
+        "eldritch.narrcache.model": model,
+    }
+    if _TRACER is None:
+        proxy = _BufferingSpan("eldritch.narrcache.call", fixed_attrs, None)
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+        return
+    with _TRACER.start_as_current_span("eldritch.narrcache.call") as otel_span:
+        for k, v in fixed_attrs.items():
+            otel_span.set_attribute(k, v)
+        proxy = _BufferingSpan("eldritch.narrcache.call", fixed_attrs, otel_span)
         try:
             yield proxy
         finally:

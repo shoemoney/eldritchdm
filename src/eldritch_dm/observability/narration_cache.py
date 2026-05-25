@@ -328,106 +328,159 @@ class NarrCache:
         and the entry is stored ONLY if the gate accepts the text. Either
         way, the upstream result is returned.
         """
-        # Consult the process-wide runtime override (D-134). Lazy import to
-        # avoid a hard module dependency at narration_cache import time —
-        # callers/tests that construct a NarrCache instance directly without
-        # the override singleton remain unaffected by override state.
+        # Lazy imports — D-65d invariant: this module must not import OTel at
+        # module level, and these helpers themselves obey that invariant.
+        from eldritch_dm.observability.instrumentation import traced_narrcache
         from eldritch_dm.observability.narrcache_runtime import (
             get_narrcache_override,
         )
 
         runtime_disabled = self._runtime_disabled or get_narrcache_override().is_disabled()
 
-        # ── Bypass paths ────────────────────────────────────────────────────
-        if not self._settings.narrcache_enabled or runtime_disabled:
-            self._bypass += 1
-            return await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                **kwargs,
-            )
+        t0 = time.monotonic()
+        with traced_narrcache(model=model) as span:
 
-        # Bounded key surface: only exactly system+user calls are cacheable.
-        try:
-            key = self._make_key(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-        except ValueError:
-            self._bypass += 1
-            return await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                **kwargs,
-            )
+            def _stamp(layer: str, *, savings_usd: float | None = None) -> None:
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                span.set_attribute("eldritch.narrcache.layer", layer)
+                span.set_attribute("eldritch.narrcache.size", len(self._l1))
+                span.set_attribute("eldritch.narrcache.latency_ms", latency_ms)
+                if savings_usd is not None:
+                    span.set_attribute("eldritch.narrcache.savings_usd", float(savings_usd))
 
-        lock = self._ensure_lock()
-        now = time.monotonic()
-
-        # ── HIT path (with double-gate re-verification) ─────────────────────
-        async with lock:
-            entry = self._l1.get(key)
-            if entry is not None:
-                if self._is_expired(entry, now_monotonic=now):
-                    # Expired — drop and fall through to MISS.
-                    self._l1.pop(key, None)
-                elif not NarrCacheGate.is_pure_narration(entry.response_text):
-                    # Gate tightened since the entry was stored — fail-CLOSED.
-                    self._l1.pop(key, None)
-                    self._rejected_serve += 1
-                    log.warning(
-                        "narrcache.serve_gate_reject",
-                        key_prefix=key[:16],
-                        model=entry.model,
+            # ── Bypass paths ────────────────────────────────────────────────
+            if not self._settings.narrcache_enabled or runtime_disabled:
+                self._bypass += 1
+                try:
+                    return await client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        **kwargs,
                     )
-                else:
-                    # Bump LRU recency and return.
-                    self._l1.move_to_end(key, last=True)
-                    self._hits += 1
-                    return entry.completion
+                finally:
+                    _stamp("bypass")
 
-        # ── MISS path (call upstream OUTSIDE the lock; gate, then store) ────
-        completion = await client.chat.completions.create(
-            model=model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            **kwargs,
-        )
-        self._misses += 1
+            # Bounded key surface: only exactly system+user calls are cacheable.
+            try:
+                key = self._make_key(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except ValueError:
+                self._bypass += 1
+                try:
+                    return await client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        **kwargs,
+                    )
+                finally:
+                    _stamp("bypass")
 
-        response_text, tokens_in, tokens_out = _extract_completion_text(completion)
+            lock = self._ensure_lock()
+            now = time.monotonic()
 
-        if not NarrCacheGate.is_pure_narration(response_text):
-            self._rejected_store += 1
-            log.info(
-                "narrcache.store_gate_reject",
-                key_prefix=key[:16],
+            serve_rejected = False
+
+            # ── HIT path (with double-gate re-verification) ─────────────────
+            async with lock:
+                entry = self._l1.get(key)
+                if entry is not None:
+                    if self._is_expired(entry, now_monotonic=now):
+                        # Expired — drop and fall through to MISS.
+                        self._l1.pop(key, None)
+                    elif not NarrCacheGate.is_pure_narration(entry.response_text):
+                        # Gate tightened since the entry was stored — fail-CLOSED.
+                        self._l1.pop(key, None)
+                        self._rejected_serve += 1
+                        serve_rejected = True
+                        log.warning(
+                            "narrcache.serve_gate_reject",
+                            key_prefix=key[:16],
+                            model=entry.model,
+                        )
+                    else:
+                        # Bump LRU recency, compute savings, and return.
+                        self._l1.move_to_end(key, last=True)
+                        self._hits += 1
+                        savings = _compute_savings_usd(
+                            model=entry.model,
+                            tokens_input=entry.tokens_input,
+                            tokens_output=entry.tokens_output,
+                        )
+                        span.set_attribute("eldritch.tokens.input", 0)
+                        span.set_attribute("eldritch.tokens.output", 0)
+                        _stamp("hit", savings_usd=savings)
+                        return entry.completion
+
+            # ── MISS path (call upstream OUTSIDE the lock; gate, then store) ─
+            completion = await client.chat.completions.create(
                 model=model,
-                text_preview=response_text[:80],
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                **kwargs,
             )
+            self._misses += 1
+
+            response_text, tokens_in, tokens_out = _extract_completion_text(completion)
+            span.set_attribute("eldritch.tokens.input", tokens_in)
+            span.set_attribute("eldritch.tokens.output", tokens_out)
+
+            if not NarrCacheGate.is_pure_narration(response_text):
+                self._rejected_store += 1
+                log.info(
+                    "narrcache.store_gate_reject",
+                    key_prefix=key[:16],
+                    model=model,
+                    text_preview=response_text[:80],
+                )
+                _stamp("gate_reject_store")
+                return completion
+
+            # Gate accepted — store with LRU + TTL bookkeeping.
+            async with lock:
+                self._l1[key] = _L1Entry(
+                    completion=completion,
+                    response_text=response_text,
+                    tokens_input=tokens_in,
+                    tokens_output=tokens_out,
+                    model=model,
+                    created_monotonic=time.monotonic(),
+                )
+                self._l1.move_to_end(key, last=True)
+                self._evict_lru_if_needed()
+
+            _stamp("gate_reject_serve" if serve_rejected else "miss")
             return completion
 
-        # Gate accepted — store with LRU + TTL bookkeeping.
-        async with lock:
-            self._l1[key] = _L1Entry(
-                completion=completion,
-                response_text=response_text,
-                tokens_input=tokens_in,
-                tokens_output=tokens_out,
-                model=model,
-                created_monotonic=time.monotonic(),
-            )
-            self._l1.move_to_end(key, last=True)
-            self._evict_lru_if_needed()
 
-        return completion
+def _compute_savings_usd(*, model: str, tokens_input: int, tokens_output: int) -> float:
+    """Return the USD cost that a cache HIT avoided.
+
+    Loads the Phase 13 pricing table lazily (so the narration_cache module
+    has no module-level dependency on ``cost.py``'s YAML reads). Unknown
+    models return 0.0 — the warning is logged by ``calculate_cost`` itself.
+    """
+    try:
+        from eldritch_dm.observability.cost import calculate_cost, load_pricing
+
+        table = load_pricing()
+        usd = calculate_cost(model, tokens_input, tokens_output, table)
+        return float(usd)
+    except Exception as exc:  # noqa: BLE001 — savings is observability, never block hot path
+        log.debug(
+            "narrcache.savings_calc_failed",
+            error_type=type(exc).__name__,
+            model=model,
+        )
+        return 0.0
 
 
 def _extract_completion_text(completion: Any) -> tuple[str, int, int]:

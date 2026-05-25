@@ -341,16 +341,18 @@ async def test_ttl_expiry_drops_entry(monkeypatch: pytest.MonkeyPatch) -> None:
         ]
     )
 
-    # MISS → store at t=100
-    times = iter([100.0, 100.0, 200.0, 200.0, 200.0])
+    # Use a settable clock so we never run out of values across however many
+    # internal time.monotonic() calls the cache makes.
+    clock = {"t": 100.0}
     monkeypatch.setattr(
         "eldritch_dm.observability.narration_cache.time.monotonic",
-        lambda: next(times),
+        lambda: clock["t"],
     )
     await cache.acompletion(client, model="m", messages=_MSGS, max_tokens=10, temperature=0.7)
     assert cache.metrics_snapshot().size == 1
 
-    # Second call at t=200 → entry is 100s old, TTL is 1s → expired → MISS.
+    # Advance the clock 100s — TTL is 1s, so the entry is expired → MISS.
+    clock["t"] = 200.0
     await cache.acompletion(client, model="m", messages=_MSGS, max_tokens=10, temperature=0.7)
     snap = cache.metrics_snapshot()
     assert snap.misses == 2
