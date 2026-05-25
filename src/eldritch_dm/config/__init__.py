@@ -75,6 +75,19 @@ class Settings(BaseSettings):
     # CSV of guild IDs; use `guild_ids_list` property to parse
     discord_guild_ids: str = ""
 
+    # Phase 22 / OPQOL-02 — owner Discord user ID for budget/degraded-mode DMs.
+    # When set, EldritchDM DMs this user on budget breach + degraded-mode
+    # transitions, rate-limited 1 DM per event-type per hour. Unset → log-only
+    # behavior (zero behavior change for self-hosters who do not opt in).
+    discord_owner_id: int | None = Field(
+        default=None,
+        alias="DISCORD_OWNER_ID",
+        description=(
+            "Owner Discord user ID for budget/degraded-mode DMs. Unset → "
+            "log-only. Phase 22 / OPQOL-02 / D-170."
+        ),
+    )
+
     # ── oMLX / MCP ───────────────────────────────────────────────────────────
     omlx_endpoint: AnyHttpUrl = AnyHttpUrl("http://localhost:8765/v1")
     omlx_model: str = "ShoeGPT"
