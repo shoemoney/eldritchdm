@@ -53,6 +53,10 @@ import discord
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from eldritch_dm.gameplay.monster_driver import MonsterDriver
+from eldritch_dm.gameplay.monster_memory import (
+    MonsterMemory,
+    MonsterMemoryRegistry,
+)
 from eldritch_dm.logging import get_logger
 from eldritch_dm.observability import traced_decision
 
@@ -230,6 +234,45 @@ def _extract_monster_int(current_actor: dict[str, Any]) -> int | None:
         return None
 
 
+def _augment_with_memory(
+    slim: dict[str, Any],
+    memory: MonsterMemory | None,
+    *,
+    pc_id: str,
+) -> dict[str, Any]:
+    """Add 3 D-57-safe memory-derived fields to a slimmed candidate (Phase 21 / D-159).
+
+    Returns a NEW dict (does not mutate the input). When ``memory is None`` the
+    slim dict is returned unchanged — preserves byte-identical behavior when
+    the SmartMonsterDriver is constructed without a ``monster_memory`` registry.
+
+    Added fields (all D-57-safe — never raw HP/AC/exact-damage):
+      - ``recent_damage_dealt``: ``"low" | "moderate" | "high" | None`` — band
+        derived from cumulative damage dealt by this PC to this monster.
+      - ``concentrating_on``: ``str | None`` — spell name (observable on the
+        battlefield, so the NAME itself is allowed through).
+      - ``marked_dangerous``: ``bool`` — INT-gated flag set by prior observations.
+
+    Fail-soft (L-07): any exception → returns the slim dict unchanged.
+    """
+    if memory is None:
+        return slim
+    try:
+        augmented = dict(slim)
+        augmented["recent_damage_dealt"] = memory.damage_band(pc_id)
+        augmented["concentrating_on"] = memory.concentrating_on.get(pc_id)
+        augmented["marked_dangerous"] = pc_id in memory.marked_dangerous
+        return augmented
+    except Exception as exc:  # noqa: BLE001 — fail-soft per L-07 / D-165
+        log.warning(
+            "augment_with_memory_failed",
+            pc_id=pc_id,
+            error_type=type(exc).__name__,
+            error=str(exc)[:200],
+        )
+        return slim
+
+
 # ── Driver ────────────────────────────────────────────────────────────────────
 
 
@@ -260,6 +303,7 @@ class SmartMonsterDriver(MonsterDriver):
         cache_max_size: int = _DEFAULT_CACHE_MAX_SIZE,
         embed_update_callback: Callable[[str, str], Awaitable[None]] | None = None,
         aoe_addendum_loader: Callable[[], tuple[str, str]] | None = None,
+        monster_memory: MonsterMemoryRegistry | None = None,
     ) -> None:
         super().__init__(
             mcp=mcp,
@@ -288,6 +332,13 @@ class SmartMonsterDriver(MonsterDriver):
         # so a closed coalescer queue (shutdown) cannot crash combat — same
         # fail-soft contract as D-58.
         self._embed_update_callback = embed_update_callback
+        # Phase 21 / MEM-02: optional cross-round monster memory registry. When
+        # provided, ``_pick_target_llm`` augments slimmed candidates with three
+        # D-57-safe derived fields (``recent_damage_dealt`` categorical band,
+        # ``concentrating_on`` spell name, ``marked_dangerous`` bool) before
+        # the LLM call. Default ``None`` → augmentation skipped → byte-identical
+        # to pre-Phase-21 behavior. Fail-soft per L-07 / D-165.
+        self._monster_memory = monster_memory
         # Rebind log with smart-component tag
         self._log = log.bind(component="SmartMonsterDriver")
 
@@ -469,6 +520,32 @@ class SmartMonsterDriver(MonsterDriver):
             return None
 
         candidates = [_slim_candidate(p) for p in targets]
+        # Phase 21 / MEM-02: augment with cross-round memory-derived flags. The
+        # registry's session_id is not currently threaded through ``_pick_target_llm``
+        # so we use a stable string ``"default"`` for the per-channel default
+        # session. A future plan may thread real session_id end-to-end.
+        # Fail-soft: any exception inside the lookup or augment helper degrades
+        # to unaugmented candidates (D-165).
+        if self._monster_memory is not None:
+            try:
+                if self._monster_memory.has_repo:
+                    mem = await self._monster_memory.recall_async(
+                        channel_id, "default", monster_id
+                    )
+                else:
+                    mem = self._monster_memory.recall(
+                        channel_id, "default", monster_id
+                    )
+                candidates = [
+                    _augment_with_memory(c, mem, pc_id=str(c.get("id", "")))
+                    for c in candidates
+                ]
+            except Exception as exc:  # noqa: BLE001 — fail-soft per D-165
+                bound_log.warning(
+                    "monster_memory_lookup_failed",
+                    error_type=type(exc).__name__,
+                    error=str(exc)[:200],
+                )
         monster_name = current_actor.get("name", "monster")
 
         # Phase 20 / D-151: surface monster's own actions to the LLM. Malformed
