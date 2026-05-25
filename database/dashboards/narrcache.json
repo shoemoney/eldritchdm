@@ -1,0 +1,42 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-narrcache",
+  "title": "Narration response cache (Phase 18)",
+  "description": "Cache effectiveness for the OPT-IN narration response cache. Hit rate is gated by NarrCacheGate (mechanical-honesty fail-CLOSED filter): responses containing HP/AC/damage patterns are bypassed, not cached. The savings_usd attribute estimates LLM-spend reduction. Cache is OFF by default (NARRCACHE_ENABLED=true required); a flat-zero hit rate when disabled is expected.",
+  "span_filter": {
+    "span_names": ["eldritch.narrcache.call"]
+  },
+  "metrics": [
+    {
+      "name": "hit_rate",
+      "panel_type": "line",
+      "span_name": "eldritch.narrcache.call",
+      "field": "eldritch.narrcache.layer",
+      "aggregation": "hit_rate",
+      "hit_rate_values": ["hit"],
+      "miss_rate_values": ["miss", "bypass"],
+      "group_by": ["eldritch.narrcache.layer"],
+      "time_window": "1h",
+      "healthy_range": "10-30% hit rate during repeated narrative beats (resting, travel); 'bypass' visibility is a feature — it proves the mechanical-honesty gate is firing"
+    },
+    {
+      "name": "size",
+      "panel_type": "gauge",
+      "span_name": "eldritch.narrcache.call",
+      "field": "eldritch.narrcache.size",
+      "aggregation": "last",
+      "time_window": "5m",
+      "healthy_range": "Grows with unique (model_id, prompt_hashes) tuples seen; bounded by L1 LRU"
+    },
+    {
+      "name": "savings_usd",
+      "panel_type": "counter",
+      "span_name": "eldritch.narrcache.call",
+      "field": "eldritch.narrcache.savings_usd",
+      "aggregation": "sum",
+      "time_window": "24h",
+      "healthy_range": "Strictly non-negative; reported only on cache hits (miss/bypass don't emit the attribute)"
+    }
+  ],
+  "query_recipe": "Phoenix UI → Project 'eldritch-narrcache' → Three panels: (1) Filter span_name='eldritch.narrcache.call', plot count(layer='hit') / total grouped by eldritch.narrcache.layer over 1h. (2) Filter span_name='eldritch.narrcache.call', plot last(eldritch.narrcache.size) over 5m. (3) Filter span_name='eldritch.narrcache.call', plot sum(eldritch.narrcache.savings_usd) over 24h."
+}
