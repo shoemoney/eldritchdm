@@ -5,11 +5,54 @@ Shared pytest fixtures for EldritchDM tests.
 from __future__ import annotations
 
 import logging
+import sys
 
 import pytest
 import structlog
 
 from eldritch_dm.config import get_settings
+
+# Cog modules that EldritchBot.setup_hook() loads via load_extension.
+# discord.py's load_extension REPLACES sys.modules[name] with a freshly
+# imported module (see discord/ext/commands/bot.py:957-962:
+# `lib = importlib.util.module_from_spec(spec); sys.modules[key] = lib`).
+# This breaks test isolation because tests like
+# tests/integration/test_phase3_smoke.py import `IngestCog` at collection
+# time (holding a class reference bound to the ORIGINAL module dict); any
+# test that calls setup_hook (either via bot_factory or by constructing
+# EldritchBot inline) overwrites sys.modules with a NEW module, and a
+# later `mock.patch("eldritch_dm.bot.cogs.ingest.ingest", ...)` patches
+# the NEW module while the test instantiates the cog class bound to the
+# OLD module — mock is bypassed → real pipeline.ingest runs → fails.
+#
+# The _restore_cog_modules_after_test autouse fixture below snapshots
+# these modules before each test and restores them in teardown so the
+# next test's mock.patch lands on the same module dict that collection-
+# time imports captured. See FLAKE-02 / Phase 15.
+_COG_MODULES: tuple[str, ...] = (
+    "eldritch_dm.bot.cogs.diagnostics",
+    "eldritch_dm.bot.cogs.lobby",
+    "eldritch_dm.bot.cogs.ingest",
+    "eldritch_dm.bot.cogs.exploration",
+    "eldritch_dm.bot.cogs.combat",
+)
+
+
+@pytest.fixture(autouse=True)
+def _restore_cog_modules_after_test():
+    """Snapshot+restore cog modules around every test (FLAKE-02 closure).
+
+    Applies to the ENTIRE test suite, not just tests/bot/, because some
+    polluters live elsewhere (e.g. tests that construct EldritchBot
+    inline without using the ``bot_factory`` fixture). See module-level
+    ``_COG_MODULES`` comment for the full diagnosis.
+    """
+    saved = {k: sys.modules[k] for k in _COG_MODULES if k in sys.modules}
+    try:
+        yield
+    finally:
+        for name, mod in saved.items():
+            sys.modules[name] = mod
 
 
 @pytest.fixture(autouse=True)
