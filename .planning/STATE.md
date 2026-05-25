@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Cache Architecture
-status: executing
-last_updated: "2026-05-25T20:57:45.956Z"
-last_activity: 2026-05-25 -- Phase 22 execution started
+milestone: v1.6
+milestone_name: UX/Feature Expansion
+status: complete
+last_updated: "2026-05-25T21:30:00.000Z"
+last_activity: 2026-05-25 -- v1.6 all 4 phases complete; ready for audit + tag
 progress:
-  total_phases: 17
-  completed_phases: 16
-  total_plans: 29
-  completed_plans: 29
-  percent: 94
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
+  percent: 100
 ---
 
 # EldritchDM — State

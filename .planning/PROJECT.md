@@ -2,10 +2,30 @@
 
 ## Current State
 
-**Current Milestone:** v1.6 UX/Feature Expansion (in progress, 0/4 phases)
-**Goal:** Close deferred UX + feature items — streaming "thinking" embed (P19), AOE/multi-target tactic selection (P20), cross-round monster memory (P21), operator quality-of-life bundle (P22 — hot-reload eligibility + Discord DM on budget breach + Phase 16↔17 invalidation wire).
+**Shipped:** v1.6 UX/Feature Expansion · 2026-05-25 · tag `v1.6` · 12/12 reqs · **122 new tests across 4 phases**
 
-**Previously shipped:** v1.5 Cache Architecture · 2026-05-25 · tag `v1.5` · 9/9 reqs · **276 new tests · honest-report contract delivered 3×**
+**v1.6 highlights:**
+- Streaming "thinking" embed (P19) — cancellation-safe; STREAM_ENABLED env opt-out
+- AOE/multi-target tactic (P20) — MonsterTacticChoice extended additively; backwards-compat @property; 26-scenario corpus
+- Cross-round monster memory (P21) — categorical signals (low/moderate/high), INT-gated marking, opt-in persistence; cog-side session-close hook deferred to v1.7 (honest gap)
+- Operator quality-of-life (P22) — hot-reload eligibility, Discord DM on budget breach, Phase 16↔17 cache-wipe wire
+
+The full SmartMonsterDriver flywheel from v1.1 → v1.2 (eval) → v1.5 (caches) → v1.6 (UX + memory + AOE) is now end-to-end functional. v1.0 → v1.6 production-ready.
+
+**Earlier:** v1.5 (`v1.5` 9/9) · v1.4 (`v1.4` 3/3, **first full-suite GREEN since v1.1**) · v1.3 (`v1.3` 2.5/3 → FLAKE-02 closed by v1.4) · v1.2 (`v1.2` 8/8) · v1.2.1 hotfix · v1.1 (`v1.1` 10/10) · v1.0 MVP (`v1.0` 71/73)
+**Repo:** https://github.com/shoemoney/eldritchdm
+**License:** Apache 2.0
+
+## v1.7 Candidate Backlog
+
+- **Cog-side MonsterMemory session-close wiring** (v1.6 Phase 21 honest gap) — orchestrator-event-contract change + lobby.py /end_game hook
+- **REQUIREMENTS.md atomicity wording reconciliation** (v1.6 Phase 22 doc-fix)
+- **NarrCache integration site** (v1.5 Phase 18 deferred) — wire when free-form narration generator is added
+- **Wire AOE addendum into existing prompt assembly** — Phase 20 ships the addendum; integration into the live oracle path could expand
+- **Multi-channel session cleanup** — MonsterMemory tracks per (channel, session, monster); needs ops audit for cross-channel guild scenarios
+- **Phoenix dashboard cache observability panels** — currently MCP/character/narration caches emit spans but no bundled dashboard
+- **Cross-platform CI matrix** — Linux runner to surface ocrmac issue properly (v1.3 carried)
+- **gsd-tools planner template upstream fix** (v1.3 audit) — file as issue against gsd-tools
 
 **v1.5 highlights:**
 - dm20 MCP query cache (Phase 16) — L1 LRU + opt-in L2 aiosqlite. Allow-list of 6 truly-static reference tools (agent corrected my proposal which contained mutable-state reads).
