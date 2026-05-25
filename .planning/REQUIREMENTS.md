@@ -24,7 +24,7 @@
 
 - [x] **MEM-01**: `MonsterMemory` class — bounded LRU per `(channel_id, session_id, monster_id)` tracks: who hit this monster most (DPS ranking), who concentrated on what spell (concentration map), who's flagged "dangerous" by INT-derived heuristic. Bounded to 200 rounds per session to cap memory growth.
 - [x] **MEM-02**: Memory exposed to SmartMonsterDriver via the existing slimmed candidate context — augments each PC entry with `recent_damage_dealt: int`, `concentrating_on: str | None`, `marked_dangerous: bool`. LLM sees this but doesn't get exact HP/AC (D-57 meta-knowledge guard preserved). Tests verify the LLM uses memory to bias targeting toward "the wizard who keeps casting Hypnotic Pattern."
-- [ ] **MEM-03**: Memory persistence — opt-in via `MONSTER_MEMORY_PERSIST=true` (default false). When persistent, memory snapshots to `~/.eldritch/monster_memory.sqlite` (Phase 17 cache pattern). Survives bot restart. Cleared when session ends (`dm20__close_session` event hook).
+- [x] **MEM-03**: Memory persistence — opt-in via `MONSTER_MEMORY_PERSIST=true` (default false). When persistent, memory snapshots to `~/.eldritch/monster_memory.sqlite` (Phase 17 cache pattern). Survives bot restart. Cleared when session ends (`dm20__close_session` event hook).
 
 ### OPQOL — Operator quality-of-life bundle (Phase 22)
 
