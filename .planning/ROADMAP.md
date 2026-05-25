@@ -5,7 +5,7 @@
 - ✅ **v1.0 MVP — Mechanically Honest AI Dungeon Master** — Phases 1-5 (shipped 2026-05-23) — see [`milestones/v1.0-ROADMAP.md`](milestones/v1.0-ROADMAP.md)
 - ✅ **v1.1 Polish** — Phases 6-10 (shipped 2026-05-24) — see [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Quality Flywheel** — Phases 11-13 (shipped 2026-05-24) — see [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
-- 🚧 **v1.3 Hygiene Sweep** — Phase 14 (in progress) — close carried-since-v1.1 test flakes + SUMMARY frontmatter compliance
+- ⚠️ **v1.3 Hygiene Sweep** — Phase 14 (shipped 2026-05-25, partial) — see [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
 
 ## Phases
 
@@ -52,21 +52,16 @@
 
 </details>
 
-## 🚧 v1.3 Hygiene Sweep (Phase 14)
+<details>
+<summary>⚠️ v1.3 Hygiene Sweep (Phase 14) — SHIPPED 2026-05-25 (partial)</summary>
 
-### Phase 14: Flake cleanup + planner template hardening
-**Goal**: Close the carried-since-v1.1 test flakes (OCR backend env failures + phase3_smoke test-pollution flake) and backfill `requirements_completed:` frontmatter across all v1.1+v1.2 SUMMARYs. Sets up a green-on-green test suite for v1.4 feature work.
-**Mode:** mvp (hygiene — no user-visible behavior change)
-**Depends on**: Phase 13 (v1.2 final state — full corpus to audit)
-**Requirements**: FLAKE-01, FLAKE-02, FLAKE-03
-**Success Criteria**:
-  1. Full `uv run pytest tests/` returns 0 ocrmac-related failures (skip-gated cleanly OR ocrmac installed in dev venv)
-  2. `tests/integration/test_phase3_smoke.py` passes deterministically in full-suite run; root-cause polluter identified and fixed at source
-  3. All 14 v1.1+v1.2 SUMMARY.md files have `requirements_completed:` YAML frontmatter field listing the REQ-IDs each plan satisfied
-  4. ruff + lint-imports clean; no new test failures introduced
-**Plans**:
-- [ ] Plan 01: OCR env-gate + phase3_smoke pollution root-cause + fix (`fix(14-01): OCR env-gate + phase3_smoke pollution root-cause fix (FLAKE-01, FLAKE-02)`)
-- [ ] Plan 02: SUMMARY frontmatter backfill across v1.1+v1.2 phases (`docs(14-02): backfill requirements_completed: frontmatter across all v1.1+v1.2 SUMMARYs (FLAKE-03)`)
+- [x] **Phase 14**: Flake cleanup + planner template hardening (2/2 plans, partial closure on FLAKE-02)
+
+**Final stats:** 1 phase · 2 plans · 8 commits · 2.5/3 requirements (FLAKE-02 accepted-partial). Test failures −75% (8→2). Surfaced WRITER-QUEUE-HANG-01 as v1.4 follow-up.
+
+**Tag:** `v1.3` · **Archive:** [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
+
+</details>
 
 ## Traceability
 

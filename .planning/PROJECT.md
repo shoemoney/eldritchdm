@@ -2,13 +2,41 @@
 
 ## Current State
 
-**Current Milestone:** v1.3 Hygiene Sweep (in progress, 0/1 phases) — see [`ROADMAP.md`](./ROADMAP.md)
-**Goal:** Close the carried-since-v1.1 test flakes (OCR backend env + phase3_smoke pollution) and bring SUMMARY.md frontmatter into spec compliance. Single focused phase of low-risk hygiene work.
-**Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified against 2026 vendor pricing
-**Previous:** v1.2 Quality Flywheel · 2026-05-24 · tag `v1.2` · 8/8 reqs
-**Earlier:** v1.1 Polish · 2026-05-24 · tag `v1.1` · 10/10 reqs / v1.0 MVP · 2026-05-23 · 71/73 reqs
+**Shipped:** v1.3 Hygiene Sweep · 2026-05-25 · tag `v1.3` · 2.5/3 reqs (FLAKE-02 partial — see audit)
+**Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
+**Earlier:** v1.2 Quality Flywheel · 2026-05-24 · `v1.2` 8/8 / v1.1 Polish · `v1.1` 10/10 / v1.0 MVP · `v1.0` 71/73
 **Repo:** https://github.com/shoemoney/eldritchdm
 **License:** Apache 2.0
+
+## Next Milestone Recommendation (v1.4)
+
+**WRITER-QUEUE-HANG-01 (top priority)** — Phase 14 surfaced two pre-existing pytest HANGS that cannot be killed by `pytest-timeout` (C-level thread boundary in the bot's writer-queue shutdown path). Until these are fixed, full-suite green is blocked. Predates v1.3 — last touched Phase 5 + Phase 6.
+
+Affected files:
+- `tests/bot/test_setup_hook.py::test_writer_queue_drain_timeout` (Phase 5, eb4e0f7)
+- `tests/bot/test_bot_lifecycle.py::test_close_cleanly_shuts_down` (Phase 6, d6e87c4)
+
+Approach: rewrite the bot's writer-queue shutdown to be cleanly cancellable (likely needs an asyncio.Event-based stop signal in the writer thread loop). Once unblocked, FLAKE-02's residual phase3_smoke pollution should resolve in the same pass.
+
+Other v1.4 candidates (per prior PROJECT.md):
+- **Cache architecture** (user's original hint from v1.2.1 turn): multi-level dm20 MCP query cache + persistent character cache + narration response cache + embedding cache. 3-4 phases.
+- **UX/feature expansion**: streaming "monster is thinking" embed + AOE/multi-target tactic selection + cross-round monster memory + hot-reload eligibility.yaml + Discord DM-to-owner on budget breach.
+
+<details>
+<summary>v1.3 milestone retrospective</summary>
+
+**Wins:**
+- FLAKE-01 ✓ OCR + prometheus_client skip-gates ship clean
+- FLAKE-03 ✓ All 14 v1.1+v1.2 SUMMARYs backfilled with `requirements_completed:` frontmatter; CI gate prevents drift
+- Test failures dropped 75% (8→2)
+- Backfill script + CI gate are reusable tools for future milestones
+
+**Partial:**
+- FLAKE-02: 1 of 2 polluters root-caused and fixed (structlog/stdlib logging via `tests/conftest.py` autouse reset). Second polluter is downstream of writer-queue hangs → properly scoped to v1.4 as WRITER-QUEUE-HANG-01.
+
+**Honest reporting:** executor honored the HARD CONSTRAINT halt-report contract rather than silently marking green.
+
+</details>
 
 ## Next Milestone Candidates (v1.3 themes)
 
