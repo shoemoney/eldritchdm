@@ -33,8 +33,10 @@ This module emits no spans on its own. Plan 18-02 wires
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
+import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -224,15 +226,23 @@ class NarrCache:
         # asyncio.Lock is constructed lazily inside the first acompletion()
         # call so the cache is safe to instantiate at import / module
         # scope (no running loop required).
-        self._lock: Any | None = None
+        self._lock: asyncio.Lock | None = None
         self._l1: OrderedDict[str, _L1Entry] = OrderedDict()
-        self._counters_lock = None  # initialized in __init__ below
         # Counters
         self._hits = 0
         self._misses = 0
         self._rejected_store = 0
         self._rejected_serve = 0
         self._bypass = 0
+        # Runtime-disable flag set by Plan 18-02's NarrCacheRuntimeOverride.
+        # Kept as a per-instance bool so tests can flip without touching a
+        # global singleton.
+        self._runtime_disabled = False
+
+    def _ensure_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     # ── Public surface (Plan 18-01 stubs / 18-02 fills in) ──────────────────
 
@@ -286,6 +296,146 @@ class NarrCache:
         while len(self._l1) > max_size:
             self._l1.popitem(last=False)
 
+    # ── Hot-path: acompletion ───────────────────────────────────────────────
+
+    async def acompletion(
+        self,
+        client: Any,
+        *,
+        model: str,
+        messages: list[dict[str, str]],
+        max_tokens: int,
+        temperature: float,
+        **kwargs: Any,
+    ) -> Any:
+        """Cached wrapper around ``client.chat.completions.create``.
+
+        Returns the upstream ``ChatCompletion`` object (or a previously
+        cached one). The cache is bypassed when any of these is true:
+
+        - ``NARRCACHE_ENABLED`` is false (D-129, the default)
+        - ``_runtime_disabled`` is true (D-134; Plan 18-02 ties this to the
+          process-wide runtime override singleton)
+        - ``messages`` is not exactly ``[system, user]`` (multi-turn / wrong
+          shape → bypass; we keep the cache-key surface bounded)
+
+        On a HIT, the cached response text is re-gated (D-130, double-gate):
+        if the response now matches the regex set (e.g. the gate was
+        tightened in a release), the entry is invalidated and treated as a
+        MISS.
+
+        On a MISS, the upstream call is made, the response text is gated,
+        and the entry is stored ONLY if the gate accepts the text. Either
+        way, the upstream result is returned.
+        """
+        # ── Bypass paths ────────────────────────────────────────────────────
+        if not self._settings.narrcache_enabled or self._runtime_disabled:
+            self._bypass += 1
+            return await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                **kwargs,
+            )
+
+        # Bounded key surface: only exactly system+user calls are cacheable.
+        try:
+            key = self._make_key(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        except ValueError:
+            self._bypass += 1
+            return await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                **kwargs,
+            )
+
+        lock = self._ensure_lock()
+        now = time.monotonic()
+
+        # ── HIT path (with double-gate re-verification) ─────────────────────
+        async with lock:
+            entry = self._l1.get(key)
+            if entry is not None:
+                if self._is_expired(entry, now_monotonic=now):
+                    # Expired — drop and fall through to MISS.
+                    self._l1.pop(key, None)
+                elif not NarrCacheGate.is_pure_narration(entry.response_text):
+                    # Gate tightened since the entry was stored — fail-CLOSED.
+                    self._l1.pop(key, None)
+                    self._rejected_serve += 1
+                    log.warning(
+                        "narrcache.serve_gate_reject",
+                        key_prefix=key[:16],
+                        model=entry.model,
+                    )
+                else:
+                    # Bump LRU recency and return.
+                    self._l1.move_to_end(key, last=True)
+                    self._hits += 1
+                    return entry.completion
+
+        # ── MISS path (call upstream OUTSIDE the lock; gate, then store) ────
+        completion = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            **kwargs,
+        )
+        self._misses += 1
+
+        response_text, tokens_in, tokens_out = _extract_completion_text(completion)
+
+        if not NarrCacheGate.is_pure_narration(response_text):
+            self._rejected_store += 1
+            log.info(
+                "narrcache.store_gate_reject",
+                key_prefix=key[:16],
+                model=model,
+                text_preview=response_text[:80],
+            )
+            return completion
+
+        # Gate accepted — store with LRU + TTL bookkeeping.
+        async with lock:
+            self._l1[key] = _L1Entry(
+                completion=completion,
+                response_text=response_text,
+                tokens_input=tokens_in,
+                tokens_output=tokens_out,
+                model=model,
+                created_monotonic=time.monotonic(),
+            )
+            self._l1.move_to_end(key, last=True)
+            self._evict_lru_if_needed()
+
+        return completion
+
+
+def _extract_completion_text(completion: Any) -> tuple[str, int, int]:
+    """Pull ``(content, tokens_in, tokens_out)`` from a ChatCompletion-like obj.
+
+    Defensive: handles real OpenAI ``ChatCompletion`` objects, dicts, and
+    test fakes that may set ``usage`` to ``None``.
+    """
+    try:
+        choice = completion.choices[0]
+        content = choice.message.content or ""
+    except (AttributeError, IndexError, TypeError):
+        content = ""
+    usage = getattr(completion, "usage", None)
+    tokens_in = int(getattr(usage, "prompt_tokens", 0) or 0) if usage is not None else 0
+    tokens_out = int(getattr(usage, "completion_tokens", 0) or 0) if usage is not None else 0
+    return content, tokens_in, tokens_out
+
 
 __all__ = [
     "NarrCache",
@@ -293,5 +443,6 @@ __all__ = [
     "NarrCacheMetrics",
     "_GATE_PATTERNS",
     "_cache_key",
+    "_extract_completion_text",
     "_extract_system_user",
 ]
