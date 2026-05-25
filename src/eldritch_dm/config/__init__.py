@@ -195,6 +195,17 @@ class Settings(BaseSettings):
     )
     charcache_ttl_s: PositiveInt = Field(default=3600, alias="CHARCACHE_TTL_S")
 
+    # ── Phase 18 narration cache (NARRCACHE-01/02/03) ─────────────────────────
+    # OPT-IN cache — defaults to FALSE (D-129). The narration cache is the
+    # riskiest cache in EldritchDM: a wrongly-cached response could leak
+    # mechanical effects (HP, AC, damage, conditions) and break the v1.0
+    # mechanical-honesty contract. NarrCacheGate (fail-CLOSED regex
+    # classifier) gates BOTH store and serve, but operators must still opt
+    # in explicitly. See Phase 18 18-CONTEXT.md D-129.
+    narrcache_enabled: bool = Field(default=False, alias="NARRCACHE_ENABLED")
+    narrcache_l1_size: PositiveInt = Field(default=256, alias="NARRCACHE_L1_SIZE")
+    narrcache_l1_ttl_s: PositiveInt = Field(default=3600, alias="NARRCACHE_L1_TTL_S")
+
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False
     sanitizer_verbose_audit: bool = False
