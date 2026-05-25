@@ -2,9 +2,17 @@
 
 ## Current State
 
-**Current Milestone:** v1.4 Writer-Queue Reliability (in progress, 0/1 phases)
-**Goal:** Fix WRITER-QUEUE-HANG-01 (surfaced by v1.3) + close FLAKE-02 residual. Once shipped: full pytest green for the first time since v1.1; v1.5 cache architecture work unblocked.
-**Shipped:** v1.3 Hygiene Sweep · 2026-05-25 · `v1.3` · 2.5/3 (FLAKE-02 partial)
+**Current Milestone:** v1.4 Writer-Queue Reliability — **HALT-DEFERRED** (premises invalidated; rescope needed)
+**What happened:** Phase 15 agent ran empirical reproduction and found:
+  - HANG-01 (`test_writer_queue_drain_timeout`) and HANG-02 (`test_close_cleanly_shuts_down`) **do NOT reproduce** at HEAD — they pass in isolation AND in the full suite.
+  - `src/eldritch_dm/persistence/connection.py:WriterQueue` **already implements** the exact `asyncio.Event` + sentinel-value pattern v1.4 CONTEXT proposed adding.
+  - The real residual bug is HANG-03 / FLAKE-02 — a test-isolation issue in `tests/bot/conftest.py:bot_factory` (loads cogs via `load_extension`, doesn't unload, pollutes `tests/integration/test_phase3_smoke.py` mock.patch chain).
+  - Agent halt-and-reported per HARD CONSTRAINT. Halt-report: `.planning/phases/15-writer-queue-fix/15-HALT-REPORT.md`.
+**Orchestrator attempted inline fix** (autouse sys.modules-clear fixture) — caused pytest hangs in 3 separate verification runs. Reverted untested.
+
+**Rescope for v1.5:** Single focused phase — "FLAKE-02 closure via test-isolation fix". Three candidate approaches (see halt-report §3): (a) `bot_factory` teardown with `unload_extension`, (b) dependency-inject the mocked `ingest` into `IngestCog`, (c) `importlib.reload` at phase3 test setup. Approach (a) is cleanest. **Needs fresh-context session** since this orchestrator session has degraded test-runner stability (3 pytest hangs).
+
+**Shipped:** v1.3 Hygiene Sweep · 2026-05-25 · `v1.3` · 2.5/3 (FLAKE-02 partial — still partial after v1.4)
 **Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
 **Earlier:** v1.2 Quality Flywheel · `v1.2` 8/8 / v1.1 Polish · `v1.1` 10/10 / v1.0 MVP · `v1.0` 71/73
 **Repo:** https://github.com/shoemoney/eldritchdm

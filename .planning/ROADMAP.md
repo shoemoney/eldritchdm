@@ -6,7 +6,7 @@
 - ✅ **v1.1 Polish** — Phases 6-10 (shipped 2026-05-24) — see [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Quality Flywheel** — Phases 11-13 (shipped 2026-05-24) — see [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - ⚠️ **v1.3 Hygiene Sweep** — Phase 14 (shipped 2026-05-25, partial) — see [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
-- 🚧 **v1.4 Writer-Queue Reliability** — Phase 15 (in progress) — fix WRITER-QUEUE-HANG-01 + close FLAKE-02 residual
+- ⏸ **v1.4 Writer-Queue Reliability** — Phase 15 halt-deferred (premises invalidated — see `phases/15-writer-queue-fix/15-HALT-REPORT.md`; rescope to FLAKE-02 test-isolation fix in v1.5)
 
 ## Phases
 
