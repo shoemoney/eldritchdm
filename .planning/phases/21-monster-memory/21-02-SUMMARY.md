@@ -23,6 +23,8 @@ metrics:
   full_phase_test_count: 39 (memory) + 15 (repo) + 8 (driver augment) + 2 (factory) = 64 new
   full_suite_after_phase: 473 gameplay+persistence pass
   regression_in_existing_tests: 0
+requirements_completed:
+  - MEM-03
 ---
 
 # Phase 21 Plan 02 — Opt-in persistence + session-close hook (honest gap) Summary

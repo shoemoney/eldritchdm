@@ -15,6 +15,9 @@ key-files:
     - src/eldritch_dm/config/__init__.py
 tags: [phase-22, opqol-02, opqol-03, budget-dm, schema-invalidation, fail-soft]
 completed: 2026-05-25
+requirements_completed:
+  - OPQOL-02
+  - OPQOL-03
 ---
 
 # Phase 22 Plan 02: Discord DM-to-owner + Phase 16↔17 invalidation wire Summary

@@ -26,6 +26,9 @@ metrics:
   tests_total_in_modified_files: 50 (smart driver) + 12 (factory) + 29 (memory) = 91
   full_gameplay_suite: 340 passed (was ~328 pre-Phase-21)
   regression_in_existing_tests: 0
+requirements_completed:
+  - MEM-01
+  - MEM-02
 ---
 
 # Phase 21 Plan 01 — MonsterMemory class + slimmed-context augmentation Summary

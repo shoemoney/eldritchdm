@@ -24,6 +24,9 @@ metrics:
   tasks: 5
   tests-added: 52 (character_cache) + 2 (config) = 54
 status: complete
+requirements_completed:
+  - CHARCACHE-01
+  - CHARCACHE-02
 ---
 
 # Phase 17 Plan 01: CharacterCacheRepo + CharacterSnapshot allow-list

@@ -22,6 +22,9 @@ metrics:
   tasks: 5
   tests-added: 28
 status: complete
+requirements_completed:
+  - MCPCACHE-01
+  - MCPCACHE-02
 ---
 
 # Phase 16 Plan 01: MCPCache scaffolding — L1 LRU + L2 SQLite + cacheable allow-list

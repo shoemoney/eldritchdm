@@ -22,6 +22,8 @@ metrics:
   tasks: 6
   tests-added: 7 (CLI)
 status: complete
+requirements_completed:
+  - CHARCACHE-03
 ---
 
 # Phase 17 Plan 02: TTL fallback + eldritch-dm-cache-clear CLI + KPIs

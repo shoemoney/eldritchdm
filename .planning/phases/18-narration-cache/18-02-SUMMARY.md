@@ -6,6 +6,8 @@ tags: [narration-cache, runtime-override, cli, observability, savings-kpi]
 requirements: [NARRCACHE-03]
 status: complete
 completed: 2026-05-25
+requirements_completed:
+  - NARRCACHE-03
 ---
 
 # Phase 18 Plan 18-02: Runtime override + savings observability + CLIs — Summary

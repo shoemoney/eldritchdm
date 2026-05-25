@@ -24,6 +24,9 @@ metrics:
   tests_added: 18  # 5 loader + 13 corpus
   tests_final_gameplay_eval: 437
 completed_date: 2026-05-25
+requirements_completed:
+  - AOE-02
+  - AOE-03
 ---
 
 # Phase 20 Plan 02: AOE system prompt + ActionDescriptor + corpus expansion — Summary

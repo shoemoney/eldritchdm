@@ -20,6 +20,9 @@ metrics:
   tasks: 6
   duration_minutes: ~25
   date: 2026-05-25
+requirements_completed:
+  - STREAM-02
+  - STREAM-03
 ---
 
 # Phase 19 Plan 02: Hidden fallback + STREAM_ENABLED opt-out + cog wiring

@@ -11,6 +11,8 @@ key-files:
     - src/eldritch_dm/bot/bot.py
 tags: [phase-22, opqol-01, hot-reload, eligibility-yaml, fail-soft]
 completed: 2026-05-25
+requirements_completed:
+  - OPQOL-01
 ---
 
 # Phase 22 Plan 01: Hot-reload eligibility.yaml Summary

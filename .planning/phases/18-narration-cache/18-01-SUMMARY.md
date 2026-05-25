@@ -6,6 +6,9 @@ tags: [narration-cache, mechanical-honesty, opt-in, fail-closed, cache]
 requirements: [NARRCACHE-01, NARRCACHE-02]
 status: complete
 completed: 2026-05-25
+requirements_completed:
+  - NARRCACHE-01
+  - NARRCACHE-02
 ---
 
 # Phase 18 Plan 18-01: NarrCache + NarrCacheGate + 50-scenario corpus — Summary

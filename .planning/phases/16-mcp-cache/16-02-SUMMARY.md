@@ -22,6 +22,8 @@ metrics:
   tasks: 6
   tests-added: 10
 status: complete
+requirements_completed:
+  - MCPCACHE-03
 ---
 
 # Phase 16 Plan 02: Invalidation API + schema-version polling + KPI integration
