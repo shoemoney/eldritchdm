@@ -328,8 +328,18 @@ class NarrCache:
         and the entry is stored ONLY if the gate accepts the text. Either
         way, the upstream result is returned.
         """
+        # Consult the process-wide runtime override (D-134). Lazy import to
+        # avoid a hard module dependency at narration_cache import time —
+        # callers/tests that construct a NarrCache instance directly without
+        # the override singleton remain unaffected by override state.
+        from eldritch_dm.observability.narrcache_runtime import (
+            get_narrcache_override,
+        )
+
+        runtime_disabled = self._runtime_disabled or get_narrcache_override().is_disabled()
+
         # ── Bypass paths ────────────────────────────────────────────────────
-        if not self._settings.narrcache_enabled or self._runtime_disabled:
+        if not self._settings.narrcache_enabled or runtime_disabled:
             self._bypass += 1
             return await client.chat.completions.create(
                 model=model,
