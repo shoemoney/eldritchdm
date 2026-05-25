@@ -73,7 +73,7 @@ class _Client:
         self.chat = self
 
     @property
-    def completions(self) -> "_Client":  # type: ignore[name-defined]
+    def completions(self) -> _Client:
         return self
 
     async def create(self, **_kw: Any) -> Any:
