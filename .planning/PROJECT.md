@@ -2,9 +2,16 @@
 
 ## Current State
 
-**Current Milestone:** v1.5 Cache Architecture (in progress, 0/3 phases) — see [`ROADMAP.md`](./ROADMAP.md)
-**Goal:** Multi-level cache across the stack — dm20 MCP query cache (rules lookups hot path), persistent character cache (kill restart-latency UX issue), opt-in narration cache (cost reduction with hard mechanical-honesty guardrails). Unblocked by v1.4's full-suite green.
-**Shipped:** v1.4 Writer-Queue Reliability · 2026-05-25 · `v1.4` · 3/3 · **first full-suite GREEN since v1.1**
+**Shipped:** v1.5 Cache Architecture · 2026-05-25 · tag `v1.5` · 9/9 reqs · **276 new tests · honest-report contract delivered 3×**
+
+**v1.5 highlights:**
+- dm20 MCP query cache (Phase 16) — L1 LRU + opt-in L2 aiosqlite. Allow-list of 6 truly-static reference tools (agent corrected my proposal which contained mutable-state reads).
+- Persistent character cache (Phase 17) — 14 static-only fields; synthetic SHA-256 ETag (dm20 has no HTTP headers — honestly documented).
+- Narration response cache (Phase 18) — opt-in default OFF; NarrCacheGate with 8 fail-CLOSED regex patterns; 50-scenario corpus shows 0% false-negative + 0% false-positive. Ships as standalone API (no current narration call site).
+
+All 3 caches preserve v1.0's mechanical-honesty contract via fail-CLOSED allow-lists. The honest-report contract caught 3 distinct corrections — every phase before commit.
+
+**Previous shipped:** v1.4 Writer-Queue Reliability · 2026-05-25 · `v1.4` · 3/3 · **first full-suite GREEN since v1.1**
 **Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
 **Earlier:** v1.3 Hygiene Sweep · `v1.3` 2.5/3 (FLAKE-02 closed by v1.4) / v1.2 · `v1.2` 8/8 / v1.1 · `v1.1` 10/10 / v1.0 · `v1.0` 71/73
 **Repo:** https://github.com/shoemoney/eldritchdm
