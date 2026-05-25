@@ -452,3 +452,272 @@ def test_cacheable_tools_membership_snapshot() -> None:
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Plan 16-02 — invalidation + schema-version polling + KPI emission
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+from eldritch_dm.mcp.cache import MCPCacheMetrics  # noqa: E402  (post-snapshot tests)
+from eldritch_dm.observability import span_buffer as _span_buffer  # noqa: E402
+
+
+@pytest.fixture
+def isolated_span_buffer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Point the span buffer at a tmp file and reset it before each test."""
+    monkeypatch.setenv("ELDRITCH_SPAN_BUFFER_PATH", str(tmp_path / "spans.sqlite"))
+    _span_buffer.reset_for_tests()
+    yield
+    _span_buffer.reset_for_tests()
+
+
+# ── invalidate() ─────────────────────────────────────────────────────────────
+
+
+@respx.mock
+async def test_invalidate_all_clears_both_layers(
+    env_base: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("MCPCACHE_L2_ENABLED", "true")
+    monkeypatch.setenv("MCPCACHE_L2_PATH", str(tmp_path / "mcp_cache.sqlite"))
+    s = _fresh_settings()
+    respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"v": 1}))
+    cache, client = _make_cache(s)
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")
+        await cache.call("dm20__get_class_info", class_name="cleric")
+        assert cache.l1_size == 2
+        snap_before = await cache.metrics_snapshot()
+        assert snap_before.size_l1 == 2
+        assert snap_before.size_l2 == 2
+
+        removed = await cache.invalidate()
+        # L1 + L2 each had 2 entries → 4 total removals.
+        assert removed == 4
+        snap_after = await cache.metrics_snapshot()
+        assert snap_after.size_l1 == 0
+        assert snap_after.size_l2 == 0
+        assert snap_after.invalidations_total == 1
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+@respx.mock
+async def test_invalidate_by_tool_only_clears_that_tool(env_base: None) -> None:
+    """Invalidating one tool must leave entries for other tools intact."""
+    respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"v": 1}))
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")
+        await cache.call("dm20__get_race_info", race="elf")
+        assert cache.l1_size == 2
+        removed = await cache.invalidate(tool_name="dm20__get_class_info")
+        assert removed == 1
+        assert cache.l1_size == 1  # get_race_info entry survives
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+@respx.mock
+async def test_invalidate_by_tool_and_args_single_entry(env_base: None) -> None:
+    """Invalidating a specific (tool, args) leaves siblings intact."""
+    respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"v": 1}))
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")
+        await cache.call("dm20__get_class_info", class_name="cleric")
+        assert cache.l1_size == 2
+        removed = await cache.invalidate(
+            tool_name="dm20__get_class_info", args={"class_name": "wizard"}
+        )
+        assert removed == 1
+        assert cache.l1_size == 1
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+@respx.mock
+async def test_invalidate_args_without_tool_raises(env_base: None) -> None:
+    """Calling invalidate(args=...) without tool_name is a programmer error."""
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        with pytest.raises(ValueError):
+            await cache.invalidate(args={"class_name": "wizard"})
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+# ── Schema-version poller ────────────────────────────────────────────────────
+
+
+@respx.mock
+async def test_schema_version_poller_wipes_on_change(env_base: None) -> None:
+    """On version change the poller invalidates everything."""
+    # Two different tool routes:
+    #   dm20__get_class_info → cacheable data
+    #   dm20__schema_version → control plane
+
+    state = {"calls": 0}
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = request.read().decode()
+        if "dm20__schema_version" in body:
+            state["calls"] += 1
+            # First call: v1; subsequent: v2 (triggers wipe).
+            version = "1" if state["calls"] == 1 else "2"
+            return httpx.Response(200, json={"version": version})
+        return httpx.Response(200, json={"v": 1})
+
+    respx.post(MCP_URL).mock(side_effect=_responder)
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")
+        assert cache.l1_size == 1
+
+        task = cache.start_schema_version_poller(client, interval_s=0.05)
+        # Wait long enough for the second poll (>0.05s) to fire and detect
+        # the change, then invalidate.
+        await asyncio.sleep(0.25)
+        await cache.stop_schema_version_poller()
+        assert task.done()
+
+        assert cache.l1_size == 0
+        snap = await cache.metrics_snapshot()
+        assert snap.invalidations_total >= 1
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+@respx.mock
+async def test_schema_version_poller_disables_on_404(env_base: None) -> None:
+    """If dm20__schema_version returns 4xx, the poller exits cleanly."""
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = request.read().decode()
+        if "dm20__schema_version" in body:
+            return httpx.Response(404, json={"error": "not found"})
+        return httpx.Response(200, json={"v": 1})
+
+    respx.post(MCP_URL).mock(side_effect=_responder)
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        task = cache.start_schema_version_poller(client, interval_s=0.05)
+        # Initial call 404s → task should exit on its own within a few ms.
+        await asyncio.sleep(0.1)
+        assert task.done()
+        # Subsequent cacheable calls still work normally.
+        result = await cache.call("dm20__get_class_info", class_name="wizard")
+        assert result == {"v": 1}
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+@respx.mock
+async def test_stop_poller_is_idempotent(env_base: None) -> None:
+    """Calling stop without start, or twice, must not raise."""
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.stop_schema_version_poller()  # never started
+        await cache.stop_schema_version_poller()  # again
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+# ── Metrics snapshot ─────────────────────────────────────────────────────────
+
+
+@respx.mock
+async def test_metrics_snapshot_shape(env_base: None) -> None:
+    """metrics_snapshot returns a frozen MCPCacheMetrics with correct counts."""
+    respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"v": 1}))
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")  # MISS
+        await cache.call("dm20__get_class_info", class_name="wizard")  # HIT
+        await cache.call("dm20__create_character", x=1)  # BYPASS
+        snap = await cache.metrics_snapshot()
+        assert isinstance(snap, MCPCacheMetrics)
+        assert snap.hits_l1 == 1
+        assert snap.misses_l1 == 1
+        assert snap.bypass_count == 1
+        assert snap.size_l1 == 1
+        assert snap.size_l2 == -1  # L2 disabled sentinel
+        assert snap.invalidations_total == 0
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+
+# ── KPI span emission ────────────────────────────────────────────────────────
+
+
+@respx.mock
+async def test_traced_span_emitted_per_call(
+    env_base: None, isolated_span_buffer: None
+) -> None:
+    """One eldritch.mcp.cache span per call; layer attr reflects path."""
+    from datetime import UTC, datetime, timedelta
+
+    respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"v": 1}))
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")  # miss
+        await cache.call("dm20__get_class_info", class_name="wizard")  # l1
+        await cache.call("dm20__create_character", x=1)  # bypass
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+    buf = _span_buffer.init_buffer()
+    buf.flush(timeout_s=1.0)
+    now = datetime.now(UTC)
+    rows = buf.query(
+        since=now - timedelta(seconds=10),
+        until=now + timedelta(seconds=1),
+        span_name="eldritch.mcp.cache",
+    )
+    assert len(rows) == 3
+    layers = sorted([r.driver_path for r in rows])
+    # Mapping: driver_path holds the layer name.
+    assert layers == ["bypass", "l1", "miss"]
+    # Every row stamps the tool_name in the `model` column.
+    tool_names = {r.model for r in rows}
+    assert "dm20__get_class_info" in tool_names
+    assert "dm20__create_character" in tool_names
+
+
+@respx.mock
+async def test_invalidation_span_emitted(
+    env_base: None, isolated_span_buffer: None
+) -> None:
+    """invalidate() writes one eldritch.mcp.cache.invalidation row."""
+    from datetime import UTC, datetime, timedelta
+
+    respx.post(MCP_URL).mock(return_value=httpx.Response(200, json={"v": 1}))
+    cache, client = _make_cache(_fresh_settings())
+    try:
+        await cache.call("dm20__get_class_info", class_name="wizard")
+        await cache.invalidate()  # scope='all', removed=1
+    finally:
+        await cache.aclose()
+        await client.aclose()
+
+    buf = _span_buffer.init_buffer()
+    buf.flush(timeout_s=1.0)
+    now = datetime.now(UTC)
+    rows = buf.query(
+        since=now - timedelta(seconds=10),
+        until=now + timedelta(seconds=1),
+        span_name="eldritch.mcp.cache.invalidation",
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.driver_path == "all"  # scope mapped onto driver_path
+    assert row.combat_round == 1  # entries_removed mapped onto combat_round
+
+
