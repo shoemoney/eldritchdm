@@ -224,6 +224,20 @@ class Settings(BaseSettings):
     narrcache_l1_size: PositiveInt = Field(default=256, alias="NARRCACHE_L1_SIZE")
     narrcache_l1_ttl_s: PositiveInt = Field(default=3600, alias="NARRCACHE_L1_TTL_S")
 
+    # ── Phase 21 monster memory (MEM-03) ──────────────────────────────────────
+    # OPT-IN persistence — defaults to FALSE (D-160). When enabled, MonsterMemory
+    # snapshots survive bot restart via aiosqlite at the configured path. Off by
+    # default keeps the bot self-contained for users who don't want cross-restart
+    # memory. See Phase 21 21-CONTEXT.md D-160/D-161.
+    monster_memory_persist: bool = Field(
+        default=False, alias="MONSTER_MEMORY_PERSIST"
+    )
+    monster_memory_path: str = Field(
+        default="~/.eldritch/monster_memory.sqlite",
+        alias="MONSTER_MEMORY_PATH",
+        description="Monster memory snapshot DB; '~' expanded at use.",
+    )
+
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False
     sanitizer_verbose_audit: bool = False
