@@ -131,22 +131,47 @@ class _BufferingSpan:
     def _to_row(self) -> BufferRow:
         a = self._attrs
         # Pull common fields with safe fallbacks.
-        latency = a.get("eldritch.latency_ms")
-        tokens_in = a.get("eldritch.tokens.input")
+        latency = a.get("eldritch.latency_ms") or a.get("eldritch.mcp.cache.latency_ms")
+        tokens_in = a.get("eldritch.tokens.input") or a.get("eldritch.mcp.cache.size_l2")
         tokens_out = a.get("eldritch.tokens.output")
         fallback = a.get("eldritch.fallback.reason")
+        # Phase 16 mcp cache: reuse existing BufferRow fields without
+        # extending the schema (keeps the test_span_buffer canaries green):
+        #   model         <- eldritch.mcp.tool_name
+        #   driver_path   <- eldritch.mcp.cache.layer
+        #                    OR eldritch.mcp.cache.invalidation.scope
+        #   combat_round  <- eldritch.mcp.cache.size_l1
+        #                    OR eldritch.mcp.cache.invalidation.entries_removed
+        #   tokens_input  <- eldritch.mcp.cache.size_l2
+        driver_path = (
+            a.get("eldritch.driver.path")
+            or a.get("eldritch.mcp.cache.layer")
+            or a.get("eldritch.mcp.cache.invalidation.scope")
+        )
+        combat_round = (
+            a.get("eldritch.combat.round")
+            if a.get("eldritch.combat.round") is not None
+            else a.get("eldritch.mcp.cache.size_l1")
+            if a.get("eldritch.mcp.cache.size_l1") is not None
+            else a.get("eldritch.mcp.cache.invalidation.entries_removed")
+        )
+        model = (
+            a.get("eldritch.ingest.model")
+            or a.get("eldritch.eval.judge_model")
+            or a.get("eldritch.mcp.tool_name")
+            or a.get("eldritch.mcp.cache.invalidation.tool_name")
+        )
         return BufferRow(
             span_name=self._span_name,
             monster_id=a.get("eldritch.monster.id"),
             channel_id=a.get("eldritch.channel.id"),
-            combat_round=a.get("eldritch.combat.round"),
-            driver_path=a.get("eldritch.driver.path"),
+            combat_round=combat_round,
+            driver_path=driver_path,
             latency_ms=int(latency) if latency is not None else None,
             tokens_input=int(tokens_in) if tokens_in is not None else None,
             tokens_output=int(tokens_out) if tokens_out is not None else None,
             fallback_reason=str(fallback) if fallback is not None else None,
-            # ingest + eval populate model differently — try both keys.
-            model=a.get("eldritch.ingest.model") or a.get("eldritch.eval.judge_model"),
+            model=model,
             scenario_id=a.get("eldritch.eval.scenario_id"),
             overall_score=a.get("eldritch.eval.overall_score"),
             refusal=(fallback == "refusal"),
@@ -264,6 +289,98 @@ def traced_translate(*, channel_id: str, model: str) -> Iterator[Any]:
         for k, v in fixed_attrs.items():
             otel_span.set_attribute(k, v)
         proxy = _BufferingSpan("eldritch.ingest.translate", fixed_attrs, otel_span)
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+
+
+# ── Phase 16 — MCP cache spans ───────────────────────────────────────────────
+#
+# Two new span names, both routed through the same dual-sink machinery as the
+# Phase 11/13 spans above. Attributes are mapped onto existing ``BufferRow``
+# fields in ``_BufferingSpan._build_row`` so we do NOT extend the buffer
+# schema (keeps the ``test_span_buffer`` canaries green).
+#
+# eldritch.mcp.cache attributes:
+#   - eldritch.mcp.tool_name           (str)
+#   - eldritch.mcp.cache.layer         ("l1" | "l2" | "miss" | "bypass")
+#   - eldritch.mcp.cache.size_l1       (int)
+#   - eldritch.mcp.cache.size_l2       (int — -1 when L2 disabled)
+#   - eldritch.mcp.cache.latency_ms    (int)
+#
+# eldritch.mcp.cache.invalidation attributes:
+#   - eldritch.mcp.cache.invalidation.scope            ("all"|"tool"|"entry"|"schema_version")
+#   - eldritch.mcp.cache.invalidation.tool_name        (str | None)
+#   - eldritch.mcp.cache.invalidation.entries_removed  (int)
+
+
+@contextmanager
+def traced_mcp_cache(
+    *,
+    tool_name: str,
+) -> Iterator[Any]:
+    """Open a span for one MCPCache.call().
+
+    The caller (MCPCache.call) is responsible for setting
+    ``eldritch.mcp.cache.layer``, ``eldritch.mcp.cache.size_l1``,
+    ``eldritch.mcp.cache.size_l2``, and ``eldritch.mcp.cache.latency_ms``
+    on the proxy before exit. Buffer row is always written; OTel export is
+    secondary (gated on ``OBSERVABILITY_ENABLED``).
+    """
+    fixed_attrs = {
+        "eldritch.mcp.tool_name": tool_name,
+    }
+    if _TRACER is None:
+        proxy = _BufferingSpan("eldritch.mcp.cache", fixed_attrs, None)
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+        return
+    with _TRACER.start_as_current_span("eldritch.mcp.cache") as otel_span:
+        for k, v in fixed_attrs.items():
+            otel_span.set_attribute(k, v)
+        proxy = _BufferingSpan("eldritch.mcp.cache", fixed_attrs, otel_span)
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+
+
+@contextmanager
+def traced_mcp_cache_invalidation(
+    *,
+    scope: Literal["all", "tool", "entry", "schema_version"],
+    tool_name: str | None = None,
+) -> Iterator[Any]:
+    """Open a span for one MCPCache.invalidate() / schema-version wipe.
+
+    The caller is responsible for setting
+    ``eldritch.mcp.cache.invalidation.entries_removed`` before exit.
+    """
+    fixed_attrs: dict[str, Any] = {
+        "eldritch.mcp.cache.invalidation.scope": scope,
+    }
+    if tool_name is not None:
+        fixed_attrs["eldritch.mcp.cache.invalidation.tool_name"] = tool_name
+    if _TRACER is None:
+        proxy = _BufferingSpan(
+            "eldritch.mcp.cache.invalidation", fixed_attrs, None
+        )
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+        return
+    with _TRACER.start_as_current_span(
+        "eldritch.mcp.cache.invalidation"
+    ) as otel_span:
+        for k, v in fixed_attrs.items():
+            otel_span.set_attribute(k, v)
+        proxy = _BufferingSpan(
+            "eldritch.mcp.cache.invalidation", fixed_attrs, otel_span
+        )
         try:
             yield proxy
         finally:
