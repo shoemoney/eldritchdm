@@ -185,3 +185,70 @@ def test_settings_alias_MONSTER_MEMORY_PERSIST_env(
         assert s.monster_memory_path == "/tmp/test_mm.sqlite"
     finally:
         get_settings.cache_clear()  # type: ignore[attr-defined]
+
+
+# ── Integration: real repo + MonsterMemoryRegistry ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_registry_hydrates_from_real_repo(tmp_path: Path) -> None:
+    """End-to-end: write via one repo, hydrate into a new registry via another.
+
+    Simulates bot restart with MONSTER_MEMORY_PERSIST=true.
+    """
+    from eldritch_dm.gameplay.monster_memory import (
+        MonsterMemoryRegistry,
+    )
+
+    db_path = tmp_path / "mm.sqlite"
+
+    # Bot run #1: observe + flush.
+    repo1 = MonsterMemoryRepo(path=db_path)
+    reg1 = MonsterMemoryRegistry(repo=repo1)
+    mem = await reg1.recall_async("c", "s", "m")
+    mem.observe_hit("pc-wizard", 18, observer_int=14)
+    mem.observe_concentration("pc-wizard", "Hypnotic Pattern")
+    await reg1.flush("c", "s", "m")
+    await repo1.aclose()
+
+    # Bot run #2: fresh registry + repo, hydrate from disk.
+    repo2 = MonsterMemoryRepo(path=db_path)
+    reg2 = MonsterMemoryRegistry(repo=repo2)
+    try:
+        hydrated = await reg2.recall_async("c", "s", "m")
+        assert hydrated.damage_dealt_by == {"pc-wizard": 18}
+        assert hydrated.concentrating_on == {"pc-wizard": "Hypnotic Pattern"}
+        assert "pc-wizard" in hydrated.marked_dangerous
+        # damage_band derived correctly post-hydration:
+        assert hydrated.damage_band("pc-wizard") == "high"
+    finally:
+        await repo2.aclose()
+
+
+@pytest.mark.asyncio
+async def test_registry_purge_session_async_clears_disk(tmp_path: Path) -> None:
+    """purge_session_async must wipe both in-memory entries AND the disk rows."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemoryRegistry
+
+    db_path = tmp_path / "mm.sqlite"
+    repo = MonsterMemoryRepo(path=db_path)
+    reg = MonsterMemoryRegistry(repo=repo)
+    try:
+        mem1 = await reg.recall_async("c", "s", "m1")
+        mem1.observe_hit("pc1", 10)
+        mem2 = await reg.recall_async("c", "s", "m2")
+        mem2.observe_hit("pc2", 5)
+        await reg.flush_all()
+
+        # Verify disk has both rows.
+        assert await repo.load("c", "s", "m1") is not None
+        assert await repo.load("c", "s", "m2") is not None
+
+        n = await reg.purge_session_async("c", "s")
+        assert n == 2
+
+        # Disk wiped.
+        assert await repo.load("c", "s", "m1") is None
+        assert await repo.load("c", "s", "m2") is None
+    finally:
+        await repo.aclose()
