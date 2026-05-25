@@ -14,6 +14,7 @@ land in Phases 3-5 in their own cogs.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from typing import Any
 
 import discord
@@ -21,6 +22,7 @@ from discord.ext import commands
 
 from eldritch_dm.bot.coalescer import ChannelEditBudget
 from eldritch_dm.bot.dm_offline_debouncer import DMOfflineDebouncer
+from eldritch_dm.bot.embeds import EmbedColor
 from eldritch_dm.config import Settings
 from eldritch_dm.gameplay.eligibility_loader import load_eligibility
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
@@ -360,6 +362,30 @@ class EldritchBot(commands.Bot):
         )
         self.openai_client = smart_openai_client  # expose for ingest cog reuse
 
+        # Phase 19 / STREAM-01: build the thinking-indicator callback closure
+        # that routes "🤔 {name} is sizing up the party..." text through the
+        # CombatCog's per-channel EmbedCoalescer. Honors STREAM_ENABLED
+        # (D-143): when false, callback is None and the driver stays silent.
+        # Cancellation-safe per D-145.
+        bot_self = self
+
+        async def _emit_thinking_indicator(channel_id: str, text: str) -> None:
+            combat_cog = bot_self.get_cog("CombatCog")
+            if combat_cog is None:
+                return
+            coalescer = getattr(combat_cog, "_coalescers", {}).get(channel_id)
+            if coalescer is None:
+                return
+            embed = discord.Embed(
+                title="⚔️ Combat",
+                description=text,
+                color=int(EmbedColor.COMBAT),
+            )
+            with contextlib.suppress(Exception):
+                await coalescer.update(embed)
+
+        stream_cb = _emit_thinking_indicator if settings.stream_enabled else None
+
         self.monster_driver = make_monster_driver(
             mcp=self.mcp,
             rate_limiter=self.rate_limiter,
@@ -373,6 +399,7 @@ class EldritchBot(commands.Bot):
             # Smart-driver-only kwargs — factory pops these for "random" mode
             openai_client=smart_openai_client,
             llm_model=ingest_cfg.model,
+            embed_update_callback=stream_cb,  # Phase 19 / STREAM-01/03
         )
 
         # (e3c) Phase 5 Plan 02 — shared SessionLocks + RiposteSweeper.
