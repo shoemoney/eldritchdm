@@ -457,6 +457,16 @@ class CharacterCacheRepo:
             )
             return removed
 
+    async def purge_all(self) -> int:
+        """Wipe every entry. Returns count removed.
+
+        Phase 22 / OPQOL-03 alias for ``invalidate(None)``. Exists so the
+        schema-poller callback at the OPQOL-03 wire site can pass a method
+        with a self-documenting name (``repo.purge_all`` reads more clearly
+        than ``lambda: repo.invalidate(None)``).
+        """
+        return await self.invalidate(None)
+
     async def metrics_snapshot(self) -> CharacterCacheMetrics:
         """Read-only snapshot of cache counters + current size."""
         conn = await self._ensure_conn()
