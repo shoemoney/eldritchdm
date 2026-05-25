@@ -862,9 +862,9 @@ async def test_corpus_aoe_with_empty_list() -> None:
 
 @pytest.mark.asyncio
 async def test_aoe_addendum_injected_when_available_actions_present() -> None:
-    """When current_actor has available_actions, the system prompt contains
-    the addendum text; otherwise the legacy single-target prompt is sent
-    unchanged (bit-identical to Phase 10)."""
+    """Phase 23 / D-180: addendum is injected ONLY when ≥2 AOE-class actions
+    are present on the actor. Single-AOE / no-AOE actors keep the legacy
+    single-target prompt (bit-identical to Phase 10)."""
     pcs = _make_pcs(2)
     client = MagicMock()
     client.chat.completions.create = AsyncMock(
@@ -872,7 +872,7 @@ async def test_aoe_addendum_injected_when_available_actions_present() -> None:
     )
     driver = _make_driver(openai_client=client)
 
-    # With available_actions → addendum injected
+    # With ≥2 AOE-class actions → addendum injected (D-180)
     await driver._choose_target(
         pcs,
         channel_id="c",
@@ -880,7 +880,7 @@ async def test_aoe_addendum_injected_when_available_actions_present() -> None:
         current_actor={
             "character_id": "drake",
             "intelligence": 14,
-            "available_actions": [_breath_action()],
+            "available_actions": [_breath_action(), _fireball_action()],
         },
     )
     call_with = client.chat.completions.create.call_args_list[0]

@@ -573,8 +573,22 @@ class SmartMonsterDriver(MonsterDriver):
             "in your rationale; refer to visible cues (armor, posture, "
             "visible wounds, active conditions)."
         )
-        if action_descriptors and self._aoe_addendum_text:
+        # Phase 23 / D-180: addendum injection requires ≥2 AOE-class actions on
+        # the actor (single + multi_attack monsters get no benefit and the
+        # addendum is non-trivial in tokens — D-57 slim-context discipline).
+        # D-181: when injected, stamp the OUTER decision-span with the SemVer
+        # so operators can correlate prompt versions to outcomes via OTel.
+        aoe_count = sum(
+            1
+            for a in action_descriptors
+            if a.get("kind") in {"aoe", "cone", "breath"}
+        )
+        if aoe_count >= 2 and self._aoe_addendum_text:
             system_prompt = legacy_system_prompt + "\n\n" + self._aoe_addendum_text
+            if span is not None:
+                span.set_attribute(
+                    "eldritch.aoe.addendum_version", self._aoe_addendum_version
+                )
         else:
             system_prompt = legacy_system_prompt
         user_payload = {
