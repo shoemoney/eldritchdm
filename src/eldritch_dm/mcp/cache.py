@@ -39,6 +39,7 @@ import json
 import os
 import time
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -343,14 +344,26 @@ class MCPCache:
         client: MCPClient,
         *,
         interval_s: float = 60.0,
+        on_schema_change: Callable[[], Awaitable[None]] | None = None,
     ) -> asyncio.Task[None]:
         """Start a background task that polls ``dm20__schema_version``.
 
         On first call: stores the version. On subsequent calls: if the value
-        changed, runs ``invalidate()`` (full wipe) and logs
+        changed, wipes the MCP cache, optionally invokes
+        ``on_schema_change`` (Phase 22 / OPQOL-03), and logs
         ``mcp_cache_schema_version_changed``. If the very first call raises
         ``MCPToolError`` (404 — tool not available), the task logs
         ``mcp_cache_schema_poller_disabled`` and exits cleanly.
+
+        Args:
+            client: MCPClient to poll.
+            interval_s: poll interval in seconds (default 60s).
+            on_schema_change: optional async callback invoked AFTER the MCP
+                wipe on each detected version change. Used by OPQOL-03 to
+                wipe Phase 17's character_cache atomically. Failure in
+                either side (MCP wipe OR callback) logs
+                ``eldritch.cache.partial_wipe`` and continues — partial-wipe
+                is acceptable (D-171/172) since the caches are independent.
 
         Returns the task so callers can ``await stop_schema_version_poller()``
         on shutdown.
@@ -359,7 +372,7 @@ class MCPCache:
             return self._poller_task
         self._poller_stop = asyncio.Event()
         self._poller_task = asyncio.create_task(
-            self._poll_schema_version(client, interval_s),
+            self._poll_schema_version(client, interval_s, on_schema_change),
             name="MCPCache._poll_schema_version",
         )
         return self._poller_task
@@ -379,6 +392,7 @@ class MCPCache:
         self,
         client: MCPClient,
         interval_s: float,
+        on_schema_change: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         """The poller body. Disables itself gracefully if the tool 4xxs."""
         # Initial fetch.
@@ -428,18 +442,54 @@ class MCPCache:
                     scope="schema_version",
                 ) as span:
                     removed = 0
-                    async with self._l1_lock:
-                        removed += len(self._l1)
-                        self._l1.clear()
-                    if (
-                        self._settings.mcpcache_l2_enabled
-                        and self._l2_conn is not None
-                    ):
-                        cur = await self._l2_conn.execute(
-                            "DELETE FROM mcp_cache_entries"
+                    # MCP wipe (Phase 16 side) — Phase 22 / OPQOL-03 wraps in
+                    # try/except so a Phase 17 callback still runs even if
+                    # MCP fails (and vice versa). Partial wipes log
+                    # `eldritch.cache.partial_wipe` and continue (D-171/172).
+                    mcp_wipe_ok = True
+                    try:
+                        async with self._l1_lock:
+                            removed += len(self._l1)
+                            self._l1.clear()
+                        if (
+                            self._settings.mcpcache_l2_enabled
+                            and self._l2_conn is not None
+                        ):
+                            cur = await self._l2_conn.execute(
+                                "DELETE FROM mcp_cache_entries"
+                            )
+                            removed += cur.rowcount if cur.rowcount > 0 else 0
+                            await self._l2_conn.commit()
+                    except Exception as exc:  # noqa: BLE001
+                        mcp_wipe_ok = False
+                        self._logger.warning(
+                            "eldritch.cache.partial_wipe",
+                            old=last_version,
+                            new=current,
+                            mcp_cleared=False,
+                            primary_error_type=type(exc).__name__,
+                            primary_error=str(exc)[:200],
                         )
-                        removed += cur.rowcount if cur.rowcount > 0 else 0
-                        await self._l2_conn.commit()
+
+                    # Phase 22 / OPQOL-03 wire — fire Phase 17 invalidation.
+                    if on_schema_change is not None:
+                        try:
+                            await on_schema_change()
+                        except Exception as exc:  # noqa: BLE001
+                            if mcp_wipe_ok:
+                                self._logger.warning(
+                                    "eldritch.cache.partial_wipe",
+                                    old=last_version,
+                                    new=current,
+                                    mcp_cleared=True,
+                                    secondary_error_type=type(exc).__name__,
+                                    secondary_error=str(exc)[:200],
+                                )
+                            # If MCP also failed, the partial_wipe log above
+                            # already captured the primary failure. The
+                            # callback failure is recorded indirectly via
+                            # secondary_error_type only when MCP succeeded.
+
                     self._counters.invalidations_total += 1
                     self._counters.last_invalidation_removed = removed
                     span.set_attribute(
@@ -452,6 +502,8 @@ class MCPCache:
                         new=current,
                         entries_removed=removed,
                     )
+                # Advance version tracking regardless of wipe outcome —
+                # otherwise a transient failure would re-fire on every poll.
                 last_version = current
 
     # ── Metrics ──────────────────────────────────────────────────────────────

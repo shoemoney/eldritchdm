@@ -24,7 +24,10 @@ from eldritch_dm.bot.coalescer import ChannelEditBudget
 from eldritch_dm.bot.dm_offline_debouncer import DMOfflineDebouncer
 from eldritch_dm.bot.embeds import EmbedColor
 from eldritch_dm.config import Settings
-from eldritch_dm.gameplay.eligibility_loader import load_eligibility
+from eldritch_dm.gameplay.eligibility_loader import (
+    EligibilityFileWatcher,
+    load_eligibility,
+)
 from eldritch_dm.gameplay.exploration_batch import BatchCoordinator
 from eldritch_dm.gameplay.party_mode import PartyModeOrchestrator
 from eldritch_dm.gameplay.riposte_sweeper import RiposteSweeper
@@ -109,6 +112,9 @@ class EldritchBot(commands.Bot):
         # Phase 8 (HOMEBREW-01): loader-resolved Riposte eligibility frozenset.
         # Empty until setup_hook runs; populated via load_eligibility(settings).
         self.eligibility_set: frozenset[tuple[str, str]] = frozenset()
+        # Phase 22 (OPQOL-01): hot-reload watcher for eligibility.yaml.
+        # Constructed + started in setup_hook AFTER the initial load.
+        self.eligibility_watcher: EligibilityFileWatcher | None = None
         # Phase 5 Plan 02 gameplay subsystems — initialized in setup_hook
         self.session_locks: SessionLocks | None = None
         self.riposte_sweeper: RiposteSweeper | None = None
@@ -306,6 +312,23 @@ class EldritchBot(commands.Bot):
         self.eligibility_set = load_eligibility(settings)
         log.info("eligibility_loaded", count=len(self.eligibility_set))
 
+        # Phase 22 (OPQOL-01 / D-167 / D-168): hot-reload watcher.
+        # NOTE (v1.6 scope cut): the live MonsterDriver below holds the
+        # initial frozenset (Phase 8 D-38 injection). The watcher updates
+        # `self.eligibility_set` so any *subsequently* constructed driver
+        # picks up the new set — rebuilding a live driver mid-combat is
+        # out of scope for OPQOL-01. Documented in 22-01-SUMMARY.
+        def _apply_new_eligibility(new_set: frozenset[tuple[str, str]]) -> None:
+            self.eligibility_set = new_set
+            log.info("eligibility_hot_reloaded", count=len(new_set))
+
+        self.eligibility_watcher = EligibilityFileWatcher(
+            settings,
+            initial_set=self.eligibility_set,
+            on_reload=_apply_new_eligibility,
+        )
+        await self.eligibility_watcher.start()
+
         self.pc_classes = PCClassesRepo(db_path=settings.eldritch_db_path)
         self.riposte_timers_repo = RiposteTimerRepo(
             settings.eldritch_db_path, self.writer_queue
@@ -489,6 +512,15 @@ class EldritchBot(commands.Bot):
         even if an earlier step raises an unexpected error.
         """
         self._logger.info("bot_closing")
+
+        # Step 0_pre: Stop eligibility hot-reload watcher (Phase 22 / OPQOL-01).
+        # No dependencies on other subsystems; safe to stop first.
+        if self.eligibility_watcher is not None:
+            try:
+                await self.eligibility_watcher.stop()
+                self._logger.debug("eligibility_watcher_stopped")
+            except Exception:  # noqa: BLE001
+                self._logger.exception("eligibility_watcher_stop_error")
 
         # Step 0a: Stop RiposteSweeper FIRST (Plan 02 / OPS-04 chain).
         # Rationale: pending mark_expired calls during shutdown need

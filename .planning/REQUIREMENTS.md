@@ -28,9 +28,9 @@
 
 ### OPQOL — Operator quality-of-life bundle (Phase 22)
 
-- [ ] **OPQOL-01**: Hot-reload `eligibility.yaml` — Phase 8's loader gains a `reload()` method + file-mtime watcher background task (60s poll). When file changes, reload + emit structured log. NO bot restart needed. Failure case: bad YAML → keep last-known-good + log error (fail-soft, matches Phase 8 fail-soft contract).
-- [ ] **OPQOL-02**: Discord DM-to-owner on budget breach — Phase 13's degraded-mode trigger sends a Discord DM to `DISCORD_OWNER_ID` (env, optional) when: (a) ELDRITCH_DAILY_LLM_BUDGET_USD breached, (b) degraded mode entered, (c) degraded mode exited (recovery). Rate-limited 1 DM per event-type per hour. If `DISCORD_OWNER_ID` unset → log-only (today's behavior).
-- [ ] **OPQOL-03**: Wire Phase 16's schema-version poller to fire Phase 17's character_cache invalidation (the carried v1.5 connect-the-dots item). When dm20 schema bumps, BOTH caches wipe atomically. Integration test verifies both layers respond.
+- [x] **OPQOL-01**: Hot-reload `eligibility.yaml` — Phase 8's loader gains a `reload()` method + file-mtime watcher background task (60s poll). When file changes, reload + emit structured log. NO bot restart needed. Failure case: bad YAML → keep last-known-good + log error (fail-soft, matches Phase 8 fail-soft contract).
+- [x] **OPQOL-02**: Discord DM-to-owner on budget breach — Phase 13's degraded-mode trigger sends a Discord DM to `DISCORD_OWNER_ID` (env, optional) when: (a) ELDRITCH_DAILY_LLM_BUDGET_USD breached, (b) degraded mode entered, (c) degraded mode exited (recovery). Rate-limited 1 DM per event-type per hour. If `DISCORD_OWNER_ID` unset → log-only (today's behavior).
+- [x] **OPQOL-03**: Wire Phase 16's schema-version poller to fire Phase 17's character_cache invalidation (the carried v1.5 connect-the-dots item). When dm20 schema bumps, BOTH caches wipe atomically. Integration test verifies both layers respond.
 
 ---
 
