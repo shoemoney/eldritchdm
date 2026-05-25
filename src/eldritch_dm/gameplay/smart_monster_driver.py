@@ -395,14 +395,23 @@ class SmartMonsterDriver(MonsterDriver):
         candidate_ids = {p.get("character_id", "") for p in targets}
 
         # ── Cache hit short-circuit ──────────────────────────────────────────
+        # D-149: validate the full id-set against current candidates so an AOE
+        # cached choice that lost a PC between rounds invalidates cleanly.
         cached = self._cache.get(cache_key)
-        if cached is not None and cached.target_pc_id in candidate_ids:
-            bound_log.info("smart_driver_cache_hit", target_id=cached.target_pc_id)
+        if cached is not None and set(cached.target_pc_ids).issubset(candidate_ids):
+            bound_log.info(
+                "smart_driver_cache_hit",
+                target_id=cached.target_pc_id,
+                target_ids=cached.target_pc_ids,
+                tactic_kind=cached.tactic_kind,
+            )
             if span is not None:
                 span.set_attribute("eldritch.driver.path", "cache")
                 span.set_attribute("eldritch.tokens.input", 0)
                 span.set_attribute("eldritch.tokens.output", 0)
                 span.set_attribute("eldritch.latency_ms", 0)
+            # Plan 20-01 preserves single-target return signature: return the
+            # FIRST cached id's PC. Plan 20-02 may extend this surface.
             for pc in targets:
                 if pc.get("character_id") == cached.target_pc_id:
                     return pc
@@ -529,16 +538,41 @@ class SmartMonsterDriver(MonsterDriver):
             return None
 
         # Strict parse → fall back to regex extractor (D-51)
+        # Phase 20 / D-149: try the AOE list-shape regex FIRST (more specific),
+        # then the legacy single-id regex. Either path constructs a valid
+        # MonsterTacticChoice via the legacy-coercion validator.
         choice: MonsterTacticChoice | None = None
         try:
             choice = MonsterTacticChoice.model_validate_json(content)
         except (ValidationError, ValueError, json.JSONDecodeError):
-            m = _TARGET_RE.search(content)
-            if m is not None:
-                try:
-                    choice = MonsterTacticChoice(target_pc_id=m.group(1))
-                except ValidationError:
-                    choice = None
+            # Phase 20: list-shape extraction.
+            list_match = _TARGET_LIST_RE.search(content)
+            if list_match is not None:
+                ids = _QUOTED_ID_RE.findall(list_match.group(1))
+                kind_match = _TACTIC_KIND_RE.search(content)
+                kind = kind_match.group(1) if kind_match is not None else None
+                if ids:
+                    try:
+                        if kind is not None:
+                            choice = MonsterTacticChoice(
+                                target_pc_ids=ids, tactic_kind=kind  # type: ignore[arg-type]
+                            )
+                        else:
+                            # No kind hint: infer single iff 1 id, else aoe.
+                            inferred_kind = "single" if len(ids) == 1 else "aoe"
+                            choice = MonsterTacticChoice(
+                                target_pc_ids=ids,
+                                tactic_kind=inferred_kind,  # type: ignore[arg-type]
+                            )
+                    except ValidationError:
+                        choice = None
+            if choice is None:
+                m = _TARGET_RE.search(content)
+                if m is not None:
+                    try:
+                        choice = MonsterTacticChoice(target_pc_id=m.group(1))
+                    except ValidationError:
+                        choice = None
 
         if choice is None:
             bound_log.warning(
@@ -553,12 +587,21 @@ class SmartMonsterDriver(MonsterDriver):
                 span.set_attribute("eldritch.fallback.reason", "json_parse")
             return None
 
-        # Candidate-ID membership check (D-55)
-        if choice.target_pc_id not in candidate_ids:
+        # Candidate-ID membership check (D-55, D-149)
+        # ALL ids in target_pc_ids must be in the runtime candidate set; any
+        # hallucination → fail-soft fallback (D-58/D-153). Also enforce an
+        # upper bound (len(ids) <= len(candidates)) as a defensive cap.
+        chosen_ids = set(choice.target_pc_ids)
+        if (
+            not chosen_ids.issubset(candidate_ids)
+            or len(choice.target_pc_ids) > len(candidate_ids)
+        ):
             bound_log.warning(
                 "smart_driver_invalid_choice",
                 latency_ms=latency_ms,
                 raw_target=choice.target_pc_id,
+                raw_targets=choice.target_pc_ids,
+                tactic_kind=choice.tactic_kind,
                 candidate_ids=sorted(candidate_ids),
             )
             if span is not None:
@@ -578,6 +621,8 @@ class SmartMonsterDriver(MonsterDriver):
             "smart_driver_llm_ok",
             latency_ms=latency_ms,
             target_id=choice.target_pc_id,
+            target_ids=choice.target_pc_ids,
+            tactic_kind=choice.tactic_kind,
         )
         if span is not None:
             span.set_attribute("eldritch.latency_ms", latency_ms)
@@ -585,6 +630,8 @@ class SmartMonsterDriver(MonsterDriver):
             span.set_attribute("eldritch.tokens.output", tokens_out)
             span.set_attribute("eldritch.driver.path", "smart")
 
+        # Plan 20-01 preserves the single-target return signature: return the
+        # FIRST id's PC. Plan 20-02 may extend this surface for AOE resolution.
         for pc in targets:
             if pc.get("character_id") == choice.target_pc_id:
                 return pc
