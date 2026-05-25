@@ -10,9 +10,9 @@
 
 ### STREAM — Streaming "monster is thinking" embed (Phase 19)
 
-- [ ] **STREAM-01**: During SmartMonsterDriver oracle call (max 1500ms per v1.1 D-54), the combat embed updates with a "🤔 The {monster_name} is sizing up the party..." indicator. Embed is updated via discord.py's embed coalescer (Phase 2 — already rate-limit-aware at ≤1 edit/sec/message). NO new dependencies.
-- [ ] **STREAM-02**: Fallback path — when oracle call falls back to random (timeout, refusal, hallucination), embed transitions to the resolved action WITHOUT exposing the fallback to players (no "the AI failed" message — just the chosen target). Preserves player immersion. Structured log entry captures fallback reason for operator.
-- [ ] **STREAM-03**: Honors `STREAM_ENABLED` env var (default true). When false, embed updates only after the resolved choice (v1.5 behavior). Player-visible UX latency capped at the existing 2s embed-stall budget.
+- [x] **STREAM-01**: During SmartMonsterDriver oracle call (max 1500ms per v1.1 D-54), the combat embed updates with a "🤔 The {monster_name} is sizing up the party..." indicator. Embed is updated via discord.py's embed coalescer (Phase 2 — already rate-limit-aware at ≤1 edit/sec/message). NO new dependencies.
+- [x] **STREAM-02**: Fallback path — when oracle call falls back to random (timeout, refusal, hallucination), embed transitions to the resolved action WITHOUT exposing the fallback to players (no "the AI failed" message — just the chosen target). Preserves player immersion. Structured log entry captures fallback reason for operator.
+- [x] **STREAM-03**: Honors `STREAM_ENABLED` env var (default true). When false, embed updates only after the resolved choice (v1.5 behavior). Player-visible UX latency capped at the existing 2s embed-stall budget.
 
 ### AOE — AOE / multi-target tactic selection (Phase 20)
 

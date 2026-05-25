@@ -167,6 +167,24 @@ class Settings(BaseSettings):
         ),
     )
 
+    # ── Phase 19 streaming embed (STREAM-03) ──────────────────────────────────
+    # STREAM_ENABLED gates the "🤔 {name} is sizing up the party..." indicator
+    # surfaced by SmartMonsterDriver while it consults the LLM oracle (D-141).
+    # When false, the embed only updates after the resolved choice (v1.5
+    # behavior). Operator opt-out for mixed-mode INT 5-7 monsters where the
+    # 50/50 trigger frequency might feel noisy. The 1500ms oracle deadline
+    # (D-54) and the 2s embed-stall budget (Phase 4) are unchanged.
+    stream_enabled: bool = Field(
+        default=True,
+        alias="STREAM_ENABLED",
+        description=(
+            "When true (default), SmartMonsterDriver emits a '🤔 {name} is "
+            "sizing up the party...' indicator via the per-channel embed "
+            "coalescer BEFORE invoking the LLM oracle. Set false for the "
+            "v1.5 silent behavior."
+        ),
+    )
+
     # ── Phase 16 MCP cache (MCPCACHE-01/02/03) ────────────────────────────────
     # L1 = in-process OrderedDict LRU. Safe-by-default (TTL clears stale data).
     # L2 = aiosqlite WAL at MCPCACHE_L2_PATH. Opt-in (adds disk write cost).

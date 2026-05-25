@@ -40,6 +40,7 @@ This module is import-linter-safe: lives under `gameplay/`, imports only from
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import random as _random
 import re
@@ -153,6 +154,7 @@ class SmartMonsterDriver(MonsterDriver):
         random_choice: Callable[[Sequence[Any]], Any] = _random.choice,
         eligibility_set: frozenset[tuple[str, str]] | None = None,
         cache_max_size: int = _DEFAULT_CACHE_MAX_SIZE,
+        embed_update_callback: Callable[[str, str], Awaitable[None]] | None = None,
     ) -> None:
         super().__init__(
             mcp=mcp,
@@ -173,6 +175,14 @@ class SmartMonsterDriver(MonsterDriver):
             OrderedDict()
         )
         self._cache_max_size = cache_max_size
+        # Phase 19 / STREAM-01: optional async callback fired BEFORE the LLM
+        # oracle call to surface a "🤔 {monster} is sizing up the party..."
+        # indicator through the bot's per-channel EmbedCoalescer. Signature:
+        # ``(channel_id: str, message_text: str) -> Awaitable[None]``. The
+        # invocation is wrapped in ``contextlib.suppress(Exception)`` (D-145)
+        # so a closed coalescer queue (shutdown) cannot crash combat — same
+        # fail-soft contract as D-58.
+        self._embed_update_callback = embed_update_callback
         # Rebind log with smart-component tag
         self._log = log.bind(component="SmartMonsterDriver")
 
@@ -346,6 +356,17 @@ class SmartMonsterDriver(MonsterDriver):
             "smart_driver_llm_call",
             candidate_count=len(candidates),
         )
+
+        # ── Phase 19 / STREAM-01: thinking indicator (cancellation-safe) ─────
+        # Fires AFTER the cache-hit short-circuit and BEFORE the LLM call so
+        # cache hits remain silent (D-141). The callback's failure mode is
+        # swallowed (D-145) so combat continues if the coalescer is closed
+        # (shutdown scenario) or the bot lost the message ref.
+        if self._embed_update_callback is not None:
+            indicator_text = f"🤔 {monster_name} is sizing up the party..."
+            with contextlib.suppress(Exception):
+                await self._embed_update_callback(channel_id, indicator_text)
+
         t0 = time.monotonic()
 
         try:
