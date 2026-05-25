@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
+from pydantic import ValidationError
 
 from eldritch_dm.gameplay.smart_monster_driver import (
     MonsterTacticChoice,
@@ -411,3 +412,212 @@ async def test_choose_target_llm_failure_falls_back_to_random() -> None:
     assert openai_client.chat.completions.create.call_count == 1
     assert fallback.called
     assert chosen == pcs[1]
+
+
+# ── MonsterTacticChoice AOE/multi-target schema (Phase 20 / D-149..D-150) ────
+
+
+def test_choice_accepts_new_shape_target_pc_ids() -> None:
+    c = MonsterTacticChoice.model_validate_json(
+        '{"target_pc_ids": ["pc-1", "pc-2"], "tactic_kind": "aoe"}'
+    )
+    assert c.target_pc_ids == ["pc-1", "pc-2"]
+    assert c.tactic_kind == "aoe"
+    # Backwards-compat property returns the first id.
+    assert c.target_pc_id == "pc-1"
+
+
+def test_choice_legacy_target_pc_id_still_works() -> None:
+    c = MonsterTacticChoice.model_validate_json('{"target_pc_id": "pc-1"}')
+    assert c.target_pc_ids == ["pc-1"]
+    assert c.tactic_kind == "single"
+    assert c.target_pc_id == "pc-1"
+
+
+def test_choice_kwargs_legacy_target_pc_id_still_works() -> None:
+    # The Phase 10 regex-extractor path constructs via kwargs (line 459 prior
+    # to Phase 20). Legacy coercion must accept this shape.
+    c = MonsterTacticChoice(target_pc_id="pc-1")  # type: ignore[call-arg]
+    assert c.target_pc_ids == ["pc-1"]
+    assert c.tactic_kind == "single"
+
+
+def test_choice_single_kind_rejects_multi_ids() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": ["a", "b"], "tactic_kind": "single"}'
+        )
+
+
+def test_choice_aoe_kind_rejects_single_id() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": ["a"], "tactic_kind": "aoe"}'
+        )
+
+
+def test_choice_breath_kind_requires_two_or_more() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": ["a"], "tactic_kind": "breath"}'
+        )
+
+
+def test_choice_cone_kind_requires_two_or_more() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": ["a"], "tactic_kind": "cone"}'
+        )
+
+
+def test_choice_multi_attack_accepts_single_id() -> None:
+    # Single-monster multi-attack pile-on-one-PC is RAW-legal.
+    c = MonsterTacticChoice.model_validate_json(
+        '{"target_pc_ids": ["a"], "tactic_kind": "multi_attack"}'
+    )
+    assert c.tactic_kind == "multi_attack"
+    assert c.target_pc_ids == ["a"]
+
+
+def test_choice_multi_attack_accepts_two_ids() -> None:
+    # Cleave-style multi-attack across two adjacent PCs.
+    c = MonsterTacticChoice.model_validate_json(
+        '{"target_pc_ids": ["a", "b"], "tactic_kind": "multi_attack"}'
+    )
+    assert c.target_pc_ids == ["a", "b"]
+
+
+def test_choice_rejects_duplicate_ids() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": ["a", "a"], "tactic_kind": "aoe"}'
+        )
+
+
+def test_choice_empty_list_rejected() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": [], "tactic_kind": "aoe"}'
+        )
+
+
+def test_choice_property_returns_first_element() -> None:
+    c = MonsterTacticChoice.model_validate_json(
+        '{"target_pc_ids": ["x", "y", "z"], "tactic_kind": "aoe"}'
+    )
+    assert c.target_pc_id == "x"
+
+
+def test_choice_tactic_kind_invalid_literal_rejected() -> None:
+    with pytest.raises(ValidationError):
+        MonsterTacticChoice.model_validate_json(
+            '{"target_pc_ids": ["a", "b"], "tactic_kind": "fireball"}'
+        )
+
+
+def test_choice_new_shape_wins_when_both_keys_present() -> None:
+    # If LLM dual-emits both, the new shape wins; legacy key dropped.
+    c = MonsterTacticChoice.model_validate_json(
+        '{"target_pc_id": "ignored", "target_pc_ids": ["real"], "tactic_kind": "single"}'
+    )
+    assert c.target_pc_ids == ["real"]
+
+
+# ── LLM oracle AOE integration (Phase 20 / regex extractor + fallback) ──────
+
+
+@pytest.mark.asyncio
+async def test_pick_target_llm_new_aoe_shape_success() -> None:
+    pcs = _make_pcs(3)
+    aoe_ids = [pcs[0]["character_id"], pcs[1]["character_id"]]
+    content = (
+        '{"target_pc_ids": ["' + aoe_ids[0] + '", "' + aoe_ids[1] + '"], '
+        '"tactic_kind": "aoe"}'
+    )
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+    driver = _make_driver(openai_client=openai_client)
+    chosen = await driver._pick_target_llm(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "dragon", "name": "Adult Red"},
+        bound_log=driver._log.bind(),
+    )
+    # Plan 20-01 keeps single-target return signature → first id's PC.
+    assert chosen is not None
+    assert chosen["character_id"] == aoe_ids[0]
+
+
+@pytest.mark.asyncio
+async def test_pick_target_llm_aoe_regex_extractor() -> None:
+    pcs = _make_pcs(3)
+    aoe_ids = [pcs[0]["character_id"], pcs[1]["character_id"]]
+    # Prose-wrapped JSON; strict parse fails → list-shape regex fires.
+    content = (
+        f'Choice: "target_pc_ids": ["{aoe_ids[0]}", "{aoe_ids[1]}"], '
+        '"tactic_kind": "aoe". Done.'
+    )
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+    driver = _make_driver(openai_client=openai_client)
+    chosen = await driver._pick_target_llm(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "dragon"},
+        bound_log=driver._log.bind(),
+    )
+    assert chosen is not None
+    assert chosen["character_id"] == aoe_ids[0]
+
+
+@pytest.mark.asyncio
+async def test_pick_target_llm_aoe_partial_hallucination_falls_back() -> None:
+    pcs = _make_pcs(3)
+    real_id = pcs[0]["character_id"]
+    content = (
+        f'{{"target_pc_ids": ["{real_id}", "ghost-id"], "tactic_kind": "aoe"}}'
+    )
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+    driver = _make_driver(openai_client=openai_client)
+    chosen = await driver._pick_target_llm(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "dragon"},
+        bound_log=driver._log.bind(),
+    )
+    # ALL ids must be in candidate set; partial → fallback (None).
+    assert chosen is None
+
+
+@pytest.mark.asyncio
+async def test_choose_target_aoe_partial_hallucination_random_fallback() -> None:
+    pcs = _make_pcs(3)
+    real_id = pcs[0]["character_id"]
+    content = (
+        f'{{"target_pc_ids": ["{real_id}", "ghost-id"], "tactic_kind": "aoe"}}'
+    )
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+    fallback = MagicMock(return_value=pcs[2])
+    driver = _make_driver(openai_client=openai_client, random_choice=fallback)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "dragon", "intelligence": 16},
+    )
+    # Fail-soft: random fallback used (D-58 / D-153).
+    assert fallback.called
+    assert chosen == pcs[2]

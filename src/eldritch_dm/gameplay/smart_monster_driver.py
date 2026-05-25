@@ -50,7 +50,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 import discord
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from eldritch_dm.gameplay.monster_driver import MonsterDriver
 from eldritch_dm.logging import get_logger
@@ -66,8 +66,17 @@ log = get_logger(__name__)
 
 # Regex last-chance extractor (D-51 graceful degradation): if `model_validate_json`
 # fails because the LLM emitted prose around the JSON, we try to pull the
-# `target_pc_id` substring directly.
+# `target_pc_id` (legacy single-target) or `target_pc_ids` (Phase 20 AOE)
+# substring directly.
 _TARGET_RE = re.compile(r'"target_pc_id"\s*:\s*"([^"]+)"')
+# Phase 20 / D-149: match an AOE list shape `"target_pc_ids": ["a", "b", ...]`.
+# We extract the list body then split via the quoted-string regex below.
+_TARGET_LIST_RE = re.compile(r'"target_pc_ids"\s*:\s*\[([^\]]*)\]')
+_QUOTED_ID_RE = re.compile(r'"([^"]+)"')
+# Phase 20 / D-150: extract `tactic_kind` from prose when the strict parser failed.
+_TACTIC_KIND_RE = re.compile(
+    r'"tactic_kind"\s*:\s*"(single|aoe|multi_attack|breath|cone)"'
+)
 
 # D-56: per-round cache size guard. FIFO eviction.
 _DEFAULT_CACHE_MAX_SIZE = 256
@@ -76,24 +85,119 @@ _DEFAULT_CACHE_MAX_SIZE = 256
 Route = Literal["random", "llm", "mixed_random", "mixed_llm"]
 
 
-class MonsterTacticChoice(BaseModel):
-    """LLM-emitted tactical choice (D-55).
+class ActionDescriptor(BaseModel):
+    """Monster's own action surfaced to the LLM (Phase 20 / D-151).
 
-    `target_pc_id` is required; the candidate-ID membership check happens at
-    the call site (the Pydantic model itself does not see the runtime
-    candidate list, per AI-SPEC §4b.1).
+    Describes the MONSTER's available actions — NEVER PC properties. This
+    keeps the D-57 meta-knowledge guard intact:
 
-    `rationale` is optional and for trace-log only — v1.1 does NOT expose it
-    to players.
+    - ``range_ft`` is the MONSTER's own reach/range (not a leak of PC AC
+      or HP).
+    - ``save_dc`` is the MONSTER's own save DC for its action (not a leak
+      of any PC's saving-throw bonus).
 
-    `model_config.extra="ignore"` — local models sometimes emit extra keys
-    (e.g. "confidence", "alt_target"); we tolerate them rather than failing.
+    The slim-context payload sent to the LLM thus exposes only what the
+    monster itself logically knows about its own kit — class/HP/AC of PCs
+    remain hidden behind ``_slim_candidate`` projection.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    target_pc_id: str
+    name: str
+    kind: Literal["single", "aoe", "multi_attack", "breath", "cone"]
+    range_ft: int
+    save_dc: int | None = None
+
+
+class MonsterTacticChoice(BaseModel):
+    """LLM-emitted tactical choice (D-55, D-149, D-150).
+
+    Phase 20 (D-149/D-150) extended the original single-target shape to
+    a multi-target list + tactic-kind discriminator. Backwards-compat with
+    the legacy ``{"target_pc_id": "<id>"}`` shape is preserved via a
+    ``model_validator(mode="before")`` legacy coercion and a read-only
+    ``@property`` shim.
+
+    Fields:
+      - ``target_pc_ids``: ordered list of candidate PC ids the monster
+        intends to affect. MUST be non-empty. ALL ids must be in the
+        runtime candidate set; the membership check happens at the call
+        site (the Pydantic model itself does not see the runtime
+        candidate list, per AI-SPEC §4b.1).
+      - ``tactic_kind``: discriminator for downstream resolution. Validator
+        enforces:
+          * ``"single"``      → ``len(target_pc_ids) == 1``
+          * ``"aoe"|"breath"|"cone"`` → ``len(target_pc_ids) >= 2``
+          * ``"multi_attack"`` → ``len(target_pc_ids) >= 1`` (a single
+            monster can pile multi-attack swings on one PC OR cleave
+            across two adjacent PCs)
+      - ``rationale``: optional, for trace-log only — never surfaced to
+        players (v1.1 D-57 meta-knowledge guard).
+
+    Legacy coercion:
+      ``{"target_pc_id": "x"}`` and ``MonsterTacticChoice(target_pc_id="x")``
+      are rewritten to ``{"target_pc_ids": ["x"], "tactic_kind": "single"}``
+      so every existing call site continues to work unchanged.
+
+    ``model_config.extra="ignore"`` — local models sometimes emit extra
+    keys (e.g. "confidence", "alt_target"); we tolerate them.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    target_pc_ids: list[str] = Field(..., min_length=1)
+    tactic_kind: Literal["single", "aoe", "multi_attack", "breath", "cone"] = "single"
     rationale: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_legacy_shape(cls, data: Any) -> Any:
+        """Rewrite legacy ``{target_pc_id: "x"}`` → ``{target_pc_ids: ["x"]}``.
+
+        Non-dict inputs pass through (pydantic raises its own error). A dict
+        that already contains ``target_pc_ids`` is left untouched even if
+        ``target_pc_id`` is also present (the new shape wins).
+        """
+        if not isinstance(data, dict):
+            return data
+        if "target_pc_ids" in data:
+            # New shape wins; drop the legacy key if present so it doesn't
+            # confuse downstream consumers.
+            data.pop("target_pc_id", None)
+            return data
+        if "target_pc_id" in data:
+            legacy = data.pop("target_pc_id")
+            data["target_pc_ids"] = [legacy] if isinstance(legacy, str) else legacy
+            data.setdefault("tactic_kind", "single")
+        return data
+
+    @model_validator(mode="after")
+    def _validate_kind_arity(self) -> MonsterTacticChoice:
+        """Enforce ``tactic_kind`` / ``len(target_pc_ids)`` invariants."""
+        ids = self.target_pc_ids
+        if len(set(ids)) != len(ids):
+            raise ValueError("target_pc_ids must not contain duplicates")
+        kind = self.tactic_kind
+        n = len(ids)
+        if kind == "single" and n != 1:
+            raise ValueError(
+                f"tactic_kind='single' requires exactly 1 target id; got {n}"
+            )
+        if kind in ("aoe", "breath", "cone") and n < 2:
+            raise ValueError(
+                f"tactic_kind='{kind}' requires >=2 target ids; got {n}"
+            )
+        # multi_attack accepts >=1 — lower bound already enforced by min_length.
+        return self
+
+    @property
+    def target_pc_id(self) -> str:
+        """Backwards-compat shim for D-149 / pre-Phase 20 single-target call sites.
+
+        Returns ``target_pc_ids[0]``. Always safe — ``min_length=1`` guarantees
+        the list is non-empty.
+        """
+        return self.target_pc_ids[0]
 
 
 # ── Helpers (module-level for testability) ────────────────────────────────────
@@ -155,6 +259,7 @@ class SmartMonsterDriver(MonsterDriver):
         eligibility_set: frozenset[tuple[str, str]] | None = None,
         cache_max_size: int = _DEFAULT_CACHE_MAX_SIZE,
         embed_update_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        aoe_addendum_loader: Callable[[], tuple[str, str]] | None = None,
     ) -> None:
         super().__init__(
             mcp=mcp,
@@ -185,6 +290,29 @@ class SmartMonsterDriver(MonsterDriver):
         self._embed_update_callback = embed_update_callback
         # Rebind log with smart-component tag
         self._log = log.bind(component="SmartMonsterDriver")
+
+        # Phase 20 / D-152: lazily load the AOE addendum once. Any loader
+        # failure → fall back to legacy (single-target-only) system prompt so
+        # combat behavior remains bit-identical to Phase 10 when the addendum
+        # is missing or malformed (D-153 fail-soft).
+        self._aoe_addendum_text: str = ""
+        self._aoe_addendum_version: str = ""
+        try:
+            if aoe_addendum_loader is None:
+                from eldritch_dm.gameplay.prompts.aoe_addendum import (
+                    load_aoe_addendum,
+                )
+
+                aoe_addendum_loader = load_aoe_addendum
+            text, version = aoe_addendum_loader()
+            self._aoe_addendum_text = text
+            self._aoe_addendum_version = version
+        except Exception as exc:  # noqa: BLE001 — fail-soft per D-153
+            self._log.warning(
+                "aoe_addendum_load_failed",
+                error_type=type(exc).__name__,
+                error=str(exc)[:200],
+            )
 
     # ── INT-gating (D-53) ─────────────────────────────────────────────────────
 
@@ -315,14 +443,23 @@ class SmartMonsterDriver(MonsterDriver):
         candidate_ids = {p.get("character_id", "") for p in targets}
 
         # ── Cache hit short-circuit ──────────────────────────────────────────
+        # D-149: validate the full id-set against current candidates so an AOE
+        # cached choice that lost a PC between rounds invalidates cleanly.
         cached = self._cache.get(cache_key)
-        if cached is not None and cached.target_pc_id in candidate_ids:
-            bound_log.info("smart_driver_cache_hit", target_id=cached.target_pc_id)
+        if cached is not None and set(cached.target_pc_ids).issubset(candidate_ids):
+            bound_log.info(
+                "smart_driver_cache_hit",
+                target_id=cached.target_pc_id,
+                target_ids=cached.target_pc_ids,
+                tactic_kind=cached.tactic_kind,
+            )
             if span is not None:
                 span.set_attribute("eldritch.driver.path", "cache")
                 span.set_attribute("eldritch.tokens.input", 0)
                 span.set_attribute("eldritch.tokens.output", 0)
                 span.set_attribute("eldritch.latency_ms", 0)
+            # Plan 20-01 preserves single-target return signature: return the
+            # FIRST cached id's PC. Plan 20-02 may extend this surface.
             for pc in targets:
                 if pc.get("character_id") == cached.target_pc_id:
                     return pc
@@ -334,8 +471,23 @@ class SmartMonsterDriver(MonsterDriver):
         candidates = [_slim_candidate(p) for p in targets]
         monster_name = current_actor.get("name", "monster")
 
-        # Build prompt (D-57 slim, AI-SPEC §4 prompt discipline)
-        system_prompt = (
+        # Phase 20 / D-151: surface monster's own actions to the LLM. Malformed
+        # entries are silently dropped (fail-soft per D-58/D-153). ActionDescriptor
+        # is scoped to MONSTER properties (range_ft, save_dc) — NOT PC properties,
+        # so the D-57 meta-knowledge guard remains intact.
+        raw_actions = current_actor.get("available_actions") or []
+        action_descriptors: list[dict[str, Any]] = []
+        for a in raw_actions:
+            try:
+                action_descriptors.append(ActionDescriptor.model_validate(a).model_dump())
+            except ValidationError:
+                continue
+
+        # Build prompt (D-57 slim, AI-SPEC §4 prompt discipline). The AOE
+        # addendum is appended ONLY when the monster has at least one
+        # validated action descriptor — preserves bit-identical Phase 10
+        # behavior for actor dicts without `available_actions`.
+        legacy_system_prompt = (
             "You are a tactical combat oracle for a Dungeons & Dragons 5e "
             "monster. Choose ONE target from the candidate list. Respond ONLY "
             'with JSON of the form {"target_pc_id": "<id>", "rationale": '
@@ -344,11 +496,16 @@ class SmartMonsterDriver(MonsterDriver):
             "in your rationale; refer to visible cues (armor, posture, "
             "visible wounds, active conditions)."
         )
+        if action_descriptors and self._aoe_addendum_text:
+            system_prompt = legacy_system_prompt + "\n\n" + self._aoe_addendum_text
+        else:
+            system_prompt = legacy_system_prompt
         user_payload = {
             "monster": {"id": monster_id, "name": monster_name},
             "round": round_number,
             "candidates": candidates,
             "candidate_ids": sorted(candidate_ids),
+            "available_actions": action_descriptors,
         }
         user_prompt = json.dumps(user_payload, default=str)
 
@@ -449,16 +606,41 @@ class SmartMonsterDriver(MonsterDriver):
             return None
 
         # Strict parse → fall back to regex extractor (D-51)
+        # Phase 20 / D-149: try the AOE list-shape regex FIRST (more specific),
+        # then the legacy single-id regex. Either path constructs a valid
+        # MonsterTacticChoice via the legacy-coercion validator.
         choice: MonsterTacticChoice | None = None
         try:
             choice = MonsterTacticChoice.model_validate_json(content)
         except (ValidationError, ValueError, json.JSONDecodeError):
-            m = _TARGET_RE.search(content)
-            if m is not None:
-                try:
-                    choice = MonsterTacticChoice(target_pc_id=m.group(1))
-                except ValidationError:
-                    choice = None
+            # Phase 20: list-shape extraction.
+            list_match = _TARGET_LIST_RE.search(content)
+            if list_match is not None:
+                ids = _QUOTED_ID_RE.findall(list_match.group(1))
+                kind_match = _TACTIC_KIND_RE.search(content)
+                kind = kind_match.group(1) if kind_match is not None else None
+                if ids:
+                    try:
+                        if kind is not None:
+                            choice = MonsterTacticChoice(
+                                target_pc_ids=ids, tactic_kind=kind  # type: ignore[arg-type]
+                            )
+                        else:
+                            # No kind hint: infer single iff 1 id, else aoe.
+                            inferred_kind = "single" if len(ids) == 1 else "aoe"
+                            choice = MonsterTacticChoice(
+                                target_pc_ids=ids,
+                                tactic_kind=inferred_kind,  # type: ignore[arg-type]
+                            )
+                    except ValidationError:
+                        choice = None
+            if choice is None:
+                m = _TARGET_RE.search(content)
+                if m is not None:
+                    try:
+                        choice = MonsterTacticChoice(target_pc_id=m.group(1))
+                    except ValidationError:
+                        choice = None
 
         if choice is None:
             bound_log.warning(
@@ -473,12 +655,21 @@ class SmartMonsterDriver(MonsterDriver):
                 span.set_attribute("eldritch.fallback.reason", "json_parse")
             return None
 
-        # Candidate-ID membership check (D-55)
-        if choice.target_pc_id not in candidate_ids:
+        # Candidate-ID membership check (D-55, D-149)
+        # ALL ids in target_pc_ids must be in the runtime candidate set; any
+        # hallucination → fail-soft fallback (D-58/D-153). Also enforce an
+        # upper bound (len(ids) <= len(candidates)) as a defensive cap.
+        chosen_ids = set(choice.target_pc_ids)
+        if (
+            not chosen_ids.issubset(candidate_ids)
+            or len(choice.target_pc_ids) > len(candidate_ids)
+        ):
             bound_log.warning(
                 "smart_driver_invalid_choice",
                 latency_ms=latency_ms,
                 raw_target=choice.target_pc_id,
+                raw_targets=choice.target_pc_ids,
+                tactic_kind=choice.tactic_kind,
                 candidate_ids=sorted(candidate_ids),
             )
             if span is not None:
@@ -498,6 +689,8 @@ class SmartMonsterDriver(MonsterDriver):
             "smart_driver_llm_ok",
             latency_ms=latency_ms,
             target_id=choice.target_pc_id,
+            target_ids=choice.target_pc_ids,
+            tactic_kind=choice.tactic_kind,
         )
         if span is not None:
             span.set_attribute("eldritch.latency_ms", latency_ms)
@@ -505,6 +698,8 @@ class SmartMonsterDriver(MonsterDriver):
             span.set_attribute("eldritch.tokens.output", tokens_out)
             span.set_attribute("eldritch.driver.path", "smart")
 
+        # Plan 20-01 preserves the single-target return signature: return the
+        # FIRST id's PC. Plan 20-02 may extend this surface for AOE resolution.
         for pc in targets:
             if pc.get("character_id") == choice.target_pc_id:
                 return pc

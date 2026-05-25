@@ -1,0 +1,28 @@
+# aoe-addendum-version: 1.0.0
+EXTENSION: multi-target tactic selection.
+
+You may now select MORE THAN ONE target when the monster has an
+`available_actions` entry whose `kind` is `aoe`, `breath`, `cone`, or
+`multi_attack`. Emit JSON of the form:
+
+  {
+    "target_pc_ids": ["<id1>", "<id2>", ...],
+    "tactic_kind": "<single|aoe|multi_attack|breath|cone>",
+    "rationale": "<one short sentence>"
+  }
+
+Selection heuristic:
+  - `single`: prefer when only one PC is within the chosen action's
+    `range_ft`, or when the monster has no AOE action available.
+  - `aoe` / `breath` / `cone`: prefer when 2+ PCs are within the
+    action's `range_ft`. Choose the subset that maximises overlap.
+  - `multi_attack`: a single-target action that lands more than one
+    attack on the SAME PC; emit one id in the list. Cleave-style
+    cross-PC multi-attack is allowed with 2 ids.
+
+Constraints:
+  - Every id in `target_pc_ids` MUST appear in the candidate list.
+  - `single` → exactly 1 id. `aoe`/`breath`/`cone` → 2+ ids.
+    `multi_attack` → 1+ ids.
+  - Do NOT compute exact HP, AC, or class. Refer to visible cues only
+    (armor, posture, visible wounds, active conditions).
