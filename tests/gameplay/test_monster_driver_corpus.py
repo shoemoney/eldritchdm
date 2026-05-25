@@ -946,3 +946,226 @@ def test_action_descriptor_constructs_and_rejects_invalid_kind() -> None:
 
     with pytest.raises(_VE):
         ActionDescriptor(name="bad", kind="telepathy", range_ft=30)
+
+
+# ── Phase 23 / WIRE-03: tightened AOE addendum predicate + OTel version attr ─
+
+
+def _capture_traced_decision(monkeypatch, captured: list[Any]) -> None:
+    """Monkey-patch ``traced_decision`` in the smart driver module so tests
+    can inspect the span instance produced for each decision."""
+    from contextlib import contextmanager
+
+    from eldritch_dm.gameplay import smart_monster_driver as _smd
+
+    real = _smd.traced_decision
+
+    @contextmanager
+    def _wrapper(**kwargs):
+        with real(**kwargs) as span:
+            captured.append(span)
+            yield span
+
+    monkeypatch.setattr(_smd, "traced_decision", _wrapper)
+
+
+def _single_action() -> dict[str, Any]:
+    return {"name": "slam", "kind": "single", "range_ft": 5, "save_dc": None}
+
+
+@pytest.mark.asyncio
+async def test_addendum_skipped_with_one_aoe_action(monkeypatch) -> None:
+    """D-180: exactly one AOE-class action → addendum NOT injected, no version attr."""
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+    driver = _make_driver(openai_client=client)
+    spans: list[Any] = []
+    _capture_traced_decision(monkeypatch, spans)
+
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action(), _single_action()],
+        },
+    )
+
+    sys_msg = client.chat.completions.create.call_args_list[0].kwargs["messages"][0]["content"]
+    assert "EXTENSION: multi-target tactic selection." not in sys_msg
+    assert "aoe-addendum-version" not in sys_msg
+    assert "eldritch.aoe.addendum_version" not in spans[0]._attrs
+
+
+@pytest.mark.asyncio
+async def test_addendum_skipped_with_zero_aoe_actions(monkeypatch) -> None:
+    """D-180: only single/multi_attack actions → no addendum, no version attr."""
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+    driver = _make_driver(openai_client=client)
+    spans: list[Any] = []
+    _capture_traced_decision(monkeypatch, spans)
+
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_single_action(), _multi_attack_action()],
+        },
+    )
+
+    sys_msg = client.chat.completions.create.call_args_list[0].kwargs["messages"][0]["content"]
+    assert "EXTENSION:" not in sys_msg
+    assert "eldritch.aoe.addendum_version" not in spans[0]._attrs
+
+
+@pytest.mark.asyncio
+async def test_addendum_injected_with_two_aoe_actions(monkeypatch) -> None:
+    """D-180: two AOE-class actions → addendum injected + version attr stamped."""
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+    driver = _make_driver(openai_client=client)
+    spans: list[Any] = []
+    _capture_traced_decision(monkeypatch, spans)
+
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action(), _fireball_action()],
+        },
+    )
+
+    sys_msg = client.chat.completions.create.call_args_list[0].kwargs["messages"][0]["content"]
+    assert "EXTENSION: multi-target tactic selection." in sys_msg
+    # D-181: version attribute stamped on the SAME decision span
+    assert spans[0]._attrs.get("eldritch.aoe.addendum_version") == "1.0.0"
+
+
+@pytest.mark.asyncio
+async def test_addendum_version_attr_only_set_when_injected(monkeypatch) -> None:
+    """D-181: version attr is set IFF addendum is appended — single-AOE turn
+    skips both. Mixed back-to-back turns prove the per-turn boundary."""
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+    driver = _make_driver(openai_client=client)
+    spans: list[Any] = []
+    _capture_traced_decision(monkeypatch, spans)
+
+    # Round 1: only single-AOE → no version attr
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action()],
+        },
+    )
+    assert "eldritch.aoe.addendum_version" not in spans[0]._attrs
+
+    # Round 2: ≥2 AOE → version attr present (round changes to bust the cache)
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=2,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action(), _fireball_action()],
+        },
+    )
+    assert spans[1]._attrs.get("eldritch.aoe.addendum_version") == "1.0.0"
+
+
+@pytest.mark.asyncio
+async def test_addendum_load_failure_no_injection(monkeypatch) -> None:
+    """D-153 fail-soft: addendum loader raises → driver still constructs, but
+    even with ≥2 AOE actions no addendum is appended and no version attr is
+    stamped (cached empty body)."""
+    def _bad_loader() -> tuple[str, str]:
+        raise RuntimeError("addendum file gone walkabout")
+
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+
+    # Build driver directly with the bad loader (bypass _make_driver to inject the kwarg)
+    rate_limiter = MagicMock()
+    rate_limiter.acquire = AsyncMock()
+    driver = SmartMonsterDriver(
+        mcp=MagicMock(),
+        rate_limiter=rate_limiter,
+        pc_classes_repo=MagicMock(),
+        riposte_timers_repo=MagicMock(),
+        button_factory=lambda t, u: discord.ui.Button(label="r", custom_id=f"r:{t}:{u}"),
+        state_provider=AsyncMock(return_value={"round_number": 1, "pcs": []}),
+        channel_resolver=lambda c: None,
+        openai_client=client,
+        llm_model="ShoeGPT",
+        random_choice=lambda xs: xs[0],
+        aoe_addendum_loader=_bad_loader,
+    )
+    assert driver._aoe_addendum_text == ""
+    assert driver._aoe_addendum_version == ""
+
+    spans: list[Any] = []
+    _capture_traced_decision(monkeypatch, spans)
+
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action(), _fireball_action()],
+        },
+    )
+
+    sys_msg = client.chat.completions.create.call_args_list[0].kwargs["messages"][0]["content"]
+    assert "EXTENSION:" not in sys_msg
+    assert "eldritch.aoe.addendum_version" not in spans[0]._attrs
+
+
+def test_get_addendum_version_returns_semver() -> None:
+    """Direct unit test of the new aoe_addendum.get_addendum_version helper."""
+    from eldritch_dm.gameplay.prompts.aoe_addendum import get_addendum_version
+
+    version = get_addendum_version()
+    assert version == "1.0.0"
+
+
+def test_get_addendum_version_raises_on_missing_file(tmp_path) -> None:
+    """Fail-loud surface: missing file → AoeAddendumError (caller chooses fail-soft)."""
+    from eldritch_dm.gameplay.prompts.aoe_addendum import (
+        AoeAddendumError,
+        get_addendum_version,
+    )
+
+    missing = tmp_path / "does_not_exist.txt"
+    with pytest.raises(AoeAddendumError):
+        get_addendum_version(missing)
