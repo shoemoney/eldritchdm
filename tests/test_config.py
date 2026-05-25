@@ -151,3 +151,25 @@ class TestMcpCacheDefaults:
         assert settings.mcpcache_l2_ttl_s == 7
         assert settings.mcpcache_l2_path == "/tmp/cache.sqlite"
         get_settings.cache_clear()
+
+
+class TestCharCacheDefaults:
+    """Phase 17 CHARCACHE_* settings — defaults and overrides."""
+
+    def test_charcache_defaults(self, tmp_env: None) -> None:
+        settings = get_settings()
+        assert settings.charcache_enabled is True
+        assert settings.charcache_path == "~/.eldritch/character_cache.sqlite"
+        assert settings.charcache_ttl_s == 3600
+
+    def test_charcache_env_overrides(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        get_settings.cache_clear()
+        monkeypatch.setenv("DISCORD_TOKEN", "t")
+        monkeypatch.setenv("CHARCACHE_ENABLED", "false")
+        monkeypatch.setenv("CHARCACHE_PATH", "/tmp/char.sqlite")
+        monkeypatch.setenv("CHARCACHE_TTL_S", "7")
+        settings = Settings(_env_file=None)  # type: ignore[call-arg]
+        assert settings.charcache_enabled is False
+        assert settings.charcache_path == "/tmp/char.sqlite"
+        assert settings.charcache_ttl_s == 7
+        get_settings.cache_clear()

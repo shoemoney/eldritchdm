@@ -10,6 +10,14 @@ DO NOT import from eldritch_dm.mcp or eldritch_dm.safety -- boundary discipline.
 from __future__ import annotations
 
 from eldritch_dm.persistence.channel_sessions_repo import ChannelSessionRepo
+from eldritch_dm.persistence.character_cache import (
+    ALLOWED_SNAPSHOT_FIELDS,
+    FORBIDDEN_SNAPSHOT_FIELDS,
+    CharacterCacheMetrics,
+    CharacterCacheRepo,
+    CharacterSnapshot,
+    etag_of,
+)
 from eldritch_dm.persistence.connection import (
     WriterQueue,
     apply_pragmas,
@@ -51,4 +59,11 @@ __all__ = [
     "RiposteTimerRepo",
     "SanitizerAuditRepo",
     "PCClassesRepo",
+    # Phase 17 — character cache
+    "CharacterCacheRepo",
+    "CharacterSnapshot",
+    "CharacterCacheMetrics",
+    "ALLOWED_SNAPSHOT_FIELDS",
+    "FORBIDDEN_SNAPSHOT_FIELDS",
+    "etag_of",
 ]

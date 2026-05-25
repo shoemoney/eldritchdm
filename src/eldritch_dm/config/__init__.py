@@ -183,6 +183,18 @@ class Settings(BaseSettings):
         description="L2 SQLite cache file path; '~' is expanded at use site.",
     )
 
+    # ── Phase 17 character cache (CHARCACHE-01/02/03) ─────────────────────────
+    # Standalone cache (D-119) at ~/.eldritch/character_cache.sqlite.
+    # Static-fields-only snapshots (D-125) — combat-mutable state never cached.
+    # TTL short-circuit (D-123): inside TTL, get_or_fetch skips the dm20 call.
+    charcache_enabled: bool = Field(default=True, alias="CHARCACHE_ENABLED")
+    charcache_path: str = Field(
+        default="~/.eldritch/character_cache.sqlite",
+        alias="CHARCACHE_PATH",
+        description="Character snapshot cache SQLite file; '~' expanded at use.",
+    )
+    charcache_ttl_s: PositiveInt = Field(default=3600, alias="CHARCACHE_TTL_S")
+
     # ── Dev / test ────────────────────────────────────────────────────────────
     run_stress: bool = False
     sanitizer_verbose_audit: bool = False
