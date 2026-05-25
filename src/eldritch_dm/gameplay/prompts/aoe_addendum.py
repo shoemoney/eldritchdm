@@ -52,3 +52,24 @@ def load_aoe_addendum(path: Path | None = None) -> tuple[str, str]:
         )
 
     return text, match.group(1)
+
+
+def get_addendum_version(path: Path | None = None) -> str:
+    """Return ONLY the SemVer string from the AOE addendum file.
+
+    Convenience wrapper around :func:`load_aoe_addendum` for callers that need
+    the version without the body — e.g. for OTel span attributes when the body
+    is already cached on the driver. Surface added per Phase 23 / D-182.
+
+    Args:
+        path: Optional override for testing. Defaults to the bundled
+            ``aoe_addendum.txt`` next to this module.
+
+    Returns:
+        The SemVer string (e.g. ``"1.0.0"``).
+
+    Raises:
+        AoeAddendumError: same conditions as :func:`load_aoe_addendum`.
+    """
+    _text, version = load_aoe_addendum(path)
+    return version
