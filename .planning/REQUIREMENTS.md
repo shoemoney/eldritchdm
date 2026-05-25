@@ -16,9 +16,9 @@
 
 ### AOE — AOE / multi-target tactic selection (Phase 20)
 
-- [ ] **AOE-01**: `MonsterTacticChoice` pydantic model extended with `target_pc_ids: list[str]` (in addition to current `target_pc_id`). Single-target tactics emit a 1-element list; AOE/breath/cone tactics emit 2+. Post-parse validator ensures ALL ids are in the candidate set; hallucinated → fallback (same fail-soft path as v1.1 D-58).
-- [ ] **AOE-02**: SmartMonsterDriver system prompt extended with explicit AOE tactic enumeration (breath weapons, AOE spells, multi-attack). Monster's available actions surfaced to the LLM via the slimmed candidate context (D-57 expanded to include `available_actions: list[ActionDescriptor]`). Tests cover dragon breath, fireball-style spells, multi-attack.
-- [ ] **AOE-03**: New corpus entries (10 scenarios) in `tests/gameplay/test_monster_driver_corpus.py` covering AOE-appropriate situations (clustered PCs, line formations, single-target-only-monsters-rejecting-AOE). Fail-soft on any hallucination — combat continues with random single-target.
+- [x] **AOE-01**: `MonsterTacticChoice` pydantic model extended with `target_pc_ids: list[str]` (in addition to current `target_pc_id`). Single-target tactics emit a 1-element list; AOE/breath/cone tactics emit 2+. Post-parse validator ensures ALL ids are in the candidate set; hallucinated → fallback (same fail-soft path as v1.1 D-58).
+- [x] **AOE-02**: SmartMonsterDriver system prompt extended with explicit AOE tactic enumeration (breath weapons, AOE spells, multi-attack). Monster's available actions surfaced to the LLM via the slimmed candidate context (D-57 expanded to include `available_actions: list[ActionDescriptor]`). Tests cover dragon breath, fireball-style spells, multi-attack.
+- [x] **AOE-03**: New corpus entries (10 scenarios) in `tests/gameplay/test_monster_driver_corpus.py` covering AOE-appropriate situations (clustered PCs, line formations, single-target-only-monsters-rejecting-AOE). Fail-soft on any hallucination — combat continues with random single-target.
 
 ### MEM — Cross-round monster memory (Phase 21)
 
