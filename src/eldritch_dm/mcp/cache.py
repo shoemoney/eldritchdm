@@ -44,8 +44,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import aiosqlite
+from pydantic import BaseModel, ConfigDict
 
 from eldritch_dm.logging import get_logger
+from eldritch_dm.mcp.errors import MCPToolError
+from eldritch_dm.observability.instrumentation import (
+    traced_mcp_cache,
+    traced_mcp_cache_invalidation,
+)
 
 if TYPE_CHECKING:
     from eldritch_dm.config import Settings
@@ -121,6 +127,26 @@ class _Counters:
     extra: dict[str, int] = field(default_factory=dict)
 
 
+class MCPCacheMetrics(BaseModel):
+    """Read-only snapshot of cache counters + current sizes (Plan 16-02).
+
+    Returned by ``MCPCache.metrics_snapshot()`` for tests and KPI exporters.
+    ``size_l2`` is ``-1`` when L2 is disabled (sentinel — distinguishes
+    "disabled" from "empty").
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    hits_l1: int
+    misses_l1: int
+    hits_l2: int
+    misses_l2: int
+    bypass_count: int
+    size_l1: int
+    size_l2: int
+    invalidations_total: int
+
+
 # ── MCPCache ─────────────────────────────────────────────────────────────────
 
 
@@ -150,6 +176,8 @@ class MCPCache:
         self._l2_conn: aiosqlite.Connection | None = None
         self._l2_lock = asyncio.Lock()
         self._counters = _Counters()
+        self._poller_task: asyncio.Task[None] | None = None
+        self._poller_stop: asyncio.Event = asyncio.Event()
         self._logger = log.bind(component="mcp_cache")
 
     # ── Public API ───────────────────────────────────────────────────────────
@@ -158,39 +186,293 @@ class MCPCache:
         """Cached version of ``MCPClient.call``.
 
         Lookup order: allow-list check → L1 → L2 (if enabled) → inner. Stores
-        the result in L1 (and L2 if enabled) on every MISS.
+        the result in L1 (and L2 if enabled) on every MISS. Emits one
+        ``eldritch.mcp.cache`` span per call (layer attribute reflects the
+        path taken).
         """
-        # Allow-list / master switch — fail-CLOSED bypass.
-        if not self._settings.mcpcache_enabled or tool_name not in CACHEABLE_TOOLS:
-            self._counters.bypass_count += 1
-            return await self._inner.call(tool_name, **arguments)
+        start = time.monotonic()
+        with traced_mcp_cache(tool_name=tool_name) as span:
+            # Allow-list / master switch — fail-CLOSED bypass.
+            if not self._settings.mcpcache_enabled or tool_name not in CACHEABLE_TOOLS:
+                self._counters.bypass_count += 1
+                try:
+                    result = await self._inner.call(tool_name, **arguments)
+                finally:
+                    self._stamp_cache_span(span, layer="bypass", start_ts=start)
+                return result
 
-        key_hash = _args_hash(arguments)
-        key = (tool_name, key_hash)
+            key_hash = _args_hash(arguments)
+            key = (tool_name, key_hash)
 
-        # L1 lookup
-        l1_value = await self._l1_get(key)
-        if l1_value is not None:
-            self._counters.l1_hits += 1
-            return l1_value
-        self._counters.l1_misses += 1
+            # L1 lookup
+            l1_value = await self._l1_get(key)
+            if l1_value is not None:
+                self._counters.l1_hits += 1
+                self._stamp_cache_span(span, layer="l1", start_ts=start)
+                return l1_value
+            self._counters.l1_misses += 1
 
-        # L2 lookup (only if enabled)
-        if self._settings.mcpcache_l2_enabled:
-            l2_value = await self._l2_get(tool_name, key_hash)
-            if l2_value is not None:
-                self._counters.l2_hits += 1
-                # Promote to L1 MRU
-                await self._l1_put(key, l2_value)
-                return l2_value
-            self._counters.l2_misses += 1
+            # L2 lookup (only if enabled)
+            if self._settings.mcpcache_l2_enabled:
+                l2_value = await self._l2_get(tool_name, key_hash)
+                if l2_value is not None:
+                    self._counters.l2_hits += 1
+                    await self._l1_put(key, l2_value)
+                    self._stamp_cache_span(span, layer="l2", start_ts=start)
+                    return l2_value
+                self._counters.l2_misses += 1
 
-        # Total MISS — call inner, then populate caches.
-        value = await self._inner.call(tool_name, **arguments)
-        await self._l1_put(key, value)
-        if self._settings.mcpcache_l2_enabled:
-            await self._l2_put(tool_name, key_hash, value)
-        return value
+            # Total MISS — call inner, then populate caches.
+            try:
+                value = await self._inner.call(tool_name, **arguments)
+            except Exception:
+                # On error, still emit a span (layer=miss) but do not cache.
+                self._stamp_cache_span(span, layer="miss", start_ts=start)
+                raise
+            await self._l1_put(key, value)
+            if self._settings.mcpcache_l2_enabled:
+                await self._l2_put(tool_name, key_hash, value)
+            self._stamp_cache_span(span, layer="miss", start_ts=start)
+            return value
+
+    def _stamp_cache_span(
+        self,
+        span: Any,
+        *,
+        layer: str,
+        start_ts: float,
+    ) -> None:
+        """Set the standard mcp.cache attributes on the span proxy.
+
+        Latency uses ``time.monotonic()`` deltas. ``size_l2`` is reported as
+        -1 here because the cache-call hot path cannot await a SELECT COUNT(*).
+        Use ``await cache.metrics_snapshot()`` for the authoritative L2 size.
+        """
+        latency_ms = int((time.monotonic() - start_ts) * 1000)
+        span.set_attribute("eldritch.mcp.cache.layer", layer)
+        span.set_attribute("eldritch.mcp.cache.size_l1", len(self._l1))
+        # Hot-path sentinel. Authoritative size lives in metrics_snapshot().
+        span.set_attribute("eldritch.mcp.cache.size_l2", -1)
+        span.set_attribute("eldritch.mcp.cache.latency_ms", latency_ms)
+
+    # ── Invalidation ─────────────────────────────────────────────────────────
+
+    async def invalidate(
+        self,
+        tool_name: str | None = None,
+        args: dict[str, Any] | None = None,
+    ) -> int:
+        """Clear matching entries from BOTH layers and return the count removed.
+
+        - ``tool_name=None, args=None`` → wipe everything (scope='all').
+        - ``tool_name='X', args=None``  → wipe all entries for tool X (scope='tool').
+        - ``tool_name='X', args={...}`` → wipe one entry (scope='entry').
+
+        Always emits one ``eldritch.mcp.cache.invalidation`` span.
+        """
+        if tool_name is None and args is not None:
+            raise ValueError("invalidate(args=...) requires tool_name to also be set")
+
+        if tool_name is None:
+            scope: str = "all"
+        elif args is None:
+            scope = "tool"
+        else:
+            scope = "entry"
+
+        with traced_mcp_cache_invalidation(
+            scope=scope,  # type: ignore[arg-type]
+            tool_name=tool_name,
+        ) as span:
+            removed = 0
+            async with self._l1_lock:
+                if scope == "all":
+                    removed += len(self._l1)
+                    self._l1.clear()
+                elif scope == "tool":
+                    matched = [k for k in self._l1 if k[0] == tool_name]
+                    for k in matched:
+                        del self._l1[k]
+                    removed += len(matched)
+                else:  # entry
+                    assert tool_name is not None and args is not None
+                    key = (tool_name, _args_hash(args))
+                    if key in self._l1:
+                        del self._l1[key]
+                        removed += 1
+
+            # L2 — only touch the DB if we ever opened it.
+            if self._settings.mcpcache_l2_enabled and self._l2_conn is not None:
+                if scope == "all":
+                    cur = await self._l2_conn.execute(
+                        "DELETE FROM mcp_cache_entries"
+                    )
+                    removed += cur.rowcount if cur.rowcount > 0 else 0
+                elif scope == "tool":
+                    cur = await self._l2_conn.execute(
+                        "DELETE FROM mcp_cache_entries WHERE tool_name = ?",
+                        (tool_name,),
+                    )
+                    removed += cur.rowcount if cur.rowcount > 0 else 0
+                else:  # entry
+                    assert tool_name is not None and args is not None
+                    cur = await self._l2_conn.execute(
+                        "DELETE FROM mcp_cache_entries WHERE tool_name = ? AND args_hash = ?",
+                        (tool_name, _args_hash(args)),
+                    )
+                    removed += cur.rowcount if cur.rowcount > 0 else 0
+                await self._l2_conn.commit()
+
+            self._counters.invalidations_total += 1
+            self._counters.last_invalidation_removed = removed
+            span.set_attribute(
+                "eldritch.mcp.cache.invalidation.entries_removed", removed
+            )
+            self._logger.info(
+                "mcp_cache_invalidate",
+                scope=scope,
+                tool_name=tool_name,
+                entries_removed=removed,
+            )
+            return removed
+
+    # ── Schema-version polling ───────────────────────────────────────────────
+
+    def start_schema_version_poller(
+        self,
+        client: MCPClient,
+        *,
+        interval_s: float = 60.0,
+    ) -> asyncio.Task[None]:
+        """Start a background task that polls ``dm20__schema_version``.
+
+        On first call: stores the version. On subsequent calls: if the value
+        changed, runs ``invalidate()`` (full wipe) and logs
+        ``mcp_cache_schema_version_changed``. If the very first call raises
+        ``MCPToolError`` (404 — tool not available), the task logs
+        ``mcp_cache_schema_poller_disabled`` and exits cleanly.
+
+        Returns the task so callers can ``await stop_schema_version_poller()``
+        on shutdown.
+        """
+        if self._poller_task is not None and not self._poller_task.done():
+            return self._poller_task
+        self._poller_stop = asyncio.Event()
+        self._poller_task = asyncio.create_task(
+            self._poll_schema_version(client, interval_s),
+            name="MCPCache._poll_schema_version",
+        )
+        return self._poller_task
+
+    async def stop_schema_version_poller(self) -> None:
+        """Signal the poller to stop and await its exit."""
+        if self._poller_task is None:
+            return
+        self._poller_stop.set()
+        try:
+            await self._poller_task
+        except Exception:  # noqa: BLE001
+            pass
+        self._poller_task = None
+
+    async def _poll_schema_version(
+        self,
+        client: MCPClient,
+        interval_s: float,
+    ) -> None:
+        """The poller body. Disables itself gracefully if the tool 4xxs."""
+        # Initial fetch.
+        try:
+            last_resp = await client.call("dm20__schema_version")
+        except MCPToolError:
+            self._logger.info(
+                "mcp_cache_schema_poller_disabled",
+                reason="tool_not_available",
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            self._logger.warning(
+                "mcp_cache_schema_poll_initial_failed",
+                error=str(exc)[:200],
+            )
+            return
+        last_version = last_resp.get("version") if isinstance(last_resp, dict) else None
+
+        while not self._poller_stop.is_set():
+            try:
+                await asyncio.wait_for(self._poller_stop.wait(), timeout=interval_s)
+                return  # stop event set
+            except TimeoutError:
+                pass
+
+            try:
+                resp = await client.call("dm20__schema_version")
+            except MCPToolError:
+                # Tool removed mid-run — disable the loop.
+                self._logger.info(
+                    "mcp_cache_schema_poller_disabled",
+                    reason="tool_not_available_mid_run",
+                )
+                return
+            except Exception as exc:  # noqa: BLE001
+                self._logger.warning(
+                    "mcp_cache_schema_poll_failed",
+                    error=str(exc)[:200],
+                )
+                continue
+
+            current = resp.get("version") if isinstance(resp, dict) else None
+            if current != last_version:
+                # Use scope='schema_version' to distinguish from explicit wipes.
+                with traced_mcp_cache_invalidation(
+                    scope="schema_version",
+                ) as span:
+                    removed = 0
+                    async with self._l1_lock:
+                        removed += len(self._l1)
+                        self._l1.clear()
+                    if (
+                        self._settings.mcpcache_l2_enabled
+                        and self._l2_conn is not None
+                    ):
+                        cur = await self._l2_conn.execute(
+                            "DELETE FROM mcp_cache_entries"
+                        )
+                        removed += cur.rowcount if cur.rowcount > 0 else 0
+                        await self._l2_conn.commit()
+                    self._counters.invalidations_total += 1
+                    self._counters.last_invalidation_removed = removed
+                    span.set_attribute(
+                        "eldritch.mcp.cache.invalidation.entries_removed",
+                        removed,
+                    )
+                    self._logger.info(
+                        "mcp_cache_schema_version_changed",
+                        old=last_version,
+                        new=current,
+                        entries_removed=removed,
+                    )
+                last_version = current
+
+    # ── Metrics ──────────────────────────────────────────────────────────────
+
+    async def metrics_snapshot(self) -> MCPCacheMetrics:
+        """Read-only snapshot of cache counters + current sizes."""
+        size_l2 = (
+            await self._l2_size()
+            if self._settings.mcpcache_l2_enabled
+            else -1
+        )
+        return MCPCacheMetrics(
+            hits_l1=self._counters.l1_hits,
+            misses_l1=self._counters.l1_misses,
+            hits_l2=self._counters.l2_hits,
+            misses_l2=self._counters.l2_misses,
+            bypass_count=self._counters.bypass_count,
+            size_l1=len(self._l1),
+            size_l2=size_l2,
+            invalidations_total=self._counters.invalidations_total,
+        )
 
     @property
     def l1_size(self) -> int:
@@ -221,10 +503,12 @@ class MCPCache:
         self._counters = _Counters()
 
     async def aclose(self, *, aclose_inner: bool = False) -> None:
-        """Close the L2 connection (if open). Optionally close the inner client.
+        """Close the L2 connection (if open) and stop the schema poller.
 
-        Composition default: caller owns ``inner`` lifetime.
+        Optionally close the inner client. Composition default: caller owns
+        ``inner`` lifetime.
         """
+        await self.stop_schema_version_poller()
         if self._l2_conn is not None:
             try:
                 await self._l2_conn.close()

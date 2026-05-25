@@ -10,7 +10,7 @@ DO NOT import from eldritch_dm.persistence or eldritch_dm.safety — boundary di
 from __future__ import annotations
 
 from eldritch_dm.mcp import tools
-from eldritch_dm.mcp.cache import CACHEABLE_TOOLS, MCPCache
+from eldritch_dm.mcp.cache import CACHEABLE_TOOLS, MCPCache, MCPCacheMetrics
 from eldritch_dm.mcp.client import MCPClient
 from eldritch_dm.mcp.errors import (
     MCPCircuitOpen,
@@ -26,6 +26,7 @@ __all__ = [
     "MCPClient",
     # Cache (Phase 16)
     "MCPCache",
+    "MCPCacheMetrics",
     "CACHEABLE_TOOLS",
     # Errors
     "MCPError",
