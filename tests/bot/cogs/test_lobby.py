@@ -569,3 +569,217 @@ class TestAdventureIdAutocomplete:
 
         results = await cog.adventure_id_autocomplete(interaction, current="xyznotanadventure")
         assert len(results) == 0
+
+
+# ── /end_game (Phase 23 / WIRE-02) ────────────────────────────────────────────
+
+
+class TestEndGame:
+    """Cover the D-178 close-and-purge sequence in LobbyCog.end_game."""
+
+    def _make_session(
+        self,
+        campaign_name: str = "TestCamp",
+        claudmaster_session_id: str | None = "sess-xyz",
+    ):
+        from datetime import datetime
+
+        from eldritch_dm.persistence.models import ChannelSession, ChannelState
+
+        token = json.dumps({
+            "server_url": "http://192.168.1.5:8080",
+            "members": [],
+            "module_bound": None,
+        })
+        return ChannelSession(
+            channel_id="200",
+            campaign_name=campaign_name,
+            claudmaster_session_id=claudmaster_session_id,
+            dm20_party_token=token,
+            state=ChannelState.EXPLORATION,
+            created_at=datetime.now(tz=UTC),
+            updated_at=datetime.now(tz=UTC),
+        )
+
+    def _attach_registry(self, bot, *, purge_return: int = 3, raises: Exception | None = None):
+        reg = MagicMock()
+        if raises is not None:
+            reg.purge_session = MagicMock(side_effect=raises)
+        else:
+            reg.purge_session = MagicMock(return_value=purge_return)
+        bot.monster_memory_registry = reg
+        return reg
+
+    @pytest.mark.asyncio
+    async def test_end_game_defers_first(self):
+        """defer is the first await (D-09 / EDM001)."""
+        call_order: list[str] = []
+        bot = _make_bot(channel_session=self._make_session())
+        bot.mcp.call = _make_mcp_responses()
+        self._attach_registry(bot)
+
+        async def defer_coro(**kw):
+            call_order.append("defer")
+
+        interaction = _make_interaction()
+        interaction.response.defer.side_effect = defer_coro
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        assert call_order[0] == "defer"
+
+    @pytest.mark.asyncio
+    async def test_end_game_happy_path(self):
+        """Active session → dm20 close + purge + LOBBY flip + ephemeral embed."""
+        from eldritch_dm.persistence.models import ChannelState
+
+        session = self._make_session()
+        bot = _make_bot(channel_session=session)
+        bot.mcp.call = _make_mcp_responses()
+        registry = self._attach_registry(bot, purge_return=3)
+        interaction = _make_interaction()
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        # dm20__end_claudmaster_session called with right session_id
+        call_tuples = [(c.args[0], c.kwargs) for c in bot.mcp.call.call_args_list]
+        end_calls = [(t, kw) for t, kw in call_tuples if t == "dm20__end_claudmaster_session"]
+        assert len(end_calls) == 1
+        assert end_calls[0][1].get("session_id") == "sess-xyz"
+
+        # purge_session called with (channel_id, session_id)
+        registry.purge_session.assert_called_once_with("200", "sess-xyz")
+
+        # channel_sessions.upsert called with LOBBY state + cleared cm_id
+        bot.channel_sessions.upsert.assert_awaited()
+        upsert_kwargs = bot.channel_sessions.upsert.call_args.kwargs
+        assert upsert_kwargs.get("state") == ChannelState.LOBBY
+        assert upsert_kwargs.get("claudmaster_session_id") is None
+        assert upsert_kwargs.get("channel_id") == "200"
+
+        # Ephemeral embed sent
+        interaction.followup.send.assert_awaited()
+        sent = interaction.followup.send.call_args
+        assert sent.kwargs.get("ephemeral") is True
+        assert "embed" in sent.kwargs
+
+    @pytest.mark.asyncio
+    async def test_end_game_no_active_session(self):
+        """No session in channel → ephemeral 'nothing to end', no mcp call, no purge."""
+        bot = _make_bot(channel_session=None)
+        registry = self._attach_registry(bot)
+        interaction = _make_interaction()
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        bot.mcp.call.assert_not_awaited()
+        registry.purge_session.assert_not_called()
+        bot.channel_sessions.upsert.assert_not_awaited()
+        interaction.followup.send.assert_awaited_once()
+        sent = interaction.followup.send.call_args
+        assert sent.kwargs.get("ephemeral") is True
+        content = sent.kwargs.get("content") or ""
+        assert "nothing to end" in content.lower() or "no active" in content.lower()
+
+    @pytest.mark.asyncio
+    async def test_end_game_dm20_close_fails_still_purges_and_flips(self):
+        """D-179 fail-soft: dm20 close raises → purge + LOBBY flip STILL happen."""
+        from eldritch_dm.persistence.models import ChannelState
+
+        session = self._make_session()
+        bot = _make_bot(channel_session=session)
+
+        async def mcp_side(tool_name, **kwargs):
+            if tool_name == "dm20__end_claudmaster_session":
+                raise RuntimeError("dm20 oopsie")
+            return {"ok": True}
+
+        bot.mcp.call = AsyncMock(side_effect=mcp_side)
+        registry = self._attach_registry(bot, purge_return=2)
+        interaction = _make_interaction()
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        # purge STILL called despite dm20 failure
+        registry.purge_session.assert_called_once_with("200", "sess-xyz")
+        # LOBBY flip STILL occurred
+        bot.channel_sessions.upsert.assert_awaited()
+        upsert_kwargs = bot.channel_sessions.upsert.call_args.kwargs
+        assert upsert_kwargs.get("state") == ChannelState.LOBBY
+        # User STILL gets a confirmation
+        interaction.followup.send.assert_awaited()
+
+    @pytest.mark.asyncio
+    async def test_end_game_no_registry_attribute_does_not_crash(self):
+        """Legacy bot without monster_memory_registry attr → command still completes."""
+        from eldritch_dm.persistence.models import ChannelState
+
+        session = self._make_session()
+        bot = _make_bot(channel_session=session)
+        bot.mcp.call = _make_mcp_responses()
+        # Explicitly remove the attribute — MagicMock auto-creates attrs, so
+        # we use spec to prevent that, or just delete after the fact.
+        if hasattr(bot, "monster_memory_registry"):
+            del bot.monster_memory_registry
+        # Block auto-creation via __getattr__ by using a sentinel attribute access
+        # pattern: getattr(bot, "monster_memory_registry", None) should return None.
+        # MagicMock by default returns a child mock on any attr access; force None.
+        type(bot).monster_memory_registry = property(lambda self: None)
+
+        interaction = _make_interaction()
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        # dm20 close STILL called
+        call_tuples = [(c.args[0], c.kwargs) for c in bot.mcp.call.call_args_list]
+        assert any(t == "dm20__end_claudmaster_session" for t, _ in call_tuples)
+        # LOBBY flip STILL occurred
+        bot.channel_sessions.upsert.assert_awaited()
+        upsert_kwargs = bot.channel_sessions.upsert.call_args.kwargs
+        assert upsert_kwargs.get("state") == ChannelState.LOBBY
+        # cleanup
+        del type(bot).monster_memory_registry
+
+    @pytest.mark.asyncio
+    async def test_end_game_permission_denied_for_non_dm(self):
+        """User without manage_channels → ephemeral denial, NO mcp call, NO purge."""
+        session = self._make_session()
+        bot = _make_bot(channel_session=session)
+        registry = self._attach_registry(bot)
+        interaction = _make_interaction(manage_channels=False)
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        bot.mcp.call.assert_not_awaited()
+        registry.purge_session.assert_not_called()
+        bot.channel_sessions.upsert.assert_not_awaited()
+        interaction.followup.send.assert_awaited_once()
+        sent = interaction.followup.send.call_args
+        assert sent.kwargs.get("ephemeral") is True
+
+    @pytest.mark.asyncio
+    async def test_end_game_registry_purge_raises_still_completes(self):
+        """Defensive belt-and-suspenders: purge raises despite fail-soft contract →
+        command STILL flips state to LOBBY and sends ephemeral embed."""
+        from eldritch_dm.persistence.models import ChannelState
+
+        session = self._make_session()
+        bot = _make_bot(channel_session=session)
+        bot.mcp.call = _make_mcp_responses()
+        registry = self._attach_registry(bot, raises=RuntimeError("registry kaboom"))
+        interaction = _make_interaction()
+
+        cog = LobbyCog(bot)
+        await cog.end_game.callback(cog, interaction)
+
+        registry.purge_session.assert_called_once()
+        bot.channel_sessions.upsert.assert_awaited()
+        upsert_kwargs = bot.channel_sessions.upsert.call_args.kwargs
+        assert upsert_kwargs.get("state") == ChannelState.LOBBY
+        interaction.followup.send.assert_awaited()
