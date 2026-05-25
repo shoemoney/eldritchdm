@@ -134,7 +134,7 @@ class BudgetOwnerNotifier:
                 except Exception as exc:  # noqa: BLE001
                     log.warning(
                         "eldritch.budget_dm.no_loop",
-                        event=event,
+                        event_type=event,
                         error_type=type(exc).__name__,
                     )
                     return
@@ -147,7 +147,7 @@ class BudgetOwnerNotifier:
             # Loop closed mid-shutdown — fail-soft.
             log.warning(
                 "eldritch.budget_dm.schedule_failed",
-                event=event,
+                event_type=event,
                 error_type=type(exc).__name__,
                 error=str(exc)[:200],
             )
@@ -167,7 +167,7 @@ class BudgetOwnerNotifier:
         if last is not None and (now - last) < self._rate_limit_window_s:
             log.info(
                 "eldritch.budget_dm.rate_limited",
-                event=event,
+                event_type=event,
                 window_s=self._rate_limit_window_s,
                 elapsed_s=now - last,
             )
@@ -182,7 +182,7 @@ class BudgetOwnerNotifier:
         except Forbidden as exc:
             log.warning(
                 "eldritch.budget_dm.send_failed",
-                event=event,
+                event_type=event,
                 error_type="Forbidden",
                 error=str(exc)[:200],
             )
@@ -190,7 +190,7 @@ class BudgetOwnerNotifier:
         except NotFound as exc:
             log.warning(
                 "eldritch.budget_dm.send_failed",
-                event=event,
+                event_type=event,
                 error_type="NotFound",
                 error=str(exc)[:200],
             )
@@ -198,7 +198,7 @@ class BudgetOwnerNotifier:
         except HTTPException as exc:
             log.warning(
                 "eldritch.budget_dm.send_failed",
-                event=event,
+                event_type=event,
                 error_type="HTTPException",
                 error=str(exc)[:200],
             )
@@ -206,7 +206,7 @@ class BudgetOwnerNotifier:
         except Exception as exc:  # noqa: BLE001
             log.warning(
                 "eldritch.budget_dm.send_failed",
-                event=event,
+                event_type=event,
                 error_type=type(exc).__name__,
                 error=str(exc)[:200],
             )
@@ -214,7 +214,9 @@ class BudgetOwnerNotifier:
 
         # Successful send → record timestamp so rate-limit bucket holds.
         self._last_sent_ts[event] = now
-        log.info("eldritch.budget_dm.sent", event=event, owner_id=self._owner_id)
+        log.info(
+            "eldritch.budget_dm.sent", event_type=event, owner_id=self._owner_id
+        )
 
     # ── DegradedModeState wiring ─────────────────────────────────────────────
 

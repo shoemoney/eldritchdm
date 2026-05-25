@@ -108,7 +108,7 @@ class DegradedModeState:
             except Exception as exc:  # noqa: BLE001
                 log.warning(
                     "eldritch.degraded_mode.notify_error",
-                    event="degraded_mode_entered",
+                    event_type="degraded_mode_entered",
                     error_type=type(exc).__name__,
                     error=str(exc)[:200],
                 )
@@ -143,7 +143,7 @@ class DegradedModeState:
             except Exception as exc:  # noqa: BLE001
                 log.warning(
                     "eldritch.degraded_mode.notify_error",
-                    event="degraded_mode_exited",
+                    event_type="degraded_mode_exited",
                     error_type=type(exc).__name__,
                     error=str(exc)[:200],
                 )
