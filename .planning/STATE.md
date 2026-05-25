@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Cache Architecture
 status: executing
-last_updated: "2026-05-25T20:39:27.156Z"
-last_activity: 2026-05-25 -- Phase 21 execution started
+last_updated: "2026-05-25T20:57:45.956Z"
+last_activity: 2026-05-25 -- Phase 22 execution started
 progress:
   total_phases: 17
-  completed_phases: 15
-  total_plans: 27
-  completed_plans: 27
-  percent: 88
+  completed_phases: 16
+  total_plans: 29
+  completed_plans: 29
+  percent: 94
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 21 — monster-memory
+**Current focus:** Phase 22 — operator-polish
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 21 (monster-memory) — EXECUTING
+Phase: 22 (operator-polish) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 21
-Last activity: 2026-05-25 -- Phase 21 execution started
+Status: Executing Phase 22
+Last activity: 2026-05-25 -- Phase 22 execution started
 
 ## Operator Next Steps
 
