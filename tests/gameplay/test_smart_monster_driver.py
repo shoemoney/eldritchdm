@@ -621,3 +621,203 @@ async def test_choose_target_aoe_partial_hallucination_random_fallback() -> None
     # Fail-soft: random fallback used (D-58 / D-153).
     assert fallback.called
     assert chosen == pcs[2]
+
+
+# ── Phase 21 / MEM-02: _augment_with_memory + driver integration ─────────────
+
+
+def test_augment_with_memory_none_returns_slim_unchanged() -> None:
+    """When memory is None, _augment_with_memory returns the slim dict unchanged."""
+    from eldritch_dm.gameplay.smart_monster_driver import _augment_with_memory
+
+    slim = {"id": "pc-1", "name": "Hero", "hp_current": 10, "ac": 14}
+    out = _augment_with_memory(slim, None, pc_id="pc-1")
+    assert out == slim
+    assert out is slim  # same object — pure pass-through when memory is None
+
+
+def test_augment_with_memory_adds_three_fields() -> None:
+    """With memory present, augment adds the three D-57-safe fields."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemory
+    from eldritch_dm.gameplay.smart_monster_driver import _augment_with_memory
+
+    mem = MonsterMemory()
+    mem.observe_hit("pc-1", 20, observer_int=14)  # high band + marked dangerous
+    mem.observe_concentration("pc-1", "Hypnotic Pattern")
+
+    slim = {"id": "pc-1", "name": "Hero", "hp_current": 10, "hp_max": 20, "ac": 14}
+    out = _augment_with_memory(slim, mem, pc_id="pc-1")
+
+    assert out["recent_damage_dealt"] == "high"
+    assert out["concentrating_on"] == "Hypnotic Pattern"
+    assert out["marked_dangerous"] is True
+    # Original fields preserved.
+    assert out["id"] == "pc-1"
+    assert out["name"] == "Hero"
+
+
+def test_augment_with_memory_unseen_pc_has_none_band() -> None:
+    """An unseen PC gets None damage band, None concentration, False marked."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemory
+    from eldritch_dm.gameplay.smart_monster_driver import _augment_with_memory
+
+    mem = MonsterMemory()
+    mem.observe_hit("pc-other", 30, observer_int=14)
+
+    slim = {"id": "pc-unseen", "name": "Stranger", "hp_current": 15, "ac": 13}
+    out = _augment_with_memory(slim, mem, pc_id="pc-unseen")
+
+    assert out["recent_damage_dealt"] is None
+    assert out["concentrating_on"] is None
+    assert out["marked_dangerous"] is False
+
+
+def test_augment_with_memory_never_includes_raw_damage_or_extra_keys() -> None:
+    """The augmented dict must NEVER contain raw cumulative damage or any new
+    keys beyond the 3 documented fields. D-57 meta-knowledge guard."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemory
+    from eldritch_dm.gameplay.smart_monster_driver import _augment_with_memory
+
+    mem = MonsterMemory()
+    mem.observe_hit("pc-1", 42, observer_int=18)
+
+    slim = {"id": "pc-1", "name": "Hero", "hp_current": 10, "hp_max": 20, "ac": 14}
+    out = _augment_with_memory(slim, mem, pc_id="pc-1")
+
+    expected_keys = set(slim.keys()) | {
+        "recent_damage_dealt",
+        "concentrating_on",
+        "marked_dangerous",
+    }
+    assert set(out.keys()) == expected_keys
+    # Raw cumulative damage MUST NOT appear in any value.
+    assert 42 not in out.values()
+    # damage_dealt_by/total/cumulative keys MUST NOT be present.
+    assert "damage_dealt_by" not in out
+    assert "total_damage" not in out
+
+
+def test_augment_with_memory_does_not_mutate_input() -> None:
+    """Augmenter returns a new dict, never mutates the input."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemory
+    from eldritch_dm.gameplay.smart_monster_driver import _augment_with_memory
+
+    mem = MonsterMemory()
+    mem.observe_hit("pc-1", 5)
+    slim = {"id": "pc-1", "name": "Hero"}
+    snapshot = dict(slim)
+    out = _augment_with_memory(slim, mem, pc_id="pc-1")
+    assert slim == snapshot  # input untouched
+    assert out is not slim
+
+
+def test_augment_with_memory_fail_soft_on_corrupt_memory() -> None:
+    """A corrupt memory (e.g. damage_band raises) → returns slim unchanged."""
+    from eldritch_dm.gameplay.smart_monster_driver import _augment_with_memory
+
+    class _BrokenMemory:
+        marked_dangerous: set = set()
+        concentrating_on: dict = {}
+
+        def damage_band(self, pc_id):  # noqa: ARG002
+            raise RuntimeError("simulated corruption")
+
+    slim = {"id": "pc-1", "name": "Hero"}
+    out = _augment_with_memory(slim, _BrokenMemory(), pc_id="pc-1")  # type: ignore[arg-type]
+    # Fail-soft: returns slim unchanged.
+    assert out == slim
+
+
+@pytest.mark.asyncio
+async def test_smart_driver_without_monster_memory_is_byte_identical() -> None:
+    """Regression: SmartMonsterDriver constructed WITHOUT monster_memory still
+    works exactly as before — confirms zero-regression for existing callers."""
+    pcs = _make_pcs(3)
+    real_id = pcs[1]["character_id"]
+    content = f'{{"target_pc_id": "{real_id}"}}'
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+    driver = _make_driver(openai_client=openai_client)
+    # No monster_memory passed — default is None.
+    assert driver._monster_memory is None
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "ogre", "intelligence": 12},
+    )
+    assert chosen["character_id"] == real_id
+
+
+@pytest.mark.asyncio
+async def test_smart_driver_passes_augmented_candidates_to_llm() -> None:
+    """When monster_memory is wired, the LLM payload contains the augmented fields."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemoryRegistry
+
+    pcs = _make_pcs(3)
+    real_id = pcs[0]["character_id"]
+    content = f'{{"target_pc_id": "{real_id}"}}'
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+
+    registry = MonsterMemoryRegistry()
+    # Seed memory: pc-000 dealt 20 dmg, concentrating on Hypnotic Pattern,
+    # observed by a high-INT monster so it's marked dangerous.
+    mem = registry.recall("c", "default", "wizard-boss")
+    mem.observe_hit(real_id, 20, observer_int=14)
+    mem.observe_concentration(real_id, "Hypnotic Pattern")
+
+    driver = _make_driver(openai_client=openai_client)
+    driver._monster_memory = registry  # inject post-construction for test simplicity
+
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "wizard-boss", "intelligence": 16},
+    )
+
+    # Inspect the LLM call payload — the user-message must contain the
+    # augmented categorical fields somewhere.
+    call_kwargs = openai_client.chat.completions.create.call_args.kwargs
+    messages = call_kwargs.get("messages", [])
+    payload_str = "".join(m.get("content", "") for m in messages)
+    assert "recent_damage_dealt" in payload_str
+    assert "concentrating_on" in payload_str
+    assert "marked_dangerous" in payload_str
+    assert "Hypnotic Pattern" in payload_str
+    assert '"high"' in payload_str  # categorical band, NOT raw "20"
+
+
+@pytest.mark.asyncio
+async def test_smart_driver_memory_lookup_failure_is_fail_soft() -> None:
+    """If the registry recall raises, combat continues without augmentation."""
+    pcs = _make_pcs(2)
+    real_id = pcs[0]["character_id"]
+    content = f'{{"target_pc_id": "{real_id}"}}'
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=_make_completion(content)
+    )
+
+    class _ExplodingRegistry:
+        has_repo = False
+
+        def recall(self, *a, **kw):  # noqa: ARG002
+            raise RuntimeError("simulated registry failure")
+
+    driver = _make_driver(openai_client=openai_client)
+    driver._monster_memory = _ExplodingRegistry()  # type: ignore[assignment]
+
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={"character_id": "ogre", "intelligence": 12},
+    )
+    # Combat continues — LLM call succeeds with unaugmented candidates.
+    assert chosen["character_id"] == real_id

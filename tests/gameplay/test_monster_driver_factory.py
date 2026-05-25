@@ -121,3 +121,40 @@ def test_factory_settings_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
         assert not isinstance(driver, SmartMonsterDriver)
     finally:
         get_settings.cache_clear()  # type: ignore[attr-defined]
+
+
+# ── Phase 21 / MEM-02: factory accepts monster_memory kwarg ───────────────────
+
+
+def test_factory_threads_monster_memory_to_smart_driver() -> None:
+    """When constructing a smart driver, monster_memory kwarg flows through."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemoryRegistry
+
+    registry = MonsterMemoryRegistry()
+    kwargs = _common_kwargs()
+    driver = make_monster_driver(
+        env_override="smart",
+        openai_client=MagicMock(),
+        monster_memory=registry,
+        **kwargs,
+    )
+    assert isinstance(driver, SmartMonsterDriver)
+    assert driver._monster_memory is registry
+
+
+def test_factory_random_mode_strips_monster_memory_kwarg() -> None:
+    """The random mode must accept and silently strip the monster_memory kwarg."""
+    from eldritch_dm.gameplay.monster_memory import MonsterMemoryRegistry
+
+    registry = MonsterMemoryRegistry()
+    kwargs = _common_kwargs()
+    # Random mode should not blow up when monster_memory is passed; the strip
+    # list pops it before the MonsterDriver(...) call.
+    driver = make_monster_driver(
+        env_override="random",
+        openai_client=MagicMock(),
+        monster_memory=registry,
+        **kwargs,
+    )
+    assert isinstance(driver, MonsterDriver)
+    assert not isinstance(driver, SmartMonsterDriver)
