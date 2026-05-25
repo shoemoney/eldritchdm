@@ -35,11 +35,10 @@ End-of-phase verification against `24-CONTEXT.md` Success Criteria
 
 ## Pytest Status
 
-`uv run pytest tests/ -q --no-header` started and running; full result will be
-recorded by CI on first push. Local pre-change baseline already green per the
-v1.6 ship verification. No source-code files were modified in Phase 24 — only
-new YAML/JSON/Markdown files and a single doc-line edit — so regression risk
-is zero.
+`uv run pytest tests/ -q --no-header` → **1644 passed, 17 skipped, 83 warnings
+in 126.35s**. No regressions. No source-code files were modified in Phase 24 —
+only new YAML/JSON/Markdown files and a single doc-line edit — which matches
+the test outcome.
 
 ## Deferred (out-of-scope, logged)
 
