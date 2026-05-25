@@ -409,6 +409,16 @@ class EldritchBot(commands.Bot):
 
         stream_cb = _emit_thinking_indicator if settings.stream_enabled else None
 
+        # Phase 23 / WIRE-02: construct the cross-round monster memory registry
+        # at bot scope so both the smart driver (reader) and LobbyCog's
+        # /end_game command (purger) share the same instance. Default in-memory
+        # mode — Plan 21-02's optional aiosqlite repo is not wired here.
+        from eldritch_dm.gameplay.monster_memory import (  # noqa: PLC0415
+            MonsterMemoryRegistry,
+        )
+
+        self.monster_memory_registry = MonsterMemoryRegistry()
+
         self.monster_driver = make_monster_driver(
             mcp=self.mcp,
             rate_limiter=self.rate_limiter,
@@ -423,6 +433,7 @@ class EldritchBot(commands.Bot):
             openai_client=smart_openai_client,
             llm_model=ingest_cfg.model,
             embed_update_callback=stream_cb,  # Phase 19 / STREAM-01/03
+            monster_memory=self.monster_memory_registry,  # Phase 23 / WIRE-02
         )
 
         # (e3c) Phase 5 Plan 02 — shared SessionLocks + RiposteSweeper.
