@@ -2,15 +2,22 @@
 
 ## Current State
 
-**Shipped:** v1.4 Writer-Queue Reliability · 2026-05-25 · tag `v1.4` · 3/3 reqs · **first full-suite GREEN since v1.1**
+**Current Milestone:** v1.5 Cache Architecture (in progress, 0/3 phases) — see [`ROADMAP.md`](./ROADMAP.md)
+**Goal:** Multi-level cache across the stack — dm20 MCP query cache (rules lookups hot path), persistent character cache (kill restart-latency UX issue), opt-in narration cache (cost reduction with hard mechanical-honesty guardrails). Unblocked by v1.4's full-suite green.
+**Shipped:** v1.4 Writer-Queue Reliability · 2026-05-25 · `v1.4` · 3/3 · **first full-suite GREEN since v1.1**
+**Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
+**Earlier:** v1.3 Hygiene Sweep · `v1.3` 2.5/3 (FLAKE-02 closed by v1.4) / v1.2 · `v1.2` 8/8 / v1.1 · `v1.1` 10/10 / v1.0 · `v1.0` 71/73
+**Repo:** https://github.com/shoemoney/eldritchdm
+**License:** Apache 2.0
 
-**v1.4 lifecycle** demonstrated the autonomous-mode honest-report contract working under stress: first Phase 15 agent halted on premise check (writer-queue hangs verified not reproducible; WriterQueue already correct); user overrode the halt; second agent shipped the actual fix (test-isolation snapshot+restore for `sys.modules[cog]`); audit caught one final correction (snapshot+restore was needed, not just unload_extension). 1244 passed, 17 skipped, 0 failed × 2 consecutive runs. v1.3's carried FLAKE-02 partial back-ticked closed.
+<details>
+<summary>v1.4 lifecycle retrospective (honest-report contract in action)</summary>
 
-**Previous milestone history (still applies — leaving the halt-deferred narrative below for the record):**
+v1.4's Phase 15 demonstrated the autonomous-mode honest-report contract: first agent halted on premise check (writer-queue hangs verified not reproducible; WriterQueue already implements the proposed fix); user overrode the halt; second agent shipped the actual fix (test-isolation snapshot+restore for `sys.modules[cog]`); audit caught one final correction (snapshot+restore, not just unload_extension). 1244 passed, 17 skipped, 0 failed × 2 consecutive runs. v1.3's carried FLAKE-02 partial back-ticked closed.
 
-**Original v1.4 narrative (preserved):** halt-deferred at first attempt with high-quality halt-report at `.planning/phases/15-writer-queue-fix/15-HALT-REPORT.md` — see audit for full lifecycle.
+Halt-report preserved at `.planning/phases/15-writer-queue-fix/15-HALT-REPORT.md` (169 lines) as canonical example of the contract working under stress.
 
-(legacy detail follows)
+</details>
 **What happened:** Phase 15 agent ran empirical reproduction and found:
   - HANG-01 (`test_writer_queue_drain_timeout`) and HANG-02 (`test_close_cleanly_shuts_down`) **do NOT reproduce** at HEAD — they pass in isolation AND in the full suite.
   - `src/eldritch_dm/persistence/connection.py:WriterQueue` **already implements** the exact `asyncio.Event` + sentinel-value pattern v1.4 CONTEXT proposed adding.

@@ -7,6 +7,7 @@
 - ✅ **v1.2 Quality Flywheel** — Phases 11-13 (shipped 2026-05-24) — see [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - ⚠️ **v1.3 Hygiene Sweep** — Phase 14 (shipped 2026-05-25, partial) — see [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
 - ✅ **v1.4 Writer-Queue Reliability** — Phase 15 (shipped 2026-05-25) — see [`milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
+- 🚧 **v1.5 Cache Architecture** — Phases 16-18 (in progress) — dm20 MCP cache + persistent character cache + opt-in narration cache (mechanical-honesty guarded)
 
 ## Phases
 
@@ -75,6 +76,37 @@
 
 </details>
 
+
+## 🚧 v1.5 Cache Architecture (Phases 16-18)
+
+### Phase 16: dm20 MCP query cache
+**Goal**: Multi-level cache (L1 in-process LRU + L2 SQLite) wrapping `MCPClient` for dm20 rules-lookup hot path. Auto-invalidation on schema version change. KPIs via Phase 11 OTel.
+**Mode:** mvp (perf infrastructure)
+**Depends on**: Phase 15 (clean test baseline)
+**Requirements**: MCPCACHE-01, MCPCACHE-02, MCPCACHE-03
+**Plans**:
+- [ ] Plan 01: L1 LRU + L2 SQLite scaffolding (`feat(16-01): MCPCache L1+L2 with TTL + opt-out env gates`)
+- [ ] Plan 02: Invalidation hook + KPI integration (`feat(16-02): cache invalidation on schema bump + Phase 11 OTel KPI integration`)
+
+### Phase 17: Persistent character cache
+**Goal**: Cache character snapshots across bot restarts; ETag-based lazy refresh with TTL fallback. Eliminates first-turn UX latency.
+**Mode:** mvp (UX perf)
+**Depends on**: Phase 16 (cache patterns established)
+**Requirements**: CHARCACHE-01, CHARCACHE-02, CHARCACHE-03
+**Plans**:
+- [ ] Plan 01: Snapshot SQLite + ETag refresh path (`feat(17-01): character snapshot cache with ETag-based lazy refresh`)
+- [ ] Plan 02: TTL fallback + cache-clear CLI (`feat(17-02): TTL fallback + eldritch-dm-cache-clear --characters`)
+
+### Phase 18: Narration response cache
+**Goal**: Opt-in narration cache with HARD mechanical-honesty gate — only pure narrative text is cacheable; any response with HP/AC/damage/effect tokens bypasses. Operator off-switch + cost-savings observability.
+**Mode:** mvp (cost reduction with safety guardrails)
+**Depends on**: Phase 16 (cache patterns), Phase 13 (cost calculator for savings reports)
+**Requirements**: NARRCACHE-01, NARRCACHE-02, NARRCACHE-03
+**Plans**:
+- [ ] Plan 01: Narration cache + NarrCacheGate fail-closed classifier (`feat(18-01): opt-in narration cache + mechanical-honesty gate`)
+- [ ] Plan 02: Operator off-switch + savings observability (`feat(18-02): runtime cache-disable + cost-savings KPI + cache-stats CLI`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -103,6 +135,15 @@
 | HANG-01 | 15 | 15-01-PLAN-reproduce-hang |
 | HANG-02 | 15 | 15-02-PLAN-cancellable-shutdown |
 | HANG-03 | 15 | 15-03-PLAN-flake02-closure |
+| MCPCACHE-01 | 16 | 16-01-PLAN-mcp-cache-scaffolding |
+| MCPCACHE-02 | 16 | 16-01-PLAN-mcp-cache-scaffolding |
+| MCPCACHE-03 | 16 | 16-02-PLAN-invalidation-kpis |
+| CHARCACHE-01 | 17 | 17-01-PLAN-snapshot-etag |
+| CHARCACHE-02 | 17 | 17-01-PLAN-snapshot-etag |
+| CHARCACHE-03 | 17 | 17-02-PLAN-ttl-cli |
+| NARRCACHE-01 | 18 | 18-01-PLAN-narr-cache-gate |
+| NARRCACHE-02 | 18 | 18-01-PLAN-narr-cache-gate |
+| NARRCACHE-03 | 18 | 18-02-PLAN-offswitch-observability |
 
 ## Progress
 
