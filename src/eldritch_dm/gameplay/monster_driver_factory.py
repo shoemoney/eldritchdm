@@ -127,7 +127,15 @@ def make_monster_driver(
 
     if mode == "random":
         # Strip kwargs that only the smart driver consumes.
-        for k in ("openai_client", "llm_model", "llm_timeout_seconds", "cache_max_size"):
+        # Phase 19 / STREAM-03: ``embed_update_callback`` is smart-driver-only;
+        # pop it here so callers can pass the same kwargs to either mode.
+        for k in (
+            "openai_client",
+            "llm_model",
+            "llm_timeout_seconds",
+            "cache_max_size",
+            "embed_update_callback",
+        ):
             driver_kwargs.pop(k, None)
         return MonsterDriver(**driver_kwargs)
 
