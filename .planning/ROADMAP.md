@@ -9,6 +9,7 @@
 - ✅ **v1.4 Writer-Queue Reliability** — Phase 15 (shipped 2026-05-25) — see [`milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.5 Cache Architecture** — Phases 16-18 (shipped 2026-05-25) — see [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.6 UX/Feature Expansion** — Phases 19-22 (shipped 2026-05-25) — see [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
+- 🚧 **v1.7 Integration & Polish** — Phases 23-24 (in progress) — close v1.6 honest-gaps + CI matrix + Phoenix cache dashboards
 
 ## Phases
 
@@ -106,6 +107,24 @@
 
 </details>
 
+
+## 🚧 v1.7 Integration & Polish (Phases 23-24)
+
+### Phase 23: Honest-gap closure (cog-wiring + AOE prompt integration)
+**Goal**: Wire MonsterMemory observe_hit + session-close hook into bot cogs (close v1.6 Phase 21 honest gap). Integrate AOE addendum into SmartMonsterDriver's live oracle prompt assembly (close v1.6 Phase 20 ship-but-not-wired gap).
+**Requirements**: WIRE-01, WIRE-02, WIRE-03
+**Plans**:
+- [ ] Plan 01: MonsterMemory cog-wiring + /end_game hook (`feat(23-01): observe_hit cog wiring + session-close purge`)
+- [ ] Plan 02: AOE addendum live prompt assembly (`feat(23-02): conditional AOE addendum injection`)
+
+### Phase 24: CI matrix + Phoenix dashboards + doc-fix
+**Goal**: Linux CI runner (verify Phase 14 skip-gates work); bundled Phoenix dashboards for the 3 caches (MCP/character/narration); atomicity wording doc-fix + gsd-tools upstream-issues backlog file.
+**Requirements**: POLISH-01, POLISH-02, POLISH-03
+**Plans**:
+- [ ] Plan 01: GitHub Actions matrix (`feat(24-01): cross-platform CI matrix macos+ubuntu`)
+- [ ] Plan 02: Cache dashboards + doc fixes (`docs(24-02): cache dashboards + atomicity doc-fix + UPSTREAM-ISSUES.md`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -155,6 +174,12 @@
 | OPQOL-01 | 22 | 22-01-PLAN-hot-reload |
 | OPQOL-02 | 22 | 22-02-PLAN-dm-and-invalidation |
 | OPQOL-03 | 22 | 22-02-PLAN-dm-and-invalidation |
+| WIRE-01 | 23 | 23-01-PLAN-cog-wiring |
+| WIRE-02 | 23 | 23-01-PLAN-cog-wiring |
+| WIRE-03 | 23 | 23-02-PLAN-aoe-prompt-integration |
+| POLISH-01 | 24 | 24-01-PLAN-ci-matrix |
+| POLISH-02 | 24 | 24-02-PLAN-cache-dashboards-docfix |
+| POLISH-03 | 24 | 24-02-PLAN-cache-dashboards-docfix |
 
 ## Progress
 

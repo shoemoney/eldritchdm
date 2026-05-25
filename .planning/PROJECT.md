@@ -2,7 +2,10 @@
 
 ## Current State
 
-**Shipped:** v1.6 UX/Feature Expansion · 2026-05-25 · tag `v1.6` · 12/12 reqs · **122 new tests across 4 phases**
+**Current Milestone:** v1.7 Integration & Polish (in progress, 0/2 phases)
+**Goal:** Close v1.6 honest-gaps (MonsterMemory cog-wiring + AOE addendum prompt integration) + CI matrix (macOS+Linux) + bundled Phoenix dashboards for the 3 v1.5 caches + atomicity doc-fix.
+
+**Previously shipped:** v1.6 UX/Feature Expansion · 2026-05-25 · tag `v1.6` · 12/12 reqs · **122 new tests across 4 phases**
 
 **v1.6 highlights:**
 - Streaming "thinking" embed (P19) — cancellation-safe; STREAM_ENABLED env opt-out
