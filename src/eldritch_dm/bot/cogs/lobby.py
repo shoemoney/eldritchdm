@@ -445,6 +445,117 @@ class LobbyCog(commands.Cog):
         await interaction.followup.send(embed=confirm_embed, ephemeral=True)
         bound_log.info("load_adventure_ok", adventure_id=adventure_id)
 
+    # ── /end_game ──────────────────────────────────────────────────────────────
+
+    @app_commands.command(
+        name="end_game",
+        description="End the active campaign in this channel and clear session memory",
+    )
+    async def end_game(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Close the active campaign: end dm20 session, purge monster memory,
+        flip the channel to LOBBY.
+
+        Sequence (Phase 23 / D-178):
+          1. defer FIRST (EDM001 / D-09).
+          2. Permission gate: DM-only (T-03-03 parity with /load_adventure).
+          3. Fetch the active session row; bail out if none.
+          4. Best-effort dm20__end_claudmaster_session — failure is NON-FATAL
+             (D-179 fail-soft). We still want to purge local state.
+          5. Best-effort MonsterMemoryRegistry.purge_session — already fail-soft
+             by contract (monster_memory.py L-07).
+          6. Upsert channel_sessions back to LOBBY with claudmaster_session_id
+             cleared.
+          7. Ephemeral confirmation embed.
+
+        WIRE-02 requirement (Phase 23, v1.7 honest-gap closure).
+        """
+        # Step 1: D-09 defer FIRST (EDM001), ephemeral
+        await interaction.response.defer(thinking=True, ephemeral=True)
+
+        bound_log = self._logger.bind(
+            command="end_game",
+            channel_id=interaction.channel_id,
+            user_id=getattr(interaction.user, "id", None),
+        )
+        bound_log.info("end_game_invoked")
+
+        # Step 2: Permission gate (T-03-03): DM-only action
+        if not can_act_on_character(interaction, character_player_id=None):
+            bound_log.warning("end_game_permission_denied")
+            await interaction.followup.send(
+                content="Only the DM (user with Manage Channels permission) can end the game.",
+                ephemeral=True,
+            )
+            return
+
+        # Step 3: Fetch active session
+        channel_id_str = str(interaction.channel_id)
+        session = await self.bot.channel_sessions.get(channel_id_str)
+        if session is None:
+            await interaction.followup.send(
+                content="No active campaign in this channel — nothing to end.",
+                ephemeral=True,
+            )
+            return
+
+        bound_log = bound_log.bind(campaign_name=session.campaign_name)
+
+        # Step 4: Best-effort dm20 close (D-179 fail-soft)
+        if session.claudmaster_session_id:
+            try:
+                await self.bot.mcp.call(
+                    "dm20__end_claudmaster_session",
+                    session_id=session.claudmaster_session_id,
+                )
+                bound_log.info("end_game_dm20_close_ok")
+            except Exception:
+                # NON-FATAL: log + continue. We still need to purge local state.
+                bound_log.exception("end_game_dm20_close_failed")
+
+        # Step 5: Best-effort monster-memory purge (registry is itself fail-soft;
+        # the defensive try here catches any pathological case — e.g., the
+        # attribute being missing on legacy bot instances).
+        registry = getattr(self.bot, "monster_memory_registry", None)
+        purged = 0
+        if registry is not None and session.claudmaster_session_id:
+            try:
+                purged = registry.purge_session(
+                    channel_id_str,
+                    session.claudmaster_session_id,
+                )
+                bound_log.info("end_game_memory_purged", count=purged)
+            except Exception:
+                bound_log.exception("end_game_memory_purge_failed")
+
+        # Step 6: Flip state back to LOBBY (preserve row as audit; clear cm_id)
+        try:
+            await self.bot.channel_sessions.upsert(
+                channel_id=channel_id_str,
+                campaign_name=session.campaign_name,
+                claudmaster_session_id=None,
+                dm20_party_token=session.dm20_party_token,
+                state=ChannelState.LOBBY,
+            )
+        except Exception:
+            bound_log.exception("end_game_state_flip_failed")
+
+        # Step 7: Ephemeral confirmation
+        embed = discord.Embed(
+            title="🛑 Session Ended",
+            description=(
+                f"Campaign **{session.campaign_name}** has been closed.\n\n"
+                f"Monster memory cleared ({purged} entries).\n"
+                f"Channel returned to LOBBY."
+            ),
+            color=0xED4245,
+        )
+        embed.set_footer(text="🎲 ShoeGPT · EldritchDM")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        bound_log.info("end_game_ok", purged=purged)
+
     @load_adventure.autocomplete("adventure_id")
     async def adventure_id_autocomplete(
         self,

@@ -10,9 +10,9 @@
 
 ### WIRE — Cog wiring + prompt integration (Phase 23)
 
-- [ ] **WIRE-01**: MonsterMemory cog-side integration — bot's combat cog (`src/eldritch_dm/bot/cogs/combat.py`) calls `monster_memory.observe_hit(pc_id, damage)` after every dm20-resolved damage event (the rules-engine callback path that already exists for damage resolution). NEVER invents damage; observes ONLY from rules-engine results. Same fail-soft contract (v1.1 D-58).
-- [ ] **WIRE-02**: Session-close hook — lobby cog (`src/eldritch_dm/bot/cogs/lobby.py`) `/end_game` command (add if missing OR extend existing close path) calls `monster_memory_registry.purge_session(channel_id, session_id)`. Discord slash-command auto-confirms with "Session ended. Monster memory cleared."
-- [ ] **WIRE-03**: AOE addendum live integration — SmartMonsterDriver's `_pick_target` prompt assembly conditionally appends the AOE addendum (versioned `aoe_addendum.txt` from Phase 20) when the candidate context's `available_actions` list contains 2+ AOE-kind entries. When 0 or 1 AOE actions: skip addendum (saves tokens, matches v1.1 slim-context discipline).
+- [ ] **WIRE-01** *(deferred — blocked on dm20 structured damage-event surface; see `.planning/phases/23-cog-wiring/23-HALT-REPORT.md`)*: MonsterMemory cog-side integration — bot's combat cog (`src/eldritch_dm/bot/cogs/combat.py`) calls `monster_memory.observe_hit(pc_id, damage)` after every dm20-resolved damage event. **Blocker:** dm20 returns markdown narration (not a structured `(attacker, target, damage)` event); parsing damage out of LLM text would violate the mechanical-honesty integrity rule (D-176 / EldritchDM core constraint). The concentration observation half (originally D-177) is blocked by the same missing event surface. Re-open after dm20 ships a post-resolve event emission.
+- [x] **WIRE-02**: Session-close hook — lobby cog (`src/eldritch_dm/bot/cogs/lobby.py`) `/end_game` command calls `monster_memory_registry.purge_session(channel_id, session_id)`. Discord slash-command confirms ephemerally with "Session Ended … Monster memory cleared (N entries) … Channel returned to LOBBY." Closed by Phase 23-01.
+- [x] **WIRE-03**: AOE addendum live integration — SmartMonsterDriver's `_pick_target` prompt assembly conditionally appends the AOE addendum (versioned `aoe_addendum.txt` from Phase 20) when the candidate context's `available_actions` list contains 2+ AOE-kind entries. When 0 or 1 AOE actions: skip addendum (saves tokens, matches v1.1 slim-context discipline). Closed by Phase 23-02.
 
 ### POLISH — CI matrix + dashboards + doc-fix (Phase 24)
 
@@ -26,9 +26,9 @@
 
 | REQ-ID | Phase | Source |
 |---|---|---|
-| WIRE-01 | 23 | v1.6 Phase 21 honest gap — MonsterMemory cog-side wiring |
-| WIRE-02 | 23 | v1.6 Phase 21 honest gap — session-close hook |
-| WIRE-03 | 23 | v1.6 Phase 20 — AOE addendum ships but isn't wired into live oracle |
+| WIRE-01 | 23 (deferred) | v1.6 Phase 21 honest gap — blocked on dm20 damage-event surface (see 23-HALT-REPORT.md) |
+| WIRE-02 | 23 | v1.6 Phase 21 honest gap — session-close hook (closed by 23-01) |
+| WIRE-03 | 23 | v1.6 Phase 20 — AOE addendum ships but isn't wired into live oracle (closed by 23-02) |
 | POLISH-01 | 24 | v1.3 carried — cross-platform CI matrix |
 | POLISH-02 | 24 | v1.5 carried — Phoenix dashboard cache panels (mentioned in v1.4 PROJECT.md candidates) |
 | POLISH-03 | 24 | v1.6 Phase 22 doc-fix reconciliation + v1.3 audit gsd-tools template gap |
