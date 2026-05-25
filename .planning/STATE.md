@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: UX/Feature Expansion
-status: complete
-last_updated: "2026-05-25T21:30:00.000Z"
-last_activity: 2026-05-25 -- v1.6 all 4 phases complete; ready for audit + tag
+status: executing
+last_updated: "2026-05-25T21:45:32.822Z"
+last_activity: 2026-05-25 -- Phase 23 execution started
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 19
+  completed_phases: 17
+  total_plans: 31
+  completed_plans: 31
+  percent: 89
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 22 — operator-polish
+**Current focus:** Phase 23 — cog-wiring
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 22 (operator-polish) — EXECUTING
+Phase: 23 (cog-wiring) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 22
-Last activity: 2026-05-25 -- Phase 22 execution started
+Status: Executing Phase 23
+Last activity: 2026-05-25 -- Phase 23 execution started
 
 ## Operator Next Steps
 
