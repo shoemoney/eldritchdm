@@ -9,7 +9,7 @@
 - ✅ **v1.4 Writer-Queue Reliability** — Phase 15 (shipped 2026-05-25) — see [`milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.5 Cache Architecture** — Phases 16-18 (shipped 2026-05-25) — see [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.6 UX/Feature Expansion** — Phases 19-22 (shipped 2026-05-25) — see [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
-- 🚧 **v1.7 Integration & Polish** — Phases 23-24 (in progress) — close v1.6 honest-gaps + CI matrix + Phoenix cache dashboards
+- ✅ **v1.7 Integration & Polish** — Phases 23-24 (shipped 2026-05-25) — see [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
 
 ## Phases
 
@@ -108,22 +108,17 @@
 </details>
 
 
-## 🚧 v1.7 Integration & Polish (Phases 23-24)
+<details>
+<summary>✅ v1.7 Integration & Polish (Phases 23-24) — SHIPPED 2026-05-25</summary>
 
-### Phase 23: Honest-gap closure (cog-wiring + AOE prompt integration)
-**Goal**: Wire MonsterMemory observe_hit + session-close hook into bot cogs (close v1.6 Phase 21 honest gap). Integrate AOE addendum into SmartMonsterDriver's live oracle prompt assembly (close v1.6 Phase 20 ship-but-not-wired gap).
-**Requirements**: WIRE-01, WIRE-02, WIRE-03
-**Plans**:
-- [ ] Plan 01: MonsterMemory cog-wiring + /end_game hook (`feat(23-01): observe_hit cog wiring + session-close purge`)
-- [ ] Plan 02: AOE addendum live prompt assembly (`feat(23-02): conditional AOE addendum injection`)
+- [x] **Phase 23**: Honest-gap closure — cog-wiring + AOE prompt (2/2 plans, WIRE-01 deferred — dm20 event surface)
+- [x] **Phase 24**: CI matrix + Phoenix cache dashboards (2/2 plans)
 
-### Phase 24: CI matrix + Phoenix dashboards + doc-fix
-**Goal**: Linux CI runner (verify Phase 14 skip-gates work); bundled Phoenix dashboards for the 3 caches (MCP/character/narration); atomicity wording doc-fix + gsd-tools upstream-issues backlog file.
-**Requirements**: POLISH-01, POLISH-02, POLISH-03
-**Plans**:
-- [ ] Plan 01: GitHub Actions matrix (`feat(24-01): cross-platform CI matrix macos+ubuntu`)
-- [ ] Plan 02: Cache dashboards + doc fixes (`docs(24-02): cache dashboards + atomicity doc-fix + UPSTREAM-ISSUES.md`)
+**Final stats:** 2 phases · 4 plans · ~16 commits · 5/6 requirements satisfied (1 deferred) · 14+ new tests · 14 SUMMARY frontmatter backfills · cross-platform CI matrix · 3 bundled cache dashboards · **full suite 1644 passed, 17 skipped, 0 failed**.
 
+**Tag:** `v1.7` · **Archive:** [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
+
+</details>
 
 ## Traceability
 

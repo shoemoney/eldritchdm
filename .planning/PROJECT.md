@@ -2,8 +2,18 @@
 
 ## Current State
 
-**Current Milestone:** v1.7 Integration & Polish (in progress, 0/2 phases)
-**Goal:** Close v1.6 honest-gaps (MonsterMemory cog-wiring + AOE addendum prompt integration) + CI matrix (macOS+Linux) + bundled Phoenix dashboards for the 3 v1.5 caches + atomicity doc-fix.
+**Shipped:** v1.7 Integration & Polish · 2026-05-25 · tag `v1.7` · 5/6 reqs (WIRE-01 deferred) · **full suite 1644 passed, 0 failed**
+
+**v1.7 highlights:**
+- /end_game slash command (WIRE-02) calls MonsterMemoryRegistry.purge_session
+- AOE addendum live integration (WIRE-03) — conditional on ≥2 AOE actions; version OTel attr
+- WIRE-01 (observe_hit) honestly deferred — blocked on dm20 structured damage-event surface; halt-report preserved as canonical example of contract
+- Cross-platform CI matrix (macOS + Ubuntu × Python 3.11)
+- 3 bundled cache dashboards (MCP/character/narrcache) using Phase 11 OUR-FORMAT spec
+- UPSTREAM-ISSUES.md created with gsd-tools planner-template gap as ISSUE-1
+- 14 SUMMARY frontmatter backfills (Phases 16-22) post-discovery by Phase 24 CI gate
+
+**The autonomous-mode honest-report contract has now delivered halts, partials, deferrals, and corrections across 8 milestones.** v1.0 → v1.7 production-ready with cross-platform CI in place.
 
 **Previously shipped:** v1.6 UX/Feature Expansion · 2026-05-25 · tag `v1.6` · 12/12 reqs · **122 new tests across 4 phases**
 
