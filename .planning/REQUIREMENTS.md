@@ -10,9 +10,9 @@
 
 ### HANG — Writer-queue shutdown reliability (Phase 15)
 
-- [ ] **HANG-01**: `tests/bot/test_setup_hook.py::test_writer_queue_drain_timeout` passes deterministically in 5 consecutive full-suite runs. Root cause documented (current code blocks on a `queue.get()` or similar that no cancellation can interrupt — needs asyncio.Event-based stop signal in the writer loop). The fix is at the SOURCE in `src/eldritch_dm/persistence/` writer-task code, NOT a test-side hack (no monkeypatching, no time.sleep workarounds).
-- [ ] **HANG-02**: `tests/bot/test_bot_lifecycle.py::test_close_cleanly_shuts_down` passes deterministically in 5 consecutive full-suite runs. Same root-cause path as HANG-01 if shared; otherwise documented separately. `pytest-timeout` should NOT be needed to "rescue" — the fix should mean the test completes within its natural deadline.
-- [ ] **HANG-03**: FLAKE-02 (carried partial from v1.3) — `tests/integration/test_phase3_smoke.py` passes deterministically in full-suite run. Verified by running full suite 3× consecutively post-fix with zero failures. If the writer-queue fix didn't resolve FLAKE-02, halt and report (the residual is a different bug class than what v1.3 audit hypothesized).
+- [x] **HANG-01**: `tests/bot/test_setup_hook.py::test_writer_queue_drain_timeout` — verified not reproducible at HEAD; resolved upstream by Phase 14 logging-polluter fix. No Phase 15 writer-queue code change required. Confirmed by Phase 15 halt-report (HANG-01 passes in isolation and full suite) and re-verified by Phase 15 rescoped fix (2 consecutive full-suite runs at 1244 passed).
+- [x] **HANG-02**: `tests/bot/test_bot_lifecycle.py::test_close_cleanly_shuts_down` — verified not reproducible at HEAD; resolved upstream by Phase 14 logging-polluter fix. Same evidence as HANG-01.
+- [x] **HANG-03**: FLAKE-02 carried partial from v1.3 — closed by Phase 15 rescoped test-isolation patch (`tests/conftest.py` autouse `_restore_cog_modules_after_test` + `tests/bot/conftest.py` `bot_factory` extension-unload teardown). The residual was NOT a writer-queue bug; it was discord.py's `load_extension` replacing `sys.modules[cog]` with a fresh import, orphaning the collection-time `IngestCog` reference that `mock.patch("eldritch_dm.bot.cogs.ingest.ingest", ...)` was trying to hit. Snapshot+restore around every test re-aligns sys.modules with the test class's `__globals__`. Verified: polluter+victim run GREEN (23 passed in 5.5s); 2 consecutive full-suite runs GREEN (1244 passed, 17 skipped, 0 failed).
 
 ---
 
