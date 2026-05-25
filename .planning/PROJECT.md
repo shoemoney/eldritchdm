@@ -2,9 +2,11 @@
 
 ## Current State
 
-**Shipped:** v1.3 Hygiene Sweep · 2026-05-25 · tag `v1.3` · 2.5/3 reqs (FLAKE-02 partial — see audit)
+**Current Milestone:** v1.4 Writer-Queue Reliability (in progress, 0/1 phases)
+**Goal:** Fix WRITER-QUEUE-HANG-01 (surfaced by v1.3) + close FLAKE-02 residual. Once shipped: full pytest green for the first time since v1.1; v1.5 cache architecture work unblocked.
+**Shipped:** v1.3 Hygiene Sweep · 2026-05-25 · `v1.3` · 2.5/3 (FLAKE-02 partial)
 **Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
-**Earlier:** v1.2 Quality Flywheel · 2026-05-24 · `v1.2` 8/8 / v1.1 Polish · `v1.1` 10/10 / v1.0 MVP · `v1.0` 71/73
+**Earlier:** v1.2 Quality Flywheel · `v1.2` 8/8 / v1.1 Polish · `v1.1` 10/10 / v1.0 MVP · `v1.0` 71/73
 **Repo:** https://github.com/shoemoney/eldritchdm
 **License:** Apache 2.0
 

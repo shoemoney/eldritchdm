@@ -6,6 +6,7 @@
 - ✅ **v1.1 Polish** — Phases 6-10 (shipped 2026-05-24) — see [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Quality Flywheel** — Phases 11-13 (shipped 2026-05-24) — see [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - ⚠️ **v1.3 Hygiene Sweep** — Phase 14 (shipped 2026-05-25, partial) — see [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
+- 🚧 **v1.4 Writer-Queue Reliability** — Phase 15 (in progress) — fix WRITER-QUEUE-HANG-01 + close FLAKE-02 residual
 
 ## Phases
 
@@ -63,6 +64,26 @@
 
 </details>
 
+## 🚧 v1.4 Writer-Queue Reliability (Phase 15)
+
+### Phase 15: Writer-queue shutdown rewrite + FLAKE-02 closure
+**Goal**: Fix WRITER-QUEUE-HANG-01 — the two pre-existing pytest hangs (`test_writer_queue_drain_timeout`, `test_close_cleanly_shuts_down`) that v1.3's logging-polluter fix surfaced. Rewrite the bot's writer-queue shutdown path to be cleanly cancellable via an asyncio.Event-based stop signal in the writer-task loop. Once the hangs are gone, FLAKE-02 (v1.3 partial) should resolve in the same pass.
+**Mode:** mvp (test reliability — no user-visible behavior change)
+**Depends on**: Phase 14 (v1.3 partial state — fix WRITER-QUEUE-HANG-01 surfaces from)
+**Requirements**: HANG-01, HANG-02, HANG-03
+**Success Criteria**:
+  1. `tests/bot/test_setup_hook.py::test_writer_queue_drain_timeout` passes deterministically in 5 consecutive full-suite runs
+  2. `tests/bot/test_bot_lifecycle.py::test_close_cleanly_shuts_down` passes deterministically in 5 consecutive full-suite runs
+  3. `tests/integration/test_phase3_smoke.py` (FLAKE-02 carried) passes deterministically in 3 consecutive full-suite runs
+  4. FULL SUITE GREEN: `uv run pytest tests/` returns 0 failures (skips OK; the v1.3 OCR/prom skip-gates remain valid)
+  5. No regressions in existing 873-test baseline
+  6. ruff + lint-imports clean
+**Plans**:
+- [ ] Plan 01: Diagnose hang root-cause + write failing test that reproduces in isolation (`fix(15-01): reproduce WRITER-QUEUE-HANG-01 in isolation + characterization test`)
+- [ ] Plan 02: Rewrite writer-queue shutdown with asyncio.Event-based stop signal (`fix(15-02): writer-queue cleanly cancellable shutdown — asyncio.Event-based stop signal`)
+- [ ] Plan 03: Verify full-suite green + close FLAKE-02 (`test(15-03): full-suite-green verification + FLAKE-02 final closure`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -88,6 +109,9 @@
 | FLAKE-01 | 14 | 14-01-PLAN-flake-fix |
 | FLAKE-02 | 14 | 14-01-PLAN-flake-fix |
 | FLAKE-03 | 14 | 14-02-PLAN-summary-frontmatter |
+| HANG-01 | 15 | 15-01-PLAN-reproduce-hang |
+| HANG-02 | 15 | 15-02-PLAN-cancellable-shutdown |
+| HANG-03 | 15 | 15-03-PLAN-flake02-closure |
 
 ## Progress
 
@@ -107,6 +131,7 @@
 | 12. LLM-as-Judge Tactical Scoring | v1.2 | 2/2 | Complete   | 2026-05-24 |
 | 13. Production Monitoring + Alerting | v1.2 | 3/3 | Complete   | 2026-05-24 |
 | 14. Flake cleanup + planner template hardening | v1.3 | 2/2 | Complete   | 2026-05-25 |
+| 15. Writer-queue shutdown rewrite + FLAKE-02 closure | v1.4 | 0/3 | Not started | — |
 
 ---
 *Last revised: 2026-05-24 after v1.1 Polish research synthesis (Stack + Features + Architecture + Pitfalls all converged on this 5-phase build order)*

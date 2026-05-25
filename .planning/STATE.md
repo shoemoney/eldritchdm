@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Quality Flywheel
 status: executing
-last_updated: "2026-05-24T15:28:45.430Z"
-last_activity: 2026-05-24 -- Phase 14 execution started
+last_updated: "2026-05-25T06:33:38.790Z"
+last_activity: 2026-05-25 -- Phase 15 execution started
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 14
-  completed_plans: 14
-  percent: 89
+  total_phases: 10
+  completed_phases: 9
+  total_plans: 16
+  completed_plans: 16
+  percent: 90
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 14 — flake-cleanup
+**Current focus:** Phase 15 — writer-queue-fix
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 14 (flake-cleanup) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 14
-Last activity: 2026-05-24 -- Phase 14 execution started
+Phase: 15 (writer-queue-fix) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 15
+Last activity: 2026-05-25 -- Phase 15 execution started
 
 ## Operator Next Steps
 
