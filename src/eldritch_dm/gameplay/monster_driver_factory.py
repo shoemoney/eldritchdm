@@ -135,6 +135,8 @@ def make_monster_driver(
             "llm_timeout_seconds",
             "cache_max_size",
             "embed_update_callback",
+            "aoe_addendum_loader",
+            "monster_memory",  # Phase 21 / MEM-02: smart-driver-only
         ):
             driver_kwargs.pop(k, None)
         return MonsterDriver(**driver_kwargs)
