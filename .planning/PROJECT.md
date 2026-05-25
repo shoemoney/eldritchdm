@@ -2,7 +2,10 @@
 
 ## Current State
 
-**Shipped:** v1.5 Cache Architecture · 2026-05-25 · tag `v1.5` · 9/9 reqs · **276 new tests · honest-report contract delivered 3×**
+**Current Milestone:** v1.6 UX/Feature Expansion (in progress, 0/4 phases)
+**Goal:** Close deferred UX + feature items — streaming "thinking" embed (P19), AOE/multi-target tactic selection (P20), cross-round monster memory (P21), operator quality-of-life bundle (P22 — hot-reload eligibility + Discord DM on budget breach + Phase 16↔17 invalidation wire).
+
+**Previously shipped:** v1.5 Cache Architecture · 2026-05-25 · tag `v1.5` · 9/9 reqs · **276 new tests · honest-report contract delivered 3×**
 
 **v1.5 highlights:**
 - dm20 MCP query cache (Phase 16) — L1 LRU + opt-in L2 aiosqlite. Allow-list of 6 truly-static reference tools (agent corrected my proposal which contained mutable-state reads).

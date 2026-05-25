@@ -8,6 +8,7 @@
 - ⚠️ **v1.3 Hygiene Sweep** — Phase 14 (shipped 2026-05-25, partial) — see [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
 - ✅ **v1.4 Writer-Queue Reliability** — Phase 15 (shipped 2026-05-25) — see [`milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
 - ✅ **v1.5 Cache Architecture** — Phases 16-18 (shipped 2026-05-25) — see [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
+- 🚧 **v1.6 UX/Feature Expansion** — Phases 19-22 (in progress) — streaming embed + AOE targeting + monster memory + operator polish
 
 ## Phases
 
@@ -90,6 +91,38 @@
 
 </details>
 
+
+## 🚧 v1.6 UX/Feature Expansion (Phases 19-22)
+
+### Phase 19: Streaming "monster is thinking" embed
+**Goal**: Surface SmartMonsterDriver oracle-call state in the combat embed (Phase 2 coalescer). Fallback transition hidden from players. Operator opt-out via STREAM_ENABLED.
+**Requirements**: STREAM-01, STREAM-02, STREAM-03
+**Plans**:
+- [ ] Plan 01: Embed indicator + coalescer integration (`feat(19-01): streaming thinking embed via coalescer`)
+- [ ] Plan 02: Fallback transition + STREAM_ENABLED opt-out (`feat(19-02): hidden-fallback transition + env opt-out`)
+
+### Phase 20: AOE / multi-target tactic selection
+**Goal**: Extend SmartMonsterDriver to support AOE/breath/cone targeting. Same fail-soft + 1500ms guard. Adversarial corpus expansion.
+**Requirements**: AOE-01, AOE-02, AOE-03
+**Plans**:
+- [ ] Plan 01: MonsterTacticChoice target_pc_ids + validator (`feat(20-01): multi-target tactic schema + validator`)
+- [ ] Plan 02: System prompt + corpus expansion (`feat(20-02): AOE prompt scaffolding + 10-scenario corpus`)
+
+### Phase 21: Cross-round monster memory
+**Goal**: Session-level memory of who-hit-who, who's-concentrating, who's-marked-dangerous. Bounded LRU per (channel, session, monster). Optional persistence via Phase 17 cache pattern.
+**Requirements**: MEM-01, MEM-02, MEM-03
+**Plans**:
+- [ ] Plan 01: MonsterMemory bounded LRU + context injection (`feat(21-01): MonsterMemory class + slimmed-context augmentation`)
+- [ ] Plan 02: Optional persistence + session-close hook (`feat(21-02): opt-in MONSTER_MEMORY_PERSIST + close-session cleanup`)
+
+### Phase 22: Operator quality-of-life bundle
+**Goal**: Hot-reload eligibility.yaml + Discord DM-to-owner on budget breach + Phase 16↔17 invalidation wire. Closes the deferred operator-UX items.
+**Requirements**: OPQOL-01, OPQOL-02, OPQOL-03
+**Plans**:
+- [ ] Plan 01: Hot-reload eligibility + mtime watcher (`feat(22-01): eligibility.yaml hot-reload with file-mtime watcher`)
+- [ ] Plan 02: Discord DM on budget breach + invalidation wire (`feat(22-02): Discord DM + atomic Phase 16↔17 invalidation`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -127,6 +160,18 @@
 | NARRCACHE-01 | 18 | 18-01-PLAN-narr-cache-gate |
 | NARRCACHE-02 | 18 | 18-01-PLAN-narr-cache-gate |
 | NARRCACHE-03 | 18 | 18-02-PLAN-offswitch-observability |
+| STREAM-01 | 19 | 19-01-PLAN-thinking-embed |
+| STREAM-02 | 19 | 19-02-PLAN-fallback-optout |
+| STREAM-03 | 19 | 19-02-PLAN-fallback-optout |
+| AOE-01 | 20 | 20-01-PLAN-multi-target-schema |
+| AOE-02 | 20 | 20-02-PLAN-prompt-corpus |
+| AOE-03 | 20 | 20-02-PLAN-prompt-corpus |
+| MEM-01 | 21 | 21-01-PLAN-memory-class |
+| MEM-02 | 21 | 21-01-PLAN-memory-class |
+| MEM-03 | 21 | 21-02-PLAN-persistence |
+| OPQOL-01 | 22 | 22-01-PLAN-hot-reload |
+| OPQOL-02 | 22 | 22-02-PLAN-dm-and-invalidation |
+| OPQOL-03 | 22 | 22-02-PLAN-dm-and-invalidation |
 
 ## Progress
 
