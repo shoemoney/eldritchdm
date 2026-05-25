@@ -1,0 +1,45 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-character-cache",
+  "title": "Persistent character snapshot cache (Phase 17)",
+  "description": "Cache effectiveness for the static character snapshot store (~/.eldritch/character_cache.sqlite). Hit-rate breakdown distinguishes TTL short-circuits (true zero-network hits) from ETag-match hits (network round-trip but no schema rewrite) from full misses. Size tracks the count of cached character rows; invalidations fire on operator cache-clear or schema mismatch.",
+  "span_filter": {
+    "span_names": [
+      "eldritch.character_cache.lookup",
+      "eldritch.character_cache.invalidation"
+    ]
+  },
+  "metrics": [
+    {
+      "name": "hit_rate",
+      "panel_type": "line",
+      "span_name": "eldritch.character_cache.lookup",
+      "field": "eldritch.character_cache.layer",
+      "aggregation": "hit_rate",
+      "hit_rate_values": ["hits_ttl", "hits_etag"],
+      "miss_rate_values": ["misses"],
+      "group_by": ["eldritch.character_cache.layer"],
+      "time_window": "1h",
+      "healthy_range": "hits_ttl dominates inside CHARCACHE_TTL_S (default 3600s); hits_etag visible when characters refresh near the TTL boundary"
+    },
+    {
+      "name": "size",
+      "panel_type": "gauge",
+      "span_name": "eldritch.character_cache.lookup",
+      "field": "eldritch.character_cache.size",
+      "aggregation": "last",
+      "time_window": "5m",
+      "healthy_range": "Grows with unique characters seen; no upper bound beyond disk"
+    },
+    {
+      "name": "invalidations_total",
+      "panel_type": "counter",
+      "span_name": "eldritch.character_cache.invalidation",
+      "field": "eldritch.character_cache.invalidation.entries_removed",
+      "aggregation": "sum",
+      "time_window": "24h",
+      "healthy_range": "Low baseline; spikes only on operator cache-clear or detected schema mismatch"
+    }
+  ],
+  "query_recipe": "Phoenix UI → Project 'eldritch-character-cache' → Three panels: (1) Filter span_name='eldritch.character_cache.lookup', plot (count where layer IN [hits_ttl,hits_etag]) / total grouped by eldritch.character_cache.layer over 1h. (2) Filter span_name='eldritch.character_cache.lookup', plot last(eldritch.character_cache.size) over 5m. (3) Filter span_name='eldritch.character_cache.invalidation', plot sum(eldritch.character_cache.invalidation.entries_removed) over 24h."
+}

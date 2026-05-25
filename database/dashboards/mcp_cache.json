@@ -1,0 +1,46 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-mcp-cache",
+  "title": "dm20 MCP query cache (Phase 16)",
+  "description": "Cache effectiveness for the dm20 MCP allow-listed tool surface. Hit rate measures how often the SmartMonsterDriver and gameplay layer re-use a cached MCP response within TTL instead of crossing the HTTP boundary. Sizes track L1 in-process LRU and L2 SQLite footprint. Invalidations spike on dm20 schema-version bumps (auto via the poller) and on operator-issued invalidate() calls.",
+  "span_filter": {
+    "span_names": ["eldritch.mcp.cache", "eldritch.mcp.cache.invalidation"]
+  },
+  "metrics": [
+    {
+      "name": "hit_rate",
+      "panel_type": "line",
+      "span_name": "eldritch.mcp.cache",
+      "field": "eldritch.mcp.cache.layer",
+      "aggregation": "hit_rate",
+      "hit_rate_values": ["l1_hit", "l2_hit"],
+      "miss_rate_values": ["l1_miss", "l2_miss"],
+      "group_by": ["eldritch.mcp.tool_name"],
+      "time_window": "1h",
+      "healthy_range": "30-70% hit rate during active combat (frequent rules lookups)"
+    },
+    {
+      "name": "size",
+      "panel_type": "gauge",
+      "span_name": "eldritch.mcp.cache",
+      "fields": [
+        "eldritch.mcp.cache.size_l1",
+        "eldritch.mcp.cache.size_l2"
+      ],
+      "aggregation": "last",
+      "time_window": "5m",
+      "healthy_range": "L1 ≤ MCPCACHE_L1_SIZE (default 512); L2 = -1 when disabled, else growing toward TTL steady-state"
+    },
+    {
+      "name": "invalidations_total",
+      "panel_type": "counter",
+      "span_name": "eldritch.mcp.cache.invalidation",
+      "field": "eldritch.mcp.cache.invalidation.entries_removed",
+      "aggregation": "sum",
+      "group_by": ["eldritch.mcp.cache.invalidation.scope"],
+      "time_window": "24h",
+      "healthy_range": "Low baseline; spikes correlate with dm20 schema bumps or operator invalidate() calls"
+    }
+  ],
+  "query_recipe": "Phoenix UI → Project 'eldritch-mcp-cache' → Three panels: (1) Filter span_name='eldritch.mcp.cache', plot (count where layer IN [l1_hit,l2_hit]) / total grouped by eldritch.mcp.tool_name over 1h. (2) Filter span_name='eldritch.mcp.cache', plot last(eldritch.mcp.cache.size_l1) and last(eldritch.mcp.cache.size_l2) over 5m. (3) Filter span_name='eldritch.mcp.cache.invalidation', plot sum(eldritch.mcp.cache.invalidation.entries_removed) grouped by scope over 24h."
+}
