@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Quality Flywheel
-status: executing
-last_updated: "2026-05-25T07:14:45.751Z"
-last_activity: 2026-05-25 -- Phase 15 execution started
+milestone: v1.4
+milestone_name: Writer-Queue Reliability
+status: complete
+last_updated: "2026-05-25T07:30:00.000Z"
+last_activity: 2026-05-25 -- v1.4 Phase 15 complete; ready for audit + tag
 progress:
-  total_phases: 10
-  completed_phases: 9
-  total_plans: 16
-  completed_plans: 16
-  percent: 90
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 100
 ---
 
 # EldritchDM — State

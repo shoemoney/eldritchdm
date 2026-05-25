@@ -2,7 +2,15 @@
 
 ## Current State
 
-**Current Milestone:** v1.4 Writer-Queue Reliability — **HALT-DEFERRED** (premises invalidated; rescope needed)
+**Shipped:** v1.4 Writer-Queue Reliability · 2026-05-25 · tag `v1.4` · 3/3 reqs · **first full-suite GREEN since v1.1**
+
+**v1.4 lifecycle** demonstrated the autonomous-mode honest-report contract working under stress: first Phase 15 agent halted on premise check (writer-queue hangs verified not reproducible; WriterQueue already correct); user overrode the halt; second agent shipped the actual fix (test-isolation snapshot+restore for `sys.modules[cog]`); audit caught one final correction (snapshot+restore was needed, not just unload_extension). 1244 passed, 17 skipped, 0 failed × 2 consecutive runs. v1.3's carried FLAKE-02 partial back-ticked closed.
+
+**Previous milestone history (still applies — leaving the halt-deferred narrative below for the record):**
+
+**Original v1.4 narrative (preserved):** halt-deferred at first attempt with high-quality halt-report at `.planning/phases/15-writer-queue-fix/15-HALT-REPORT.md` — see audit for full lifecycle.
+
+(legacy detail follows)
 **What happened:** Phase 15 agent ran empirical reproduction and found:
   - HANG-01 (`test_writer_queue_drain_timeout`) and HANG-02 (`test_close_cleanly_shuts_down`) **do NOT reproduce** at HEAD — they pass in isolation AND in the full suite.
   - `src/eldritch_dm/persistence/connection.py:WriterQueue` **already implements** the exact `asyncio.Event` + sentinel-value pattern v1.4 CONTEXT proposed adding.

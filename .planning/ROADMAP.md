@@ -6,7 +6,7 @@
 - ✅ **v1.1 Polish** — Phases 6-10 (shipped 2026-05-24) — see [`milestones/v1.1-ROADMAP.md`](milestones/v1.1-ROADMAP.md)
 - ✅ **v1.2 Quality Flywheel** — Phases 11-13 (shipped 2026-05-24) — see [`milestones/v1.2-ROADMAP.md`](milestones/v1.2-ROADMAP.md)
 - ⚠️ **v1.3 Hygiene Sweep** — Phase 14 (shipped 2026-05-25, partial) — see [`milestones/v1.3-ROADMAP.md`](milestones/v1.3-ROADMAP.md)
-- ⏸ **v1.4 Writer-Queue Reliability** — Phase 15 halt-deferred (premises invalidated — see `phases/15-writer-queue-fix/15-HALT-REPORT.md`; rescope to FLAKE-02 test-isolation fix in v1.5)
+- ✅ **v1.4 Writer-Queue Reliability** — Phase 15 (shipped 2026-05-25) — see [`milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
 
 ## Phases
 
@@ -64,25 +64,16 @@
 
 </details>
 
-## 🚧 v1.4 Writer-Queue Reliability (Phase 15)
+<details>
+<summary>✅ v1.4 Writer-Queue Reliability (Phase 15) — SHIPPED 2026-05-25</summary>
 
-### Phase 15: Writer-queue shutdown rewrite + FLAKE-02 closure
-**Goal**: Fix WRITER-QUEUE-HANG-01 — the two pre-existing pytest hangs (`test_writer_queue_drain_timeout`, `test_close_cleanly_shuts_down`) that v1.3's logging-polluter fix surfaced. Rewrite the bot's writer-queue shutdown path to be cleanly cancellable via an asyncio.Event-based stop signal in the writer-task loop. Once the hangs are gone, FLAKE-02 (v1.3 partial) should resolve in the same pass.
-**Mode:** mvp (test reliability — no user-visible behavior change)
-**Depends on**: Phase 14 (v1.3 partial state — fix WRITER-QUEUE-HANG-01 surfaces from)
-**Requirements**: HANG-01, HANG-02, HANG-03
-**Success Criteria**:
-  1. `tests/bot/test_setup_hook.py::test_writer_queue_drain_timeout` passes deterministically in 5 consecutive full-suite runs
-  2. `tests/bot/test_bot_lifecycle.py::test_close_cleanly_shuts_down` passes deterministically in 5 consecutive full-suite runs
-  3. `tests/integration/test_phase3_smoke.py` (FLAKE-02 carried) passes deterministically in 3 consecutive full-suite runs
-  4. FULL SUITE GREEN: `uv run pytest tests/` returns 0 failures (skips OK; the v1.3 OCR/prom skip-gates remain valid)
-  5. No regressions in existing 873-test baseline
-  6. ruff + lint-imports clean
-**Plans**:
-- [ ] Plan 01: Diagnose hang root-cause + write failing test that reproduces in isolation (`fix(15-01): reproduce WRITER-QUEUE-HANG-01 in isolation + characterization test`)
-- [ ] Plan 02: Rewrite writer-queue shutdown with asyncio.Event-based stop signal (`fix(15-02): writer-queue cleanly cancellable shutdown — asyncio.Event-based stop signal`)
-- [ ] Plan 03: Verify full-suite green + close FLAKE-02 (`test(15-03): full-suite-green verification + FLAKE-02 final closure`)
+- [x] **Phase 15**: Writer-queue shutdown rewrite + FLAKE-02 closure (1/1 ship plan + halt-report artifact)
 
+**Final stats:** 1 phase · 1 ship plan + 1 halt artifact · ~6 commits · 3/3 requirements satisfied. Closed v1.3's carried FLAKE-02 partial. FIRST FULL-SUITE GREEN since v1.1 — 1244 passed, 17 skipped, 0 failed in 2 consecutive runs. Halt-and-rescope cycle preserved as honest-report artifact.
+
+**Tag:** `v1.4` · **Archive:** [`milestones/v1.4-ROADMAP.md`](milestones/v1.4-ROADMAP.md)
+
+</details>
 
 ## Traceability
 
