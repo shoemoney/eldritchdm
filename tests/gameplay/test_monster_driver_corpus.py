@@ -24,6 +24,7 @@ import discord
 import pytest
 
 from eldritch_dm.gameplay.smart_monster_driver import (
+    ActionDescriptor,
     MonsterTacticChoice,
     SmartMonsterDriver,
 )
@@ -556,8 +557,10 @@ def test_corpus_size_meets_requirement() -> None:
         for name, _ in inspect.getmembers(module, inspect.isfunction)
         if name.startswith("test_corpus_")
     ]
-    assert len(corpus_tests) >= 15, (
-        f"corpus must have ≥15 scenarios per COMBAT-14; found {len(corpus_tests)}"
+    # Phase 20 / D-154: bumped to ≥25 — original COMBAT-14 ≥15 + Phase 20 AOE-03 +10.
+    assert len(corpus_tests) >= 25, (
+        f"corpus must have ≥25 scenarios per COMBAT-14 + AOE-03; "
+        f"found {len(corpus_tests)}"
     )
 
 
@@ -568,3 +571,378 @@ def test_corpus_uses_monster_tactic_choice() -> None:
     """Smoke: confirm the corpus path exercises the production schema."""
     c = MonsterTacticChoice.model_validate_json('{"target_pc_id": "pc-x"}')
     assert isinstance(c, MonsterTacticChoice)
+
+
+# ── Phase 20 / AOE-03: 10 multi-target / AOE scenarios ──────────────────────
+
+
+def _breath_action() -> dict[str, Any]:
+    return {"name": "fire breath", "kind": "cone", "range_ft": 30, "save_dc": 17}
+
+
+def _fireball_action() -> dict[str, Any]:
+    return {"name": "fireball", "kind": "aoe", "range_ft": 120, "save_dc": 15}
+
+
+def _multi_attack_action() -> dict[str, Any]:
+    return {"name": "claw/claw/bite", "kind": "multi_attack", "range_ft": 5, "save_dc": None}
+
+
+# Cluster-optimal AOE (3) ───────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_corpus_aoe_dragon_breath_cluster() -> None:
+    """INT=16 dragon with breath; LLM picks AOE on all 3 clustered PCs."""
+    pcs = _make_pcs(3)
+    ids = [p["character_id"] for p in pcs]
+    content = (
+        '{"target_pc_ids": ["' + ids[0] + '", "' + ids[1] + '", "' + ids[2] + '"], '
+        '"tactic_kind": "breath", "rationale": "all in cone"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "dragon",
+            "intelligence": 16,
+            "available_actions": [_breath_action()],
+        },
+    )
+    # Plan 20-01 single-target return signature → first id's PC.
+    assert chosen["character_id"] == ids[0]
+
+
+@pytest.mark.asyncio
+async def test_corpus_aoe_fireball_caster_cluster() -> None:
+    """INT=18 wizard fireballs 4 clustered PCs."""
+    pcs = _make_pcs(4)
+    ids = [p["character_id"] for p in pcs]
+    content = (
+        '{"target_pc_ids": ' + str(ids).replace("'", '"') + ', '
+        '"tactic_kind": "aoe", "rationale": "tight cluster"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "wizard",
+            "intelligence": 18,
+            "available_actions": [_fireball_action()],
+        },
+    )
+    assert chosen["character_id"] == ids[0]
+    # All 4 ids stored in cache + validator passed → tactic_kind preserved.
+    cached = driver._cache[("c", 1, "wizard")]
+    assert cached.tactic_kind == "aoe"
+    assert len(cached.target_pc_ids) == 4
+
+
+@pytest.mark.asyncio
+async def test_corpus_aoe_breath_cluster_with_validator_arity() -> None:
+    """aoe with 2 ids passes; aoe with 1 id raises → fail-soft fallback."""
+    pcs = _make_pcs(3)
+    ids = [p["character_id"] for p in pcs]
+    # First: valid 2-id aoe
+    content_ok = (
+        '{"target_pc_ids": ["' + ids[0] + '", "' + ids[1] + '"], '
+        '"tactic_kind": "aoe"}'
+    )
+    # Second: invalid 1-id aoe → validator rejects → caller's random_choice fires
+    content_bad = '{"target_pc_ids": ["' + ids[2] + '"], "tactic_kind": "aoe"}'
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        side_effect=[_make_completion(content_ok), _make_completion(content_bad)]
+    )
+    driver = _make_driver(openai_client=client, random_choice=lambda xs: xs[-1])
+    actor = {
+        "character_id": "drake",
+        "intelligence": 14,
+        "available_actions": [_breath_action()],
+    }
+    ok = await driver._choose_target(pcs, channel_id="c", round_number=1, current_actor=actor)
+    bad = await driver._choose_target(pcs, channel_id="c", round_number=2, current_actor=actor)
+    assert ok["character_id"] == ids[0]  # valid aoe → first id
+    assert bad == pcs[-1]  # arity-violation → random_choice last
+
+
+# Anti-cluster (3) ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_corpus_anti_cluster_single_target_preferred() -> None:
+    """Lone PC scenario: LLM correctly emits tactic_kind='single'."""
+    pcs = _make_pcs(1)
+    content = (
+        '{"target_pc_ids": ["' + pcs[0]["character_id"] + '"], '
+        '"tactic_kind": "single", "rationale": "only target"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "dragon",
+            "intelligence": 16,
+            "available_actions": [_breath_action()],
+        },
+    )
+    assert chosen == pcs[0]
+    cached = driver._cache[("c", 1, "dragon")]
+    assert cached.tactic_kind == "single"
+
+
+@pytest.mark.asyncio
+async def test_corpus_anti_cluster_aoe_with_one_in_range_falls_back() -> None:
+    """LLM erroneously emits aoe with 1 id → ValidationError → random fallback."""
+    pcs = _make_pcs(3)
+    content = (
+        '{"target_pc_ids": ["' + pcs[0]["character_id"] + '"], '
+        '"tactic_kind": "aoe"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action()],
+        },
+    )
+    # Schema rejected the aoe-with-1-id → fallback to first PC (random_choice).
+    assert chosen == pcs[0]
+
+
+@pytest.mark.asyncio
+async def test_corpus_anti_cluster_mixed_kind_rejection() -> None:
+    """{'single', [a, b]} → ValidationError → fallback."""
+    pcs = _make_pcs(3)
+    ids = [p["character_id"] for p in pcs]
+    content = (
+        '{"target_pc_ids": ["' + ids[0] + '", "' + ids[1] + '"], '
+        '"tactic_kind": "single"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "m1",
+            "intelligence": 12,
+            "available_actions": [_multi_attack_action()],
+        },
+    )
+    assert chosen == pcs[0]  # random fallback
+
+
+# Mixed-tactic (2) ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_corpus_multi_attack_pile_on_one_pc() -> None:
+    """multi_attack with 1 id (pile-on) is RAW-legal."""
+    pcs = _make_pcs(3)
+    content = (
+        '{"target_pc_ids": ["' + pcs[1]["character_id"] + '"], '
+        '"tactic_kind": "multi_attack"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "ogre",
+            "intelligence": 10,
+            "available_actions": [_multi_attack_action()],
+        },
+    )
+    assert chosen == pcs[1]
+    cached = driver._cache[("c", 1, "ogre")]
+    assert cached.tactic_kind == "multi_attack"
+
+
+@pytest.mark.asyncio
+async def test_corpus_multi_attack_spread_across_two_pcs() -> None:
+    """Cleave-style multi_attack across two adjacent PCs."""
+    pcs = _make_pcs(3)
+    ids = [p["character_id"] for p in pcs]
+    content = (
+        '{"target_pc_ids": ["' + ids[0] + '", "' + ids[1] + '"], '
+        '"tactic_kind": "multi_attack"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "horror",
+            "intelligence": 10,
+            "available_actions": [_multi_attack_action()],
+        },
+    )
+    assert chosen["character_id"] == ids[0]
+    cached = driver._cache[("c", 1, "horror")]
+    assert cached.target_pc_ids == ids[:2]
+
+
+# Adversarial (2) ───────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_corpus_aoe_with_one_hallucinated_id() -> None:
+    """AOE with one real id + one ghost id → membership fail → random fallback."""
+    pcs = _make_pcs(3)
+    content = (
+        '{"target_pc_ids": ["' + pcs[0]["character_id"] + '", "ghost-of-elvis"], '
+        '"tactic_kind": "aoe"}'
+    )
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action()],
+        },
+    )
+    assert chosen == pcs[0]  # random fallback (random_choice picks first)
+
+
+@pytest.mark.asyncio
+async def test_corpus_aoe_with_empty_list() -> None:
+    """target_pc_ids=[] rejected by min_length → schema fail → random fallback."""
+    pcs = _make_pcs(3)
+    content = '{"target_pc_ids": [], "tactic_kind": "aoe"}'
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=_make_completion(content))
+    driver = _make_driver(openai_client=client)
+    chosen = await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action()],
+        },
+    )
+    assert chosen == pcs[0]
+
+
+# ── Plan 20-02 addendum + ActionDescriptor wiring ───────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_aoe_addendum_injected_when_available_actions_present() -> None:
+    """When current_actor has available_actions, the system prompt contains
+    the addendum text; otherwise the legacy single-target prompt is sent
+    unchanged (bit-identical to Phase 10)."""
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+    driver = _make_driver(openai_client=client)
+
+    # With available_actions → addendum injected
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": [_breath_action()],
+        },
+    )
+    call_with = client.chat.completions.create.call_args_list[0]
+    sys_msg = call_with.kwargs["messages"][0]["content"]
+    assert "EXTENSION: multi-target tactic selection." in sys_msg
+    assert "aoe-addendum-version: 1.0.0" in sys_msg
+
+    # Without available_actions → legacy prompt verbatim (no addendum)
+    client.chat.completions.create.reset_mock(return_value=True)
+    client.chat.completions.create.return_value = _make_completion(
+        '{"target_pc_id": "pc-000"}'
+    )
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=2,
+        current_actor={"character_id": "drake", "intelligence": 14},
+    )
+    call_without = client.chat.completions.create.call_args_list[0]
+    sys_msg_legacy = call_without.kwargs["messages"][0]["content"]
+    assert "EXTENSION:" not in sys_msg_legacy
+
+
+@pytest.mark.asyncio
+async def test_available_actions_validated_and_appears_in_user_payload() -> None:
+    """ActionDescriptor coerces dicts; malformed entries silently dropped."""
+    import json as _json
+
+    pcs = _make_pcs(2)
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(
+        return_value=_make_completion('{"target_pc_id": "pc-000"}')
+    )
+    driver = _make_driver(openai_client=client)
+
+    raw_actions = [
+        _breath_action(),  # valid
+        {"name": "bogus", "kind": "telepathy", "range_ft": 30},  # invalid Literal
+        {"missing": "everything"},  # malformed
+    ]
+    await driver._choose_target(
+        pcs,
+        channel_id="c",
+        round_number=1,
+        current_actor={
+            "character_id": "drake",
+            "intelligence": 14,
+            "available_actions": raw_actions,
+        },
+    )
+    call = client.chat.completions.create.call_args_list[0]
+    user_content = call.kwargs["messages"][1]["content"]
+    payload = _json.loads(user_content)
+    assert len(payload["available_actions"]) == 1
+    assert payload["available_actions"][0]["name"] == "fire breath"
+
+
+def test_action_descriptor_constructs_and_rejects_invalid_kind() -> None:
+    """ActionDescriptor schema sanity."""
+    a = ActionDescriptor(name="claw", kind="single", range_ft=5)
+    assert a.save_dc is None
+    from pydantic import ValidationError as _VE
+
+    with pytest.raises(_VE):
+        ActionDescriptor(name="bad", kind="telepathy", range_ft=30)

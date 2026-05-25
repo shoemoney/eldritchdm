@@ -85,6 +85,30 @@ _DEFAULT_CACHE_MAX_SIZE = 256
 Route = Literal["random", "llm", "mixed_random", "mixed_llm"]
 
 
+class ActionDescriptor(BaseModel):
+    """Monster's own action surfaced to the LLM (Phase 20 / D-151).
+
+    Describes the MONSTER's available actions — NEVER PC properties. This
+    keeps the D-57 meta-knowledge guard intact:
+
+    - ``range_ft`` is the MONSTER's own reach/range (not a leak of PC AC
+      or HP).
+    - ``save_dc`` is the MONSTER's own save DC for its action (not a leak
+      of any PC's saving-throw bonus).
+
+    The slim-context payload sent to the LLM thus exposes only what the
+    monster itself logically knows about its own kit — class/HP/AC of PCs
+    remain hidden behind ``_slim_candidate`` projection.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    kind: Literal["single", "aoe", "multi_attack", "breath", "cone"]
+    range_ft: int
+    save_dc: int | None = None
+
+
 class MonsterTacticChoice(BaseModel):
     """LLM-emitted tactical choice (D-55, D-149, D-150).
 
@@ -235,6 +259,7 @@ class SmartMonsterDriver(MonsterDriver):
         eligibility_set: frozenset[tuple[str, str]] | None = None,
         cache_max_size: int = _DEFAULT_CACHE_MAX_SIZE,
         embed_update_callback: Callable[[str, str], Awaitable[None]] | None = None,
+        aoe_addendum_loader: Callable[[], tuple[str, str]] | None = None,
     ) -> None:
         super().__init__(
             mcp=mcp,
@@ -265,6 +290,29 @@ class SmartMonsterDriver(MonsterDriver):
         self._embed_update_callback = embed_update_callback
         # Rebind log with smart-component tag
         self._log = log.bind(component="SmartMonsterDriver")
+
+        # Phase 20 / D-152: lazily load the AOE addendum once. Any loader
+        # failure → fall back to legacy (single-target-only) system prompt so
+        # combat behavior remains bit-identical to Phase 10 when the addendum
+        # is missing or malformed (D-153 fail-soft).
+        self._aoe_addendum_text: str = ""
+        self._aoe_addendum_version: str = ""
+        try:
+            if aoe_addendum_loader is None:
+                from eldritch_dm.gameplay.prompts.aoe_addendum import (
+                    load_aoe_addendum,
+                )
+
+                aoe_addendum_loader = load_aoe_addendum
+            text, version = aoe_addendum_loader()
+            self._aoe_addendum_text = text
+            self._aoe_addendum_version = version
+        except Exception as exc:  # noqa: BLE001 — fail-soft per D-153
+            self._log.warning(
+                "aoe_addendum_load_failed",
+                error_type=type(exc).__name__,
+                error=str(exc)[:200],
+            )
 
     # ── INT-gating (D-53) ─────────────────────────────────────────────────────
 
@@ -423,8 +471,23 @@ class SmartMonsterDriver(MonsterDriver):
         candidates = [_slim_candidate(p) for p in targets]
         monster_name = current_actor.get("name", "monster")
 
-        # Build prompt (D-57 slim, AI-SPEC §4 prompt discipline)
-        system_prompt = (
+        # Phase 20 / D-151: surface monster's own actions to the LLM. Malformed
+        # entries are silently dropped (fail-soft per D-58/D-153). ActionDescriptor
+        # is scoped to MONSTER properties (range_ft, save_dc) — NOT PC properties,
+        # so the D-57 meta-knowledge guard remains intact.
+        raw_actions = current_actor.get("available_actions") or []
+        action_descriptors: list[dict[str, Any]] = []
+        for a in raw_actions:
+            try:
+                action_descriptors.append(ActionDescriptor.model_validate(a).model_dump())
+            except ValidationError:
+                continue
+
+        # Build prompt (D-57 slim, AI-SPEC §4 prompt discipline). The AOE
+        # addendum is appended ONLY when the monster has at least one
+        # validated action descriptor — preserves bit-identical Phase 10
+        # behavior for actor dicts without `available_actions`.
+        legacy_system_prompt = (
             "You are a tactical combat oracle for a Dungeons & Dragons 5e "
             "monster. Choose ONE target from the candidate list. Respond ONLY "
             'with JSON of the form {"target_pc_id": "<id>", "rationale": '
@@ -433,11 +496,16 @@ class SmartMonsterDriver(MonsterDriver):
             "in your rationale; refer to visible cues (armor, posture, "
             "visible wounds, active conditions)."
         )
+        if action_descriptors and self._aoe_addendum_text:
+            system_prompt = legacy_system_prompt + "\n\n" + self._aoe_addendum_text
+        else:
+            system_prompt = legacy_system_prompt
         user_payload = {
             "monster": {"id": monster_id, "name": monster_name},
             "round": round_number,
             "candidates": candidates,
             "candidate_ids": sorted(candidate_ids),
+            "available_actions": action_descriptors,
         }
         user_prompt = json.dumps(user_payload, default=str)
 
