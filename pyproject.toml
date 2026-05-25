@@ -37,6 +37,9 @@ eldritch-dm-eval = "eldritch_dm.eval.cli:main"
 eldritch-dm-cost-report = "eldritch_dm.tools.cost_report:main"
 # Phase 17 / CHARCACHE-03: operator cache-purge for the character snapshot cache.
 eldritch-dm-cache-clear = "eldritch_dm.tools.cache_clear:main"
+# Phase 18 / NARRCACHE-03: operator runtime disable/enable + stats for narration cache.
+eldritch-dm-cache-disable = "eldritch_dm.tools.cache_disable:main"
+eldritch-dm-cache-stats = "eldritch_dm.tools.cache_stats:main"
 
 # Project URLs surface in `pip show` and on PyPI. (D-25)
 # TODO confirm repo URL once the repo is published — placeholder for now.
