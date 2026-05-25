@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Writer-Queue Reliability
 status: executing
-last_updated: "2026-05-25T18:14:21.793Z"
-last_activity: 2026-05-25 -- Phase 16 execution started
+last_updated: "2026-05-25T18:37:57.900Z"
+last_activity: 2026-05-25 -- Phase 17 execution started
 progress:
   total_phases: 13
-  completed_phases: 10
-  total_plans: 17
-  completed_plans: 17
-  percent: 77
+  completed_phases: 11
+  total_plans: 19
+  completed_plans: 19
+  percent: 85
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 16 — mcp-cache
+**Current focus:** Phase 17 — character-cache
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 16 (mcp-cache) — EXECUTING
+Phase: 17 (character-cache) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 16
-Last activity: 2026-05-25 -- Phase 16 execution started
+Status: Executing Phase 17
+Last activity: 2026-05-25 -- Phase 17 execution started
 
 ## Operator Next Steps
 
