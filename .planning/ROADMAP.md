@@ -10,6 +10,7 @@
 - ✅ **v1.5 Cache Architecture** — Phases 16-18 (shipped 2026-05-25) — see [`milestones/v1.5-ROADMAP.md`](milestones/v1.5-ROADMAP.md)
 - ✅ **v1.6 UX/Feature Expansion** — Phases 19-22 (shipped 2026-05-25) — see [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.7 Integration & Polish** — Phases 23-24 (shipped 2026-05-25) — see [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
+- 🚧 **v1.8 Multi-Channel Hardening** — Phases 25-26 (in progress) — concurrent-session stress + operational dashboards + tooling polish
 
 ## Phases
 
@@ -120,6 +121,24 @@
 
 </details>
 
+
+## 🚧 v1.8 Multi-Channel Hardening (Phases 25-26)
+
+### Phase 25: Multi-channel concurrency stress tests
+**Goal**: Close v1.0's open Blockers/Concerns line ("Verify dm20 supports concurrent multi-campaign sessions in one process"). 4-channel concurrent stress test against MCPClient + WriterQueue + MonsterMemoryRegistry + caches. Fix any surfaced concurrency bug AT SOURCE.
+**Requirements**: CONC-01, CONC-02, CONC-03
+**Plans**:
+- [ ] Plan 01: Stress test infrastructure + 4-channel scenario (`test(25-01): multi-channel concurrent-session stress test`)
+- [ ] Plan 02: Fix any surfaced concurrency bug + verification re-run (`fix(25-02): concurrency bug fix or honest-report escalation`)
+
+### Phase 26: Operational dashboards + tooling polish
+**Goal**: Bundle 3 more operational dashboards (degraded-mode/budget/eval). Auto-discover SUMMARY frontmatter (no more hardcoded paths). Extend UPSTREAM-ISSUES.md.
+**Requirements**: OPSDASH-01, OPSDASH-02, OPSDASH-03
+**Plans**:
+- [ ] Plan 01: 3 dashboards + seed-dashboards.sh extension (`feat(26-01): degraded/budget/eval dashboards bundled`)
+- [ ] Plan 02: backfill auto-discovery + UPSTREAM-ISSUES expansion (`feat(26-02): backfill auto-discovery + 2 new upstream issues`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -175,6 +194,12 @@
 | POLISH-01 | 24 | 24-01-PLAN-ci-matrix |
 | POLISH-02 | 24 | 24-02-PLAN-cache-dashboards-docfix |
 | POLISH-03 | 24 | 24-02-PLAN-cache-dashboards-docfix |
+| CONC-01 | 25 | 25-01-PLAN-stress-test |
+| CONC-02 | 25 | 25-01-PLAN-stress-test |
+| CONC-03 | 25 | 25-02-PLAN-fix-or-escalate |
+| OPSDASH-01 | 26 | 26-01-PLAN-3-more-dashboards |
+| OPSDASH-02 | 26 | 26-02-PLAN-auto-discover-backfill |
+| OPSDASH-03 | 26 | 26-02-PLAN-auto-discover-backfill |
 
 ## Progress
 

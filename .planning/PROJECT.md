@@ -2,7 +2,10 @@
 
 ## Current State
 
-**Shipped:** v1.7 Integration & Polish · 2026-05-25 · tag `v1.7` · 5/6 reqs (WIRE-01 deferred) · **full suite 1644 passed, 0 failed**
+**Current Milestone:** v1.8 Multi-Channel Hardening (in progress, 0/2 phases)
+**Goal:** Close v1.0's open Blockers/Concerns item (concurrent multi-channel sessions) via 4-channel stress test. Bundle 3 more operational dashboards (degraded-mode/budget/eval). Auto-discover SUMMARY frontmatter (kill the hardcoded-paths debt).
+
+**Previously shipped:** v1.7 Integration & Polish · 2026-05-25 · tag `v1.7` · 5/6 reqs (WIRE-01 deferred) · **full suite 1644 passed, 0 failed**
 
 **v1.7 highlights:**
 - /end_game slash command (WIRE-02) calls MonsterMemoryRegistry.purge_session
