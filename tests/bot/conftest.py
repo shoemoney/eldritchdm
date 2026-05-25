@@ -21,6 +21,11 @@ import discord
 import pytest
 import pytest_asyncio
 
+# Note: the suite-wide cog-module snapshot+restore autouse fixture lives in
+# tests/conftest.py (`_restore_cog_modules_after_test`). See that fixture
+# for the FLAKE-02 diagnosis. The bot_factory below adds bot-instance
+# teardown (extension unload + close) for clean cog state.
+
 # ── DB path ──────────────────────────────────────────────────────────────────
 
 
@@ -57,17 +62,31 @@ def bot_settings(tmp_db_path: str, monkeypatch: pytest.MonkeyPatch):
 
 
 # ── Bot factory ───────────────────────────────────────────────────────────────
+#
+# Note: the suite-wide `_restore_cog_modules_after_test` autouse fixture lives
+# in `tests/conftest.py` (the snapshot/restore is needed by tests outside
+# tests/bot/ too — see FLAKE-02 diagnosis there). The bot_factory below
+# additionally tracks created bots and unloads extensions on teardown for
+# cleanly closing live cog state.
 
 
-@pytest.fixture
-def bot_factory(bot_settings):
-    """Return an async factory that builds EldritchBot and runs setup_hook.
+@pytest_asyncio.fixture
+async def bot_factory(bot_settings):
+    """Async-yielding factory: builds EldritchBot+setup_hook, cleans up extensions+close.
 
-    setup_hook is run against a real tmp DB. The caller is responsible for
-    calling `await bot.close()` (or use the `running_bot` fixture instead).
+    setup_hook is run against a real tmp DB. The fixture tracks every bot
+    it creates and in teardown (a) ``await bot.unload_extension(...)`` for
+    each loaded extension, then (b) ``await bot.close()`` if not already
+    closed.
+
+    Module-level test isolation (the FLAKE-02 / Phase 15 fix that keeps
+    ``mock.patch("eldritch_dm.bot.cogs.ingest.ingest", ...)`` working in
+    sibling test files) is provided by the suite-wide
+    ``_restore_cog_modules_after_test`` autouse fixture in
+    ``tests/conftest.py``.
 
     tree.sync is replaced with AsyncMock so no real Discord API calls happen.
-    health.start is called with a high interval (3600s) so no ping fires in tests.
+    health.start is called with a high interval (3600s) so no ping fires.
 
     Args (for the returned async callable):
         eldritch_db_path: Override the DB path (used by restart-drill tests
@@ -75,6 +94,12 @@ def bot_factory(bot_settings):
     """
     from eldritch_dm.bot.bot import EldritchBot
     from eldritch_dm.config import Settings
+
+    # Note: sys.modules snapshot+restore for cog modules is handled
+    # suite-wide by the autouse `_restore_cog_modules_after_test` fixture
+    # in `tests/conftest.py`. This factory only handles bot-instance
+    # cleanup (extension unload + close).
+    created_bots: list[EldritchBot] = []
 
     async def _make(eldritch_db_path: str | None = None) -> EldritchBot:
         if eldritch_db_path is not None:
@@ -93,9 +118,29 @@ def bot_factory(bot_settings):
         # Prevent real Discord API calls during tree sync
         bot.tree.sync = AsyncMock(return_value=[])
         await bot.setup_hook()
+        created_bots.append(bot)
         return bot
 
-    return _make
+    yield _make
+
+    # ── Teardown: unload extensions BEFORE close ──────────────────────────
+    # Order matters: unload_extension does `del sys.modules[name]`, which is
+    # the critical step bot.close() omits. Best-effort — never fail a test
+    # in teardown.
+    for bot in created_bots:
+        for ext_name in list(bot.extensions):
+            try:
+                await bot.unload_extension(ext_name)
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            if not bot.is_closed():
+                await bot.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # (Module snapshot/restore handled by suite-wide autouse fixture in
+    # tests/conftest.py — see comment at top of _make.)
 
 
 # ── Running bot (with teardown) ───────────────────────────────────────────────
