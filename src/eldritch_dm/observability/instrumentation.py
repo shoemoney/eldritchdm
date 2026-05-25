@@ -131,7 +131,11 @@ class _BufferingSpan:
     def _to_row(self) -> BufferRow:
         a = self._attrs
         # Pull common fields with safe fallbacks.
-        latency = a.get("eldritch.latency_ms") or a.get("eldritch.mcp.cache.latency_ms")
+        latency = (
+            a.get("eldritch.latency_ms")
+            or a.get("eldritch.mcp.cache.latency_ms")
+            or a.get("eldritch.character_cache.latency_ms")
+        )
         tokens_in = a.get("eldritch.tokens.input") or a.get("eldritch.mcp.cache.size_l2")
         tokens_out = a.get("eldritch.tokens.output")
         fallback = a.get("eldritch.fallback.reason")
@@ -143,10 +147,19 @@ class _BufferingSpan:
         #   combat_round  <- eldritch.mcp.cache.size_l1
         #                    OR eldritch.mcp.cache.invalidation.entries_removed
         #   tokens_input  <- eldritch.mcp.cache.size_l2
+        # Phase 17 character cache: same approach — reuse BufferRow columns:
+        #   monster_id    <- eldritch.character_cache.character_id
+        #   driver_path   <- eldritch.character_cache.layer
+        #                    OR eldritch.character_cache.invalidation.scope
+        #   combat_round  <- eldritch.character_cache.size
+        #                    OR eldritch.character_cache.invalidation.entries_removed
+        #   latency_ms    <- eldritch.character_cache.latency_ms
         driver_path = (
             a.get("eldritch.driver.path")
             or a.get("eldritch.mcp.cache.layer")
             or a.get("eldritch.mcp.cache.invalidation.scope")
+            or a.get("eldritch.character_cache.layer")
+            or a.get("eldritch.character_cache.invalidation.scope")
         )
         combat_round = (
             a.get("eldritch.combat.round")
@@ -154,6 +167,10 @@ class _BufferingSpan:
             else a.get("eldritch.mcp.cache.size_l1")
             if a.get("eldritch.mcp.cache.size_l1") is not None
             else a.get("eldritch.mcp.cache.invalidation.entries_removed")
+            if a.get("eldritch.mcp.cache.invalidation.entries_removed") is not None
+            else a.get("eldritch.character_cache.size")
+            if a.get("eldritch.character_cache.size") is not None
+            else a.get("eldritch.character_cache.invalidation.entries_removed")
         )
         model = (
             a.get("eldritch.ingest.model")
@@ -161,9 +178,14 @@ class _BufferingSpan:
             or a.get("eldritch.mcp.tool_name")
             or a.get("eldritch.mcp.cache.invalidation.tool_name")
         )
+        monster_id = (
+            a.get("eldritch.monster.id")
+            or a.get("eldritch.character_cache.character_id")
+            or a.get("eldritch.character_cache.invalidation.character_id")
+        )
         return BufferRow(
             span_name=self._span_name,
-            monster_id=a.get("eldritch.monster.id"),
+            monster_id=monster_id,
             channel_id=a.get("eldritch.channel.id"),
             combat_round=combat_round,
             driver_path=driver_path,
@@ -380,6 +402,94 @@ def traced_mcp_cache_invalidation(
             otel_span.set_attribute(k, v)
         proxy = _BufferingSpan(
             "eldritch.mcp.cache.invalidation", fixed_attrs, otel_span
+        )
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+
+
+# ── Phase 17 — Character cache spans ─────────────────────────────────────────
+#
+# eldritch.character_cache.lookup attributes:
+#   - eldritch.character_cache.character_id  (str)
+#   - eldritch.character_cache.layer         ("ttl_hit" | "etag_match" | "miss")
+#   - eldritch.character_cache.size          (int)
+#   - eldritch.character_cache.latency_ms    (int)
+#
+# eldritch.character_cache.invalidation attributes:
+#   - eldritch.character_cache.invalidation.scope            ("all" | "entry")
+#   - eldritch.character_cache.invalidation.character_id     (str | None)
+#   - eldritch.character_cache.invalidation.entries_removed  (int)
+
+
+@contextmanager
+def traced_character_cache(
+    *,
+    character_id: str,
+) -> Iterator[Any]:
+    """Open a span for one CharacterCacheRepo.get_or_fetch() call.
+
+    The caller (CharacterCacheRepo.get_or_fetch) is responsible for stamping
+    ``eldritch.character_cache.layer``, ``eldritch.character_cache.size``, and
+    ``eldritch.character_cache.latency_ms`` on the proxy before exit. Buffer
+    row is always written; OTel export is secondary (gated on
+    ``OBSERVABILITY_ENABLED``).
+    """
+    fixed_attrs = {
+        "eldritch.character_cache.character_id": character_id,
+    }
+    if _TRACER is None:
+        proxy = _BufferingSpan("eldritch.character_cache.lookup", fixed_attrs, None)
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+        return
+    with _TRACER.start_as_current_span("eldritch.character_cache.lookup") as otel_span:
+        for k, v in fixed_attrs.items():
+            otel_span.set_attribute(k, v)
+        proxy = _BufferingSpan(
+            "eldritch.character_cache.lookup", fixed_attrs, otel_span
+        )
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+
+
+@contextmanager
+def traced_character_cache_invalidation(
+    *,
+    scope: Literal["all", "entry"],
+    character_id: str | None = None,
+) -> Iterator[Any]:
+    """Open a span for one CharacterCacheRepo.invalidate() call.
+
+    The caller is responsible for stamping
+    ``eldritch.character_cache.invalidation.entries_removed`` before exit.
+    """
+    fixed_attrs: dict[str, Any] = {
+        "eldritch.character_cache.invalidation.scope": scope,
+    }
+    if character_id is not None:
+        fixed_attrs["eldritch.character_cache.invalidation.character_id"] = character_id
+    if _TRACER is None:
+        proxy = _BufferingSpan(
+            "eldritch.character_cache.invalidation", fixed_attrs, None
+        )
+        try:
+            yield proxy
+        finally:
+            _record_to_buffer(proxy)
+        return
+    with _TRACER.start_as_current_span(
+        "eldritch.character_cache.invalidation"
+    ) as otel_span:
+        for k, v in fixed_attrs.items():
+            otel_span.set_attribute(k, v)
+        proxy = _BufferingSpan(
+            "eldritch.character_cache.invalidation", fixed_attrs, otel_span
         )
         try:
             yield proxy

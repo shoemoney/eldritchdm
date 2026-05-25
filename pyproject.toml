@@ -35,6 +35,8 @@ eldritch-dm-backfill-pc-classes = "eldritch_dm.tools.backfill_pc_classes:main"
 eldritch-dm-eval = "eldritch_dm.eval.cli:main"
 # Phase 13 / MON-03: daily LLM-spend report from the local span buffer.
 eldritch-dm-cost-report = "eldritch_dm.tools.cost_report:main"
+# Phase 17 / CHARCACHE-03: operator cache-purge for the character snapshot cache.
+eldritch-dm-cache-clear = "eldritch_dm.tools.cache_clear:main"
 
 # Project URLs surface in `pip show` and on PyPI. (D-25)
 # TODO confirm repo URL once the repo is published — placeholder for now.
