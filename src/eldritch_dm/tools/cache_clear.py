@@ -86,9 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
             "removed and exit 0 without writing."
         ),
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Verbose structlog output."
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose structlog output.")
     return parser
 
 
@@ -113,9 +111,7 @@ async def _count_chars(
         conn = await aiosqlite.connect(db_path)
     try:
         if character_id is None:
-            cur = await conn.execute(
-                "SELECT COUNT(*) FROM character_cache_entries"
-            )
+            cur = await conn.execute("SELECT COUNT(*) FROM character_cache_entries")
         else:
             cur = await conn.execute(
                 "SELECT COUNT(*) FROM character_cache_entries WHERE character_id = ?",
@@ -171,9 +167,7 @@ async def _run(args: argparse.Namespace) -> int:
 
     try:
         if args.dry_run:
-            n = await _count_chars(
-                db_path, character_id=args.character_id, read_only=True
-            )
+            n = await _count_chars(db_path, character_id=args.character_id, read_only=True)
             print(
                 f"DRY-RUN: would remove {n} row(s) from {db_path}"
                 + (f" matching character_id={args.character_id}" if args.character_id else "")
