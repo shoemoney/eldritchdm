@@ -156,6 +156,48 @@ Verifies (a) the profiler still runs cleanly with `--iterations 5`,
 (b) the committed v1.9.0 baseline still validates against
 `scripts.perf._schema.BaselineSchema`.
 
+## Phase 28 TUNE-01 closure (no targets — Branch B)
+
+**Decision:** Phase 28's TUNE-01 ships as a documented "no targets" closure.
+No code changes were made. This mirrors Phase 25's CONC-03 closure (Branch B
+when profile-driven analysis finds no work to do).
+
+**Evidence (per-op budget % against Phase 27 baseline):**
+
+| Operation | Target p99 | Observed p99 | % of budget | WARN/FAIL? |
+|---|---:|---:|---:|---|
+| riposte-click-handler                       | 200 ms | 3.573 ms | 1.79% | NO |
+| ingest-pipeline-ocr                         | 100 ms | 1.446 ms | 1.45% | NO |
+| character-ingest-fast-path                  |  50 ms | 1.084 ms | 2.17% | NO |
+| combat-turn-resolution                      | 500 ms | 0.606 ms | 0.12% | NO |
+| mcp-cache-roundtrip.l1-l2-miss              |  50 ms | 0.332 ms | 0.66% | NO |
+| smart-driver-oracle.smart-fallback-to-random|   5 ms | 0.130 ms | 2.60% | NO |
+| smart-driver-oracle.smart-success           | 100 ms | 0.118 ms | 0.12% | NO |
+| mcp-cache-roundtrip.l1-miss-l2-hit          |  10 ms | 0.085 ms | 0.85% | NO |
+| mcp-cache-roundtrip.l1-hit                  |   1 ms | 0.020 ms | 2.04% | NO |
+| smart-driver-oracle.cache-hit               |   1 ms | 0.014 ms | 1.41% | NO |
+
+**Honesty clause (D-215):** Every operation is ≥45× under its target. None
+are in WARN or FAIL. The empirical bar from D-216 — "≥10% p99 reduction OR
+move out of WARN/FAIL category" — cannot be satisfied for any operation
+because there is no meaningful, user-observable benefit to chase:
+
+- Discord ack budget is 3 s; our slowest op (riposte-click) is 0.12% of it.
+- Character ingest budget is 6 s; our pipeline-ocr op is 0.024% of it.
+- Narration budget (D-54) is 1500 ms; our smart-driver fast path is 0.008%
+  of it.
+
+The codebase being fast is the **correct** result. Manufacturing
+optimization work to avoid acknowledging that violates the D-215 honesty
+clause. If a future change (correctness fix, new feature) regresses any
+of these p99s by ≥10% or pushes it into WARN/FAIL, the Phase 28 TUNE-02
+CLI will detect it; only then should optimization work resume.
+
+**Forward look:** TUNE-02 (`eldritch-dm-perf-baseline` CLI) and TUNE-03
+(`.github/workflows/perf.yml` CI integration) ship in Plan 28-02 regardless
+of TUNE-01 — they're regression-detection infrastructure that protects the
+already-fast baseline.
+
 ## References
 
 - **Phase 27 CONTEXT** — `.planning/phases/27-profiling/27-CONTEXT.md`
