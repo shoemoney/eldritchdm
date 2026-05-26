@@ -61,17 +61,21 @@ Click **"Bot"** in the left sidebar.
 
 ### Privileged Gateway Intents
 
-These require explicit opt-in. EldritchDM needs two of the three:
+EldritchDM uses `discord.Intents.default()` and explicitly disables
+`message_content` for security (`src/eldritch_dm/bot/bot.py:60-61`,
+*"bot never reads raw messages"* per D-04). It does not iterate guild
+members or track presence either. **Leave all three privileged intents
+OFF.**
 
 | Intent | State | Why |
 |---|---|---|
-| **Presence Intent** | OFF | The bot does not track who is online |
-| **Server Members Intent** | **ON** | Needed to track campaign rosters and resolve player IDs |
-| **Message Content Intent** | **ON** | Required by the exploration-phase free-text "Declare Action" modal |
+| **Presence Intent** | **OFF** | Bot does not track who is online |
+| **Server Members Intent** | **OFF** | Bot resolves player IDs from interaction payloads, not from guild member iteration. Character rosters come from dm20, not Discord members |
+| **Message Content Intent** | **OFF** | Only inputs are slash commands and modal submissions, both delivered via interactions (not gated by this intent) |
 
-> Note: once you cross 75 guilds, both privileged intents require Discord
-> to verify your application. For self-hosted use on your own server you
-> can ignore this indefinitely.
+Side benefit: leaving these OFF means the bot is exempt from Discord's
+75-guild verification gate for privileged intents. The bot is honest
+about needing zero privileged data.
 
 ### Bot Token
 
