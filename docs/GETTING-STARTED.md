@@ -5,6 +5,8 @@
 
 If you just want the lightning version, the README has it. If you want to actually know what each step does — and how to verify it worked before moving on — read this. ⬇️
 
+For the operator-grade install (oMLX, dm20, ingest-backend selection, full `.env` walkthrough), see [`INSTALL.md`](../INSTALL.md). For per-version operator actions, see [`docs/UPGRADE.md`](UPGRADE.md). For runtime problems, see [`docs/TROUBLESHOOTING.md`](TROUBLESHOOTING.md). For the rolling release log, see [`CHANGELOG.md`](../CHANGELOG.md).
+
 ---
 
 ## 🧰 Before You Start
@@ -18,18 +20,39 @@ The short version:
 - 🤖 A **Discord bot token** from [discord.com/developers/applications](https://discord.com/developers/applications)
 - 🐍 Python 3.11+ and (recommended) `uv`
 
-ℹ️ Don't have oMLX + dm20 running yet? Set those up first — `install.sh` will warn you if they're missing, but the bot can't actually run without them.
+ℹ️ Don't have oMLX + dm20 running yet? Set those up first — `install.sh` will warn you if they're missing, but the bot can't actually run without them. [`INSTALL.md`](../INSTALL.md) has the deep-dive component install.
 
 ---
 
 ## 1️⃣ Clone the Repo
 
 ```bash
-git clone https://github.com/shoemoney/eldritchdm.git
-cd eldritchdm
+git clone https://github.com/shoemoney/EldritchDM.git DiscordDM
+cd DiscordDM
 ```
 
 ✅ **Checkpoint:** `ls .env.example install.sh README.md` should list all three. If it doesn't, you're in the wrong directory.
+
+---
+
+## 🐳 Shortcut — Docker Compose (v1.10+)
+
+If you'd rather skip the by-hand install and let Docker handle the Python venv:
+
+```bash
+cp .env.example .env
+$EDITOR .env                                  # paste DISCORD_TOKEN
+docker compose up -d
+docker compose logs -f eldritch-bot
+```
+
+The bundled [`docker-compose.yml`](../docker-compose.yml) brings up a single `eldritch-bot` service against the host's oMLX + dm20 via `host.docker.internal:8765`. Linux users get parity via the built-in `extra_hosts: host-gateway` mapping. Persistent state (the local SQLite + caches) lives in the named volume `eldritch-data`.
+
+✅ **Checkpoint:** `docker compose ps` shows `eldritch_bot` with `(healthy)`. The Dockerfile's `import eldritch_dm` healthcheck has run.
+
+🐳 **Full docker-compose recipe + the optional Phoenix observability stack** → [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
+
+If you went the Docker route, skip ahead to step 6️⃣ to invite the bot to a server. Everything below is for the by-hand install path.
 
 ---
 
@@ -55,7 +78,7 @@ curl -s http://localhost:8765/v1/mcp/tools | jq '. | length'
 # → should be a number ≥ 116 (97 dm20 + 4 dice + 8 dnd + 1 fetch + a few extras)
 ```
 
-If either of those returns nothing useful, jump to the [README → 🩺 Troubleshooting](../README.md#-troubleshooting) section.
+If either of those returns nothing useful, jump to [`docs/TROUBLESHOOTING.md`](TROUBLESHOOTING.md) → "Bot says DM is offline".
 
 ---
 
@@ -74,25 +97,30 @@ At minimum, paste your `DISCORD_TOKEN`. Everything else has sane defaults that m
 
 ---
 
-## 4️⃣ Bootstrap the Local SQLite
+## 4️⃣ Bootstrap & Preflight
 
 ```bash
-python -m eldritch_dm.persistence.bootstrap
+python -m eldritch_dm.bootstrap
 ```
 
-This creates `./eldritch.sqlite3` (the path comes from `ELDRITCH_DB_PATH`), applies [`database/schema.sql`](../database/schema.sql), enables WAL journaling, and logs a SHA-256 of the schema for audit. **Idempotent** — safe to run twice.
+This is the canonical 3-stage preflight (`src/eldritch_dm/bootstrap.py`):
+
+1. **Env check** — `.env` loaded, `DISCORD_TOKEN` either set or noted as preflight-mode-only.
+2. **oMLX + dm20 reachability** — pings `:8765/v1/models` and `:8765/v1/mcp/tools`.
+3. **SQLite schema bootstrap** — wraps `python -m eldritch_dm.persistence.bootstrap`, which creates `./eldritch.sqlite3` (path comes from `ELDRITCH_DB_PATH`), applies [`database/schema.sql`](../database/schema.sql), enables WAL journaling, and logs a SHA-256 of the schema for audit. **Idempotent** — safe to run twice.
 
 ✅ **Checkpoint:** you should see `Bootstrap complete: /…/eldritch.sqlite3` at the end. Verify the tables landed:
 
 ```bash
 sqlite3 eldritch.sqlite3 '.tables'
-# → channel_sessions  combat_conditions  persistent_views  riposte_timers  sanitizer_audit
+# → channel_sessions  combat_conditions  pc_classes  persistent_views
+#   riposte_timers    sanitizer_audit
 
 sqlite3 eldritch.sqlite3 'PRAGMA journal_mode;'
 # → wal
 ```
 
-🔬 **Why a separate DB?** This SQLite holds Discord-specific bookkeeping only (channel↔campaign mapping, persistent views, riposte timers, sanitizer audit). Gameplay state — HP, initiative, inventory, encounters — lives in dm20's `~/.omlx/dm.db` and is never touched by this bot. See [docs/ARCHITECTURE.md](ARCHITECTURE.md) for the full why.
+🔬 **Why a separate DB?** This SQLite holds Discord-specific bookkeeping only (channel↔campaign mapping, persistent views, riposte timers, sanitizer audit, PC class lookup for Riposte eligibility). Gameplay state — HP, initiative, inventory, encounters — lives in dm20's `~/.omlx/dm.db` and is never touched by this bot. See [docs/ARCHITECTURE.md](ARCHITECTURE.md) for the full why.
 
 ---
 
@@ -100,6 +128,10 @@ sqlite3 eldritch.sqlite3 'PRAGMA journal_mode;'
 
 ```bash
 python run.py
+# or, equivalently
+python -m eldritch_dm.bot
+# or, once installed, the console script
+eldritch-dm
 ```
 
 ✅ **Checkpoint:** you should see something like:
@@ -108,7 +140,7 @@ python run.py
 🎲 EldritchDM connected as ShoeGPT#0001 — let the games begin!
 ```
 
-If you see `discord.LoginFailure: Improper token has been passed` → wrong `DISCORD_TOKEN`. If the process starts but immediately reports `🔌 DM is offline` → oMLX isn't reachable. Both flavors are covered in [README → 🩺 Troubleshooting](../README.md#-troubleshooting).
+If you see `discord.LoginFailure: Improper token has been passed` → wrong `DISCORD_TOKEN`. If the process starts but immediately reports `🔌 DM is offline` → oMLX isn't reachable. Both flavors are covered in [`docs/TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 ---
 
@@ -171,7 +203,7 @@ LMoP = *Lost Mine of Phandelver* — the canonical "first 5e adventure." Other s
 /upload_character_file
 ```
 
-…then attach the JPEG/PNG/PDF. The OCR pipeline ([`ocrmac`](https://pypi.org/project/ocrmac/) on macOS, [`easyocr`](https://pypi.org/project/easyocr/) on Linux) extracts the text, ShoeGPT translates it into the dm20 character schema, and you'll get a confirmation modal to review/tweak before saving.
+…then attach the JPEG/PNG/PDF. The OCR pipeline ([`ocrmac`](https://pypi.org/project/ocrmac/) on macOS, [`easyocr`](https://pypi.org/project/easyocr/) on Linux) extracts the text, the ingest backend (`OMLX_ENDPOINT` by default — see [CONFIGURATION.md → Ingest backend](CONFIGURATION.md#ingest-backend-d-27-v10)) translates it into the dm20 character schema, and you'll get a confirmation modal to review/tweak before saving.
 
 ✅ **Checkpoint:** both players appear in the lobby embed with green checkmarks. Hit the **Ready** button — the lobby transitions to `EXPLORATION` (you can confirm by re-running the `SELECT state FROM channel_sessions` query).
 
@@ -179,13 +211,14 @@ LMoP = *Lost Mine of Phandelver* — the canonical "first 5e adventure." Other s
 
 ### 🌲 Exploration → First Combat → Riposte
 
-ShoeGPT narrates the opening scene. Each player clicks **[ 💬 Declare Action ]**, types intent (max 500 chars, sanitizer strips any forged tool-call tokens), and submits. The bot batches actions over `EXPLORE_BATCH_WINDOW_SECONDS` (default `30`), pushes them to ShoeGPT through dm20's Party Mode queue, and posts the narrated result.
+ShoeGPT narrates the opening scene. Each player clicks **[ 💬 Declare Action ]**, types intent (max 500 chars, sanitizer strips any forged tool-call tokens), and submits. The bot batches actions over `EXPLORE_BATCH_WINDOW_SECONDS` (default `30`), pushes them to dm20 through Party Mode, and posts the narrated result.
 
 When the scene calls for it, **combat triggers automatically**:
 
-- 🎲 Bot rolls initiative, posts a turn tracker embed
+- 🎲 Bot rolls initiative, posts a turn tracker embed.
 - 🚧 Turn gatekeeping: only the current actor's Discord ID can click `[⚔️ Attack]` / `[🛡️ Dodge]` / etc. Out-of-turn clicks get a private "❌ Not your turn yet."
-- 🗡️ **The riposte moment:** when a monster *misses* an eligible PC (Battle Master Fighter or Swashbuckler Rogue with a reaction available), that player — and only that player — sees an ephemeral **[ ↩️ Riposte Counter-strike ]** button for `RIPOSTE_TTL_SECONDS` (default `8`). Click it for a counter-strike. Ignore it and it quietly vanishes.
+- 🤔 **Streaming indicator** (v1.6+ — `STREAM_ENABLED=true` default): when the SmartMonsterDriver consults the LLM oracle, you'll briefly see `🤔 {name} is sizing up the party…` in the combat embed.
+- 🗡️ **The riposte moment:** when a monster *misses* an eligible PC (Battle Master Fighter or Swashbuckler Rogue with a reaction available — homebrewable via `database/eligibility.yaml`), that player — and only that player — sees an ephemeral **[ ↩️ Riposte Counter-strike ]** button for `RIPOSTE_TTL_SECONDS` (default `8`).
 
 ✅ **Checkpoint #1:** between rounds, peek at `persistent_views`:
 
@@ -201,17 +234,21 @@ Every active button has a row. This is what makes restart-survival work.
 
 ## 🆘 When Something Breaks
 
-Don't reinvent the troubleshooting wheel — the **[README → 🩺 Troubleshooting](../README.md#-troubleshooting)** section already covers the common failure modes:
+The full operator-grade troubleshooting tree lives in [`docs/TROUBLESHOOTING.md`](TROUBLESHOOTING.md) — 14 FAQ entries grounded in real v1.0-v1.9 SUMMARY surface. Common entries:
 
 - 🔌 "DM is offline" / circuit breaker tripped
 - 🛠️ Slash commands return "interaction failed"
 - 🤖 `discord.LoginFailure: Improper token has been passed`
 - 🪟 Slash commands don't appear in Discord
-- 📡 HTTP 429 spam in logs
-- 🔒 `database is locked`
 - 📸 OCR returns garbage
 - 🔁 Bot restart and buttons don't work
+- 🔒 `database is locked`
 - 🚪 Port `:8080` conflict
+- 📊 Cache hit rate is zero / Phoenix dashboards empty (v1.2+)
+- 🛡️ Monster driver always picks random targets (v1.1+)
+- 🗡️ Riposte button doesn't fire
+- 💸 Cost calculator is off
+- ⚡ perf-baseline regression alert (v1.9+)
 
 For deeper investigation: set `LOG_LEVEL=DEBUG` and `LOG_FORMAT=console` in `.env`, restart, and re-read the logs — bound context (`channel_id`, `campaign_name`, `session_id`, `tool_name`) makes every event traceable.
 
@@ -221,7 +258,11 @@ For deeper investigation: set `LOG_LEVEL=DEBUG` and `LOG_FORMAT=console` in `.en
 
 - 📐 **Want to understand the three-brain split?** → [docs/ARCHITECTURE.md](ARCHITECTURE.md)
 - 🔧 **Tuning knobs, every env var explained?** → [docs/CONFIGURATION.md](CONFIGURATION.md)
-- 🗺️ **Big-picture project tour, roadmap, non-goals?** → [README.md](../README.md)
-- 🧪 **Run the tests** — `pytest` is fast (<10s); `RUN_STRESS=1 pytest` runs the 4-channel concurrent stress suite and the 8-player combat load test.
+- 🗺️ **Big-picture project tour + roadmap + non-goals?** → [README.md](../README.md)
+- 🧪 **Run the tests** — `pytest` is fast (~10s); `RUN_STRESS=1 pytest` runs multi-channel + perf-profiler stress; `RUN_LOAD=1 pytest` runs the 8-player combat load test. Full guide: [docs/TESTING.md](TESTING.md).
+- 🛠️ **Operator CLIs** — `eldritch-dm-cost-report`, `eldritch-dm-cache-stats`, `eldritch-dm-eval --baseline …`, `eldritch-dm-perf-baseline …`. See [docs/DEVELOPMENT.md → Operator CLIs](DEVELOPMENT.md#operator-clis).
+- 🐳 **Deploying** — Docker compose + GitHub Actions matrix + Phoenix observability → [docs/DEPLOYMENT.md](DEPLOYMENT.md).
+- 🔼 **Upgrading from an older version** → [docs/UPGRADE.md](UPGRADE.md) covers every v1.0 → v1.11 transition with concrete operator actions.
+- 📜 **What shipped when** → [CHANGELOG.md](../CHANGELOG.md) (Keep-a-Changelog format, v1.0 onward).
 
 🐉 **Now go roll some dice.** 🎲
