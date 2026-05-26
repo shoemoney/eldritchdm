@@ -6,6 +6,7 @@ All reads use lock-free open_connection (WAL allows concurrent readers).
 
 Returned values are always frozen pydantic ChannelSession instances.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

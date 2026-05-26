@@ -19,6 +19,7 @@ Usage::
     await send_warning(interaction, WarningKind.NOT_YOUR_TURN, actor_name="Thorin")
     await send_warning(interaction, WarningKind.DM_OFFLINE, failure_count=5)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

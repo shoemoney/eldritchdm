@@ -6,6 +6,7 @@ hashes regardless of YAML author casing or DDB ingest casing.
 
 Pure stdlib (`re`); no upward imports. Safe for any layer to import.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

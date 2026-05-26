@@ -23,6 +23,7 @@ The notifier is decoupled from both BudgetEvaluator and DegradedModeState
 matches the v1.x pattern where observability surfaces are composable
 without tight coupling to triggers.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

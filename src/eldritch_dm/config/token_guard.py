@@ -15,6 +15,7 @@ testable).
 Per D-33 the helper lives under the ``eldritch_dm.config`` package alongside
 ``Settings`` so there are no circular imports.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

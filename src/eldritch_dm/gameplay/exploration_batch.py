@@ -21,6 +21,7 @@ double-flush (D-07 Test 7 concurrency requirement).
 
 Phase 4 Plan 01 — EXPLORE-06.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

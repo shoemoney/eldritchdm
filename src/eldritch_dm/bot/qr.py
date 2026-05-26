@@ -21,6 +21,7 @@ embed thumbnail dimensions):
 Color palette follows EmbedColor in embeds.py:
   - dark='black', light='white' — clean render on Discord dark and light themes
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

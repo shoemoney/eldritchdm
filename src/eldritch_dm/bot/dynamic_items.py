@@ -60,6 +60,7 @@ Dodge v1 narrative-only note (04-RESEARCH.md Q2, D-22):
          combat_action has no advantage/disadvantage arg. Phase 5 will add the
          mechanical enforcement when dm20 supports it.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

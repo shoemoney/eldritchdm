@@ -51,6 +51,7 @@ Plan 17-02 extends this module with the TTL short-circuit, an ``invalidate()``
 API, KPI emission via ``traced_character_cache`` spans, and a
 ``metrics_snapshot()`` accessor.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

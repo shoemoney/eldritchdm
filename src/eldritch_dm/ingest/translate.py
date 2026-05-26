@@ -24,6 +24,7 @@ Public API:
     translate_character_sheet(...)    — async, calls the configured backend, returns raw dict
     translate_to_character_sheet(...) — async, full pipeline: sanitize → translate → validate
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

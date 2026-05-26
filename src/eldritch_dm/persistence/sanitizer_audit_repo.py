@@ -4,6 +4,7 @@ SanitizerAuditRepo — append-only insert for sanitizer_audit table.
 All writes go through WriterQueue (BEGIN IMMEDIATE).
 Reads are minimal (count only) — forensic log data is not paginated in v1.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -10,3 +10,4 @@ Current cogs:
 - diagnostics.py  — /ping (MCP health) + /status (channel session readout)
 - lobby.py        — /start_game, /load_adventure, ReadyButton wiring (Phase 3)
 """
+# SPDX-License-Identifier: Apache-2.0

@@ -30,6 +30,7 @@ Threat mitigations:
   T-04-06: Sanitizer enforces 500-char cap; modal has max_length=500.
   T-04-08: Callbacks wrapped in asyncio.shield in the orchestrator.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

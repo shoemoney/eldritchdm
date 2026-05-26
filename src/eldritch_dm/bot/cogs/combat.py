@@ -28,6 +28,7 @@ Phase 5 Plan 01 update (D-A): the Riposte trigger does NOT live in CombatCog.
 It runs in `gameplay/monster_driver.MonsterDriver` on the monster-attack
 resolution path (RESEARCH finding #6 corrected the Phase 4 placement).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

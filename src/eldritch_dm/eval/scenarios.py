@@ -14,6 +14,7 @@ bot running, while a broken eval is not a production hot path.
 Import-linter-safe: lives under ``eval/``; imports only stdlib + pydantic
 + ``eldritch_dm.logging``.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -24,6 +24,7 @@ Time source:
   thresholds can be asserted deterministically without freezegun (avoids
   freezegun's known races with threading.Event in the span buffer drainer).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

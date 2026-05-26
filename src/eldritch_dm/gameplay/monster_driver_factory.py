@@ -23,6 +23,7 @@ Unknown values log a structured warning and fall back to "smart".
 Import-linter discipline: this module lives in `gameplay/` and imports only
 from `gameplay/`, `logging`. No upward imports.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

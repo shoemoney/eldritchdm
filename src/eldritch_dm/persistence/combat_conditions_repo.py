@@ -15,6 +15,7 @@ Phase 5 will add the mechanical enforcement when dm20 supports it.
 
 Phase 4 Plan 02.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

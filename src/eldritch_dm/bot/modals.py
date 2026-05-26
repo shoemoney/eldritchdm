@@ -18,6 +18,7 @@ The ability-score field (field 5 in both primary modals) is a single
 space-separated string because Discord's modal cap is 5 — we cannot have 6
 separate score fields. Parser and serializer live here as module-level helpers.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

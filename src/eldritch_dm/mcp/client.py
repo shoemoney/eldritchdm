@@ -11,6 +11,7 @@ Features:
 - Structured logging: tool_name, attempt_n, duration_ms bound on every call
 - User-Agent: EldritchDM/0.1
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

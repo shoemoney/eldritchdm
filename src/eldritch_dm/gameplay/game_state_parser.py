@@ -25,6 +25,7 @@ TODO: if dm20 ever ships get_game_state_json, swap the parser here.
 
 Phase 4 Plan 01.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

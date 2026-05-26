@@ -13,6 +13,7 @@ Exit codes:
   1 = user error (bad args / missing cache file)
   3 = fatal (DB locked / IO error)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

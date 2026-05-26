@@ -19,6 +19,7 @@ dm20 tool prefix convention:
 TOOL_TO_FUNCTION at the bottom is the single source of truth for which
 tools we expose, used by gen_mcp_wrappers.py drift detection.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

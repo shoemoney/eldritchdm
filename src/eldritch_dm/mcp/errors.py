@@ -4,6 +4,7 @@ Structured exception hierarchy for MCP client errors.
 All MCP-related exceptions inherit from MCPError so callers can catch
 them with a single `except MCPError` or discriminate by subtype.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

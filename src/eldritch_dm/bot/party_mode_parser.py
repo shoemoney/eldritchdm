@@ -23,6 +23,7 @@ CONTEXT references: D-01 (lobby flow), RESEARCH §1 (Pattern 2), RESEARCH §3
 (Pitfall 7 — not directly related to parsing but drives the module_bound logic
 upstream), RESEARCH §12 (manage_channels).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

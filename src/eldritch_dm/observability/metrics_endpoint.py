@@ -25,6 +25,7 @@ Port:
   - Default ``9090``. Override via ``OBSERVABILITY_METRICS_PORT`` env or the
     ``port`` argument. ``port=0`` requests an ephemeral port (tests).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

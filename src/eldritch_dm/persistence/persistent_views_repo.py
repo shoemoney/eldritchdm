@@ -7,6 +7,7 @@ All reads use lock-free open_connection.
 The payload column is stored as JSON text in the DB; the repo handles
 serialization/deserialization transparently.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -5,6 +5,7 @@ The judge prompt's first line MUST be exactly
 flows into the eval run's JSON output so prior runs remain comparable to
 new ones across prompt iterations.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

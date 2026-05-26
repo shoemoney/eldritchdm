@@ -28,6 +28,7 @@ Architecture note (lobby embed update):
   this in the persistent_views row AND in dm20_party_token during /start_game.
   If the key is absent (older sessions), the update is skipped gracefully.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

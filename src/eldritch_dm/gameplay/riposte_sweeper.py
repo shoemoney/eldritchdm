@@ -57,6 +57,7 @@ flush in-flight mark_expired calls). Rationale: clean shutdown semantics
 and no risk of hanging on a slow Discord delete. Pending rows survive
 across restart and get cleaned up on the next bot's first sweep.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

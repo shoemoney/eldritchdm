@@ -10,6 +10,7 @@ The clock is injectable for deterministic tests. In production the default
 ``time.monotonic`` is correct — wall-clock would be wrong because NTP slew
 could falsify the elapsed-time gates.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

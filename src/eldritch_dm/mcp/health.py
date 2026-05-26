@@ -11,6 +11,7 @@ HealthCheck:
 - Updates the CircuitBreaker on each ping result
 - Used by the Discord layer to render "DM is offline" status
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

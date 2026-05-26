@@ -35,6 +35,7 @@ Fail-soft (D-58 / D-165 / L-12): every method swallows ``sqlite3.Error`` and
 ``aiosqlite.Error`` and returns a safe default. Persistence failures NEVER
 crash combat.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

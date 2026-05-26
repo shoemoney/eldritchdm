@@ -17,6 +17,7 @@ Behaviors:
     with `budget_exceeded:`, calls `degraded_mode.recover()` so the bot
     resumes smart driving on the fresh daily budget
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

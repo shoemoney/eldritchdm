@@ -5,6 +5,7 @@ addendum MUST match ``# aoe-addendum-version: <MAJOR>.<MINOR>.<PATCH>``.
 The version string flows into structured logs so prior runs remain
 comparable across prompt iterations.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

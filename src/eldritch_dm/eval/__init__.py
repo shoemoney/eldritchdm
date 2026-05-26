@@ -9,6 +9,7 @@ Public surface:
 
 Locked decisions (CONTEXT D-71..D-82). See 12-CONTEXT.md and 12-01-PLAN.md.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

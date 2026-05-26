@@ -37,6 +37,7 @@ Persistence (Plan 21-02): `MonsterMemoryRegistry` accepts an optional `repo`
 that snapshots state to aiosqlite when `MONSTER_MEMORY_PERSIST=true`. Without
 a repo, the registry is pure in-memory and behaves identically.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

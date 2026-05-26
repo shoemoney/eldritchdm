@@ -32,6 +32,7 @@ Architectural rules (R-13-01-a/b/c):
    sentinel under a one-time lock and returns immediately on calls 2..N — no
    ``mkdir``, no ``sqlite3.connect``, no schema check on the hot path.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -10,6 +10,7 @@ button intents is deferred to v1.2. Per OPS-02 the decorator ALWAYS swallows
 ``MCPCircuitOpen`` (re-raising would leak the traceback to discord.py); other
 exception types propagate unchanged so genuine bugs remain visible.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

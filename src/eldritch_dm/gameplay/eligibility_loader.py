@@ -27,6 +27,7 @@ This module is import-linter-safe: lives in `gameplay/`, imports only
 `gameplay.normalize`, `logging`, `pydantic`, `yaml`, `pathlib`, and TYPE_CHECKING
 `config.Settings`. No upward imports.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

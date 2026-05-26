@@ -15,6 +15,7 @@ Public API:
   + ``BatchSpanProcessor`` if enabled, else return ``False`` immediately.
   Idempotent.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

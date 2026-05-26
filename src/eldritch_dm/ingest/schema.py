@@ -4,6 +4,7 @@ CharacterSheet  — parsed + validated character data
 AbilityScores   — D&D 5e ability scores (STR/DEX/CON/INT/WIS/CHA)
 IngestResult    — output envelope from the ingest pipeline
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -12,6 +12,7 @@ Read operations may use open_connection directly (WAL allows concurrent readers)
 Key invariant (D-17): every write uses BEGIN IMMEDIATE (never a bare transaction).
 No await between BEGIN IMMEDIATE and COMMIT except the user-supplied fn.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

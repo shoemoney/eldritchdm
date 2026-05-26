@@ -6,6 +6,7 @@ and the typed tool wrappers.
 
 DO NOT import from eldritch_dm.persistence or eldritch_dm.safety — boundary discipline.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

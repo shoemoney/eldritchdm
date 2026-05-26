@@ -28,6 +28,7 @@ and update the import. Note this in SUMMARY for Plan 03 author.
 
 SCOPE WALL: no character ingest in this cog — that's Plans 02 and 03.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

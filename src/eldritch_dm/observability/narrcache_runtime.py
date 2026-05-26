@@ -10,6 +10,7 @@ survives restart belongs in ``.env`` (``NARRCACHE_ENABLED=false``).
 ``NarrCache.acompletion`` consults ``get_narrcache_override().is_disabled()``
 at every call; a disabled override forces the bypass path.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

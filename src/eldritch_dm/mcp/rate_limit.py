@@ -18,6 +18,7 @@ Usage::
 
 Phase 4 Plan 01 implementation. OPS-03 requirement.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

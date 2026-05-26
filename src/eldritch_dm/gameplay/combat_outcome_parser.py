@@ -17,6 +17,7 @@ risk (Phase 5 RESEARCH risk register T-05-02).
 
 Phase 5 Plan 01.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

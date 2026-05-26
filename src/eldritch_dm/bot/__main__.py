@@ -17,6 +17,7 @@ Exit codes:
         TD-1 closure. Previously this path raised discord.errors.LoginFailure with
         a traceback; v1.1 surfaces a friendly stderr message instead.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

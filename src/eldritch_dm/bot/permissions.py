@@ -20,6 +20,7 @@ Design decisions:
   - INGEST-10: shared with the ingest cog in Plan 02 — do NOT alter the
     signature without updating both consumers.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

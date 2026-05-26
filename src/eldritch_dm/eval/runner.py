@@ -8,6 +8,7 @@ orchestration — if it tries to, the sentinel surfaces the bug loudly.
 ``run_scenario`` orchestrates one scenario: build candidate dicts, call
 ``driver._choose_target``, time both halves, ask the judge to score.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

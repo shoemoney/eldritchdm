@@ -10,6 +10,7 @@ Security notes (STRIDE threat register):
 - T-02-02: /status response is ephemeral (no dm20_party_token included)
 - T-02-05: Every callback binds structlog context (channel_id, user_id, command) — audit trail
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

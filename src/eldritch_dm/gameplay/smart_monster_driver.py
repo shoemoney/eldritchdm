@@ -36,6 +36,7 @@ Locked decisions (CONTEXT D-50..D-61):
 This module is import-linter-safe: lives under `gameplay/`, imports only from
 `gameplay/`, `logging`, `openai`, and `pydantic`. No upward imports into `bot/`.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

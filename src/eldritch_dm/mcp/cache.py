@@ -30,6 +30,7 @@ randomized per-process and would silently miss L2 entries after restart.
 Plan 16-02 extends this module with: ``invalidate()`` API, schema-version
 polling background task, and OTel KPI emission.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

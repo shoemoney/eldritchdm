@@ -19,6 +19,7 @@ Logging:
   - On reason change: eldritch.degraded_mode.reason_changed (INFO)
   - On recover:       eldritch.degraded_mode.exited (INFO) with dwell_seconds
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

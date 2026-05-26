@@ -8,6 +8,7 @@ Single Settings instance per process — obtain via get_settings().
 IMPORTANT: This module must NOT import eldritch_dm.persistence,
            eldritch_dm.mcp, or eldritch_dm.safety (import-linter enforced).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

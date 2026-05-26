@@ -21,6 +21,7 @@ Import note (Plan 03 decision):
   safety may import eldritch_dm.persistence.models (pure pydantic data shapes).
   safety must NOT import any other persistence submodule (connection, repos, etc.).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

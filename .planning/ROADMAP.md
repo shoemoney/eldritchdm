@@ -15,6 +15,7 @@
 - ✅ **v1.10 Operator Deployment Polish** — Phases 29-30 (shipped 2026-05-26) — see [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 - ✅ **v1.11 Security Audit Refresh** — Phases 31-32 (shipped 2026-05-26 · 0 findings) — see [`milestones/v1.11-ROADMAP.md`](milestones/v1.11-ROADMAP.md)
 - ✅ **v1.12 Final Consolidation** — Phase 33 (shipped 2026-05-26) — see [`milestones/v1.12-ROADMAP.md`](milestones/v1.12-ROADMAP.md)
+- ✅ **v1.13 Open-Source Hygiene** — Phase 34 (shipped 2026-05-26) — CODE_OF_CONDUCT.md + SPDX headers on 105 src files
 
 ## Phases
 

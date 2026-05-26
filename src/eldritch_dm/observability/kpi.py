@@ -20,6 +20,7 @@ every 15s never triggers more than one SQL aggregation per 5s. The cache is
 keyed only on the (now, window) tuple at the seconds level — finer granularity
 is wasted because KPIs are bucketed at the minute level anyway.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

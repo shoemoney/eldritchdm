@@ -11,6 +11,7 @@ Exit codes:
       AND overall_mean < 0.7)
   2 = critical (any per-dimension mean < 0.5, regardless of baseline)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

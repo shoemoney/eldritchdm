@@ -12,6 +12,7 @@ The ±5% accuracy test in ``tests/observability/test_cost.py`` compares the
 calculator against the values in ``database/pricing.yaml`` itself —
 operators who refresh pricing don't have to chase down hardcoded constants.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

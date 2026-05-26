@@ -5,6 +5,7 @@ This subpackage is the integration layer: it imports from mcp/, persistence/,
 safety/, config, and logging. NOTHING outside bot/ may import from bot/ —
 enforced by import-linter (see pyproject.toml).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

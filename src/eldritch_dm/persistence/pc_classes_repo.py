@@ -27,6 +27,7 @@ Plan 03 (see combat_conditions_repo.py module docstring for context).
 
 Phase 5 Plan 01.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

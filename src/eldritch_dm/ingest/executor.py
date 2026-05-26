@@ -7,6 +7,7 @@ IngestExecutor wraps a ThreadPoolExecutor (max_workers=2) and exposes
 Usage:
     result = await get_executor().run_sync(blocking_fn, arg1, arg2)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

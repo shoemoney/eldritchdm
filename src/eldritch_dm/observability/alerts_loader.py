@@ -11,6 +11,7 @@ Mirrors ``eldritch_dm.gameplay.eligibility_loader`` (Phase 8 / D-29..D-40 patter
 The default rules embedded in code match AI-SPEC §7 verbatim and are the
 SAME rules that ship in ``database/alerts.yaml``. Both must stay in sync.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

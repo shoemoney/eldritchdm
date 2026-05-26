@@ -12,6 +12,7 @@ Lifecycle (D-22):
 
 An interval_seconds of 0 disables the task (no background task spawned).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

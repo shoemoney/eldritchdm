@@ -10,6 +10,7 @@ Scope wall: Phase 2 ships /ping and /status via the Diagnostics cog.
 Gameplay commands (/start_game, /upload_character_*, /declare_action, etc.)
 land in Phases 3-5 in their own cogs.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

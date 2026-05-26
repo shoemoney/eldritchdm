@@ -60,6 +60,7 @@ D-81 eval schema for ``eldritch.eval.judge``:
 - ``eldritch.eval.archetype`` (str)
 - ``eldritch.eval.overall_score`` (float, stamped by caller)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

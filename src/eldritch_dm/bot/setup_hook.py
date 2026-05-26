@@ -17,6 +17,7 @@ D-24 step 5 (rehydration flow):
 
 D-39 log line: "rehydrated N persistent views from M channel sessions"
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

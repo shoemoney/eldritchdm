@@ -17,6 +17,7 @@ Public API:
     ingest(attachment_bytes, content_type, filename, *, player_name, user_id,
            openai_client, mcp_client) -> IngestResult
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

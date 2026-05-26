@@ -4,6 +4,7 @@ Produces a human-readable companion to the JSON output: aggregate stats,
 per-archetype scoreboard, baseline diff (when supplied), top failures,
 and top reasons.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

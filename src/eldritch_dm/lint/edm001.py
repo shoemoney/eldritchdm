@@ -25,6 +25,7 @@ Exit code:
 Heuristic: false positives are acceptable (silence with noqa).
 False negatives (missing real violations) are NOT acceptable — when in doubt, flag.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

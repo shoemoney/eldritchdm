@@ -30,6 +30,7 @@ The "game_state dict" shape above is what we build when enriching
 ParsedGameState with per-combatant HP/AC/conditions pulled from
 individual get_character calls in the CombatCog.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

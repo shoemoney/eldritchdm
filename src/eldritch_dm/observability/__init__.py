@@ -20,6 +20,7 @@ context managers live in ``instrumentation.py`` (pure Python, no OTel
 imports at module level). Importing ``observability`` re-exports them but
 does NOT pull in OTel.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from eldritch_dm.observability.instrumentation import (
     FallbackReason,

@@ -5,3 +5,4 @@ Currently houses:
 
 Tools are entry-pointed via [project.scripts] in pyproject.toml.
 """
+# SPDX-License-Identifier: Apache-2.0

@@ -14,6 +14,7 @@ Usage::
         # Only one coroutine at a time per channel
         await mcp_client.call("combat_action", ...)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

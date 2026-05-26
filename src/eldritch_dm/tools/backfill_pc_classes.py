@@ -16,6 +16,7 @@ Design decisions (see .planning/phases/09-pc-classes-backfill/09-CONTEXT.md):
 Scaffold for T-09-01-01 — argparse + console-script entry only. The fetch
 loop (T-09-01-02) and SQLite write path (T-09-01-03) land in later commits.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

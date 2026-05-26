@@ -4,6 +4,7 @@ RiposteTimerRepo — CRUD for riposte_timers table.
 All writes go through WriterQueue (BEGIN IMMEDIATE).
 All reads use lock-free open_connection.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

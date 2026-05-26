@@ -32,6 +32,7 @@ Re-exports ``bootstrap`` from :mod:`eldritch_dm.persistence.bootstrap` so
 ``from eldritch_dm.bootstrap import bootstrap`` continues to work for any
 legacy callers that followed the older README guidance.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

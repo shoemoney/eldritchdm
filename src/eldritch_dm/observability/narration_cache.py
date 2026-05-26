@@ -30,6 +30,7 @@ Architecture (D-130, D-132, D-133):
 This module emits no spans on its own. Plan 18-02 wires
 ``traced_narrcache`` and ``NarrCacheRuntimeOverride`` integration.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

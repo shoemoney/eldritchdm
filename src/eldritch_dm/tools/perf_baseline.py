@@ -18,6 +18,7 @@ The CLI is consumed by ``.github/workflows/perf.yml`` on a weekly
 schedule (TUNE-03 / D-219). Failure is informational — perf is
 operator-tunable, not a hard ship gate.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

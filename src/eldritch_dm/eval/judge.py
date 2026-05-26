@@ -11,6 +11,7 @@ Locked decisions:
 Import-linter-safe: lives under ``eval/``; imports stdlib, pydantic,
 ``openai`` (TYPE_CHECKING only), and ``eldritch_dm`` siblings.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -24,6 +24,7 @@ Pass a shared budget instance to each EmbedCoalescer for a given Discord channel
 prevent the 5-edits/5s per-channel limit from being hit by multiple coalescers
 (see RESEARCH.md Pitfall 4, Phase 4 Plan 01).
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

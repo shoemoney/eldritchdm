@@ -19,6 +19,7 @@ Exit codes (R-13-03-e):
   2 — partial (unknown_model_count > 0)
   3 — fatal (buffer corrupt — sqlite3.DatabaseError)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

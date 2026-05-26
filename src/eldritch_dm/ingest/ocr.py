@@ -16,6 +16,7 @@ Public API:
     aggregate_ocrmac_confidence(regions) → float
     aggregate_easyocr_confidence(results) → float
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

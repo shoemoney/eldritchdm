@@ -8,6 +8,7 @@ Public API:
     PdfExtractionError          — raised when extraction fails
     extract_pdf_text(pdf_bytes) → (text, backend_name)
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

@@ -35,6 +35,7 @@ Rate limiting (D-28, OPS-03):
 
 Phase 4 Plan 01.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

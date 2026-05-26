@@ -20,6 +20,7 @@ Security (T-01-01, T-01-05): schema.sql is treated as trusted (in-repo,
 code-reviewed). Its sha256 is logged at every bootstrap run so tampering
 is observable in audit logs.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

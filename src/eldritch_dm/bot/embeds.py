@@ -13,6 +13,7 @@ Color palette (D-15):
 
 Footer (D-16): every embed includes ``🎲 ShoeGPT · EldritchDM`` + timestamp.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

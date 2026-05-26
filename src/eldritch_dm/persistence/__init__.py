@@ -6,6 +6,7 @@ Repositories were created early (Wave 1) to support Wave 2 tests.
 
 DO NOT import from eldritch_dm.mcp or eldritch_dm.safety -- boundary discipline.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 

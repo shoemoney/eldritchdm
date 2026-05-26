@@ -16,6 +16,7 @@ Exit-code precedence (S-12-02-B):
 
 A run that is BOTH critical AND regressed exits 2 — critical wins.
 """
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
