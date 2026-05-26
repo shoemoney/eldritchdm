@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-budget",
+  "title": "Daily LLM spend, cap proximity, per-model breakdown",
+  "description": "Phase 13 cost surface. Aggregates USD spend from token-count attributes on LLM-call spans (eldritch.monster.decision, eldritch.translate, eldritch.eval) joined with src/eldritch_dm/observability/cost.py::PricingTable. Cap reference: ELDRITCH_DAILY_LLM_BUDGET_USD env var (Phase 13 MON-03). KPIs: daily spend trend, today vs cap, per-model attribution.",
+  "span_filter": {
+    "span_name": "*",
+    "attribute_filters": {
+      "tokens_input": { "present": true },
+      "tokens_output": { "present": true }
+    }
+  },
+  "metric": {
+    "field": "cost_usd",
+    "aggregations": ["sum"],
+    "group_by": ["model", "channel_id"]
+  },
+  "time_window": "7d",
+  "query_recipe": "Phoenix UI → Project 'eldritch-budget' → Filter spans where (tokens_input>0 OR tokens_output>0). Derive cost_usd per row via PricingTable.lookup(model) * (tokens_input * input_per_million_usd + tokens_output * output_per_million_usd) / 1_000_000. Then:\n  1. Daily total spend (line over 7d): sum(cost_usd) grouped by UTC day. Visualizes drift, weekly cycles.\n  2. Cap-proximity gauge: today's sum(cost_usd) / ELDRITCH_DAILY_LLM_BUDGET_USD as percentage. Alert thresholds: 75% WARN, 90% CRITICAL, 100% triggers budget_guard.py `eldritch.budget.exceeded` event.\n  3. Per-model spend (stacked bar over 7d): sum(cost_usd) grouped by `model` attribute. Decision spans without explicit `model` default to 'ShoeGPT' (see cost.py::_model_for_decision_row).\n  4. Per-channel breakdown (table): sum(cost_usd) grouped by `channel_id` for the current day — identifies guilds/sessions driving spend.\n  5. Cross-reference structured logs: `eldritch.budget.alert` (warning) and `eldritch.budget.exceeded` (cap breach) events emitted by budget_guard.py::tick() — show as annotations on the daily trend line."
+}
