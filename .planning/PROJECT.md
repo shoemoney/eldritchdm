@@ -2,7 +2,10 @@
 
 ## Current State
 
-**Shipped:** v1.8 Multi-Channel Hardening · 2026-05-25 · tag `v1.8` · 6/6 reqs · **4-channel stress 3-for-3 GREEN · 9 bundled dashboards · 39 SUMMARY files frontmatter-compliant**
+**Current Milestone:** v1.9 Performance Baseline + Tuning (in progress, 0/2 phases)
+**Goal:** Profile hot paths, document per-operation latency budgets, optimize top 3 slowest ops, ship `eldritch-dm-perf-baseline` regression-detection CLI. Empirical answer to "is this fast enough?"
+
+**Previously shipped:** v1.8 Multi-Channel Hardening · 2026-05-25 · tag `v1.8` · 6/6 reqs · **4-channel stress 3-for-3 GREEN · 9 bundled dashboards · 39 SUMMARY files frontmatter-compliant**
 
 **v1.8 highlights:**
 - Closed v1.0's oldest Blockers/Concerns item (concurrent multi-channel sessions). 4-channel stress test runs in ~0.27s; all 5 D-195 assertions pass; no architectural bugs surfaced.

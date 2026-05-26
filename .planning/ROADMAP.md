@@ -11,6 +11,7 @@
 - ✅ **v1.6 UX/Feature Expansion** — Phases 19-22 (shipped 2026-05-25) — see [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.7 Integration & Polish** — Phases 23-24 (shipped 2026-05-25) — see [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.8 Multi-Channel Hardening** — Phases 25-26 (shipped 2026-05-25) — see [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
+- 🚧 **v1.9 Performance Baseline + Tuning** — Phases 27-28 (in progress) — profile hot paths + optimize top 3 + perf-regression CLI
 
 ## Phases
 
@@ -134,6 +135,24 @@
 
 </details>
 
+
+## 🚧 v1.9 Performance Baseline + Tuning (Phases 27-28)
+
+### Phase 27: Profiling + latency budget documentation
+**Goal**: Profile 6 hot paths, document budgets at `docs/PERFORMANCE.md`, commit canonical baseline JSON.
+**Requirements**: PROFILE-01, PROFILE-02, PROFILE-03
+**Plans**:
+- [ ] Plan 01: Hot-path profiler script + baseline JSON (`feat(27-01): profile_hot_paths.py + perf-baseline-v1.9.0.json`)
+- [ ] Plan 02: docs/PERFORMANCE.md budget table (`docs(27-02): docs/PERFORMANCE.md per-operation budgets`)
+
+### Phase 28: Targeted optimizations + regression-detection CLI
+**Goal**: Optimize top 3 slowest ops (with before/after benchmarks); ship `eldritch-dm-perf-baseline` CLI + CI integration.
+**Requirements**: TUNE-01, TUNE-02, TUNE-03
+**Plans**:
+- [ ] Plan 01: Top-3 optimizations with empirical proof (`fix(28-01): optimize top 3 hot paths with before/after benchmarks`)
+- [ ] Plan 02: perf-baseline CLI + .github/workflows/perf.yml (`feat(28-02): eldritch-dm-perf-baseline CLI + weekly perf CI`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -195,6 +214,12 @@
 | OPSDASH-01 | 26 | 26-01-PLAN-3-more-dashboards |
 | OPSDASH-02 | 26 | 26-02-PLAN-auto-discover-backfill |
 | OPSDASH-03 | 26 | 26-02-PLAN-auto-discover-backfill |
+| PROFILE-01 | 27 | 27-01-PLAN-profiler |
+| PROFILE-02 | 27 | 27-02-PLAN-perf-docs |
+| PROFILE-03 | 27 | 27-01-PLAN-profiler |
+| TUNE-01 | 28 | 28-01-PLAN-top3-optimizations |
+| TUNE-02 | 28 | 28-02-PLAN-perf-cli-ci |
+| TUNE-03 | 28 | 28-02-PLAN-perf-cli-ci |
 
 ## Progress
 
