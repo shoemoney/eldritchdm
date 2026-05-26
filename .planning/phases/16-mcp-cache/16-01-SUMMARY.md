@@ -1,6 +1,7 @@
 ---
 phase: 16-mcp-cache
 plan: 16-01
+requirements_completed: [MCPCACHE-01, MCPCACHE-02]
 subsystem: mcp
 tags: [cache, lru, sqlite, mechanical-honesty]
 requires: [Phase 1 (aiosqlite WAL precedent), Phase 7 (MCPClient)]
@@ -22,7 +23,6 @@ metrics:
   tasks: 5
   tests-added: 28
 status: complete
-requirements_completed:
   - MCPCACHE-01
   - MCPCACHE-02
 ---

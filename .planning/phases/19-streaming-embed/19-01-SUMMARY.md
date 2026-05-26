@@ -1,6 +1,7 @@
 ---
 phase: 19-streaming-embed
 plan: 19-01
+requirements_completed: [STREAM-01]
 subsystem: gameplay/smart_monster_driver
 tags: [streaming, embed, llm, smart-driver]
 requires: [Phase 10 SmartMonsterDriver, Phase 2 EmbedCoalescer]
@@ -14,7 +15,6 @@ metrics:
   tasks: 3
   duration_minutes: ~25
   date: 2026-05-25
-requirements_completed:
   - STREAM-01
 ---
 

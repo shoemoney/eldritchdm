@@ -1,9 +1,9 @@
 ---
 phase: 26-opsdash-tooling
 plan: 26-01
+requirements_completed: [OPSDASH-01]
 subsystem: observability
 tags: [observability, dashboards, phoenix, polish]
-requirements_completed: [OPSDASH-01]
 dependency_graph:
   requires: [phase-13-degraded-mode, phase-13-cost-calc, phase-12-eval-cli]
   provides: [degraded-mode-dashboard, budget-dashboard, eval-dashboard]

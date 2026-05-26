@@ -1,6 +1,7 @@
 ---
 phase: 15
 plan: 01
+requirements_completed: [HANG-01, HANG-02, HANG-03]
 subsystem: tests/bot
 tags: [test-isolation, sys.modules, discord.py, flake-fix]
 requires: []
@@ -20,7 +21,6 @@ metrics:
   duration: ~3h
   tests_added: 0
   tests_modified: 2
-requirements_completed: [HANG-01, HANG-02, HANG-03]
 also_closes: [FLAKE-02 (from v1.3 milestone, carried partial)]
 completed: 2026-05-25
 ---

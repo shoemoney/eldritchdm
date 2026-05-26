@@ -1,10 +1,10 @@
 ---
 phase: 23-cog-wiring
 plan: 23-01
+requirements_completed: [WIRE-02]
 title: WIRE-02 — Lobby /end_game → MonsterMemoryRegistry.purge_session
 status: complete
 scope: PARTIAL (concentration half deferred — see 23-HALT-REPORT.md)
-requirements_completed: [WIRE-02]
 generated: 2026-05-25
 key-files:
   created: []

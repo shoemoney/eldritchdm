@@ -1,9 +1,9 @@
 ---
 phase: 24-ci-and-dashboards
 plan: 24-01
+requirements_completed: [POLISH-01]
 subsystem: ci
 tags: [ci, github-actions, polish]
-requirements_completed: [POLISH-01]
 dependency_graph:
   requires: []
   provides: [cross-platform-ci]

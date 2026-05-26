@@ -1,6 +1,7 @@
 ---
 phase: 19-streaming-embed
 plan: 19-02
+requirements_completed: [STREAM-02, STREAM-03]
 subsystem: config + gameplay/monster_driver_factory + bot/bot
 tags: [streaming, embed, settings, opt-out, fail-soft]
 requires: [19-01 (SmartMonsterDriver hook)]
@@ -20,7 +21,6 @@ metrics:
   tasks: 6
   duration_minutes: ~25
   date: 2026-05-25
-requirements_completed:
   - STREAM-02
   - STREAM-03
 ---

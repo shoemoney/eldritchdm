@@ -1,6 +1,7 @@
 ---
 phase: 21-monster-memory
 plan: 21-01
+requirements_completed: [MEM-01, MEM-02]
 subsystem: gameplay
 tags: [monster-memory, smart-driver, mem-01, mem-02, meta-knowledge-guard]
 requirements: [MEM-01, MEM-02]
@@ -26,7 +27,6 @@ metrics:
   tests_total_in_modified_files: 50 (smart driver) + 12 (factory) + 29 (memory) = 91
   full_gameplay_suite: 340 passed (was ~328 pre-Phase-21)
   regression_in_existing_tests: 0
-requirements_completed:
   - MEM-01
   - MEM-02
 ---

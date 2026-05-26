@@ -1,6 +1,7 @@
 ---
 phase: 17-character-cache
 plan: 17-01
+requirements_completed: [CHARCACHE-01, CHARCACHE-02]
 subsystem: persistence
 tags: [cache, sqlite, mechanical-honesty, etag, snapshot]
 requires: [Phase 1 (aiosqlite WAL precedent), Phase 16 (lazy-conn pattern)]
@@ -24,7 +25,6 @@ metrics:
   tasks: 5
   tests-added: 52 (character_cache) + 2 (config) = 54
 status: complete
-requirements_completed:
   - CHARCACHE-01
   - CHARCACHE-02
 ---

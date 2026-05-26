@@ -1,6 +1,7 @@
 ---
 phase: 20-aoe-targeting
 plan: 20-02
+requirements_completed: [AOE-02, AOE-03]
 subsystem: gameplay/smart_monster_driver + gameplay/prompts
 tags: [llm-prompt, aoe, action-descriptor, fail-soft, corpus]
 requires: [20-01]
@@ -24,7 +25,6 @@ metrics:
   tests_added: 18  # 5 loader + 13 corpus
   tests_final_gameplay_eval: 437
 completed_date: 2026-05-25
-requirements_completed:
   - AOE-02
   - AOE-03
 ---

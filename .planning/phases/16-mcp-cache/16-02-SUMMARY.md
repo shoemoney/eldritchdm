@@ -1,6 +1,7 @@
 ---
 phase: 16-mcp-cache
 plan: 16-02
+requirements_completed: [MCPCACHE-03]
 subsystem: mcp
 tags: [cache, invalidation, observability, kpi, schema-version]
 requires: [16-01]
@@ -22,7 +23,6 @@ metrics:
   tasks: 6
   tests-added: 10
 status: complete
-requirements_completed:
   - MCPCACHE-03
 ---
 

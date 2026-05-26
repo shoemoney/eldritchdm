@@ -1,6 +1,7 @@
 ---
 phase: 22-operator-polish
 plan: 22-02
+requirements_completed: [OPQOL-02, OPQOL-03]
 milestone: v1.6
 requirements: [OPQOL-02, OPQOL-03]
 key-files:
@@ -15,7 +16,6 @@ key-files:
     - src/eldritch_dm/config/__init__.py
 tags: [phase-22, opqol-02, opqol-03, budget-dm, schema-invalidation, fail-soft]
 completed: 2026-05-25
-requirements_completed:
   - OPQOL-02
   - OPQOL-03
 ---

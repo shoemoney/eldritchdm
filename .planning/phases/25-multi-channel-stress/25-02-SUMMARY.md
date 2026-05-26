@@ -1,9 +1,9 @@
 ---
 phase: 25-multi-channel-stress
 plan: 25-02
+requirements_completed: [CONC-03]
 subsystem: testing
 tags: [concurrency, honest-report, no-op-closure]
-requirements_completed: [CONC-03]
 dependency_graph:
   requires: [25-01]
   provides: [conc-03-closure]

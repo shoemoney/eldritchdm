@@ -1,12 +1,12 @@
 ---
 phase: 18-narration-cache
 plan: 18-01
+requirements_completed: [NARRCACHE-01, NARRCACHE-02]
 subsystem: observability
 tags: [narration-cache, mechanical-honesty, opt-in, fail-closed, cache]
 requirements: [NARRCACHE-01, NARRCACHE-02]
 status: complete
 completed: 2026-05-25
-requirements_completed:
   - NARRCACHE-01
   - NARRCACHE-02
 ---

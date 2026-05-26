@@ -1,9 +1,9 @@
 ---
 phase: 23-cog-wiring
 plan: 23-02
+requirements_completed: [WIRE-03]
 title: WIRE-03 — Conditional AOE addendum injection (≥2 AOE actions) + OTel version attribute
 status: complete
-requirements_completed: [WIRE-03]
 generated: 2026-05-25
 key-files:
   created: []

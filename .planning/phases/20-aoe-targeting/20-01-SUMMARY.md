@@ -1,6 +1,7 @@
 ---
 phase: 20-aoe-targeting
 plan: 20-01
+requirements_completed: [AOE-01]
 subsystem: gameplay/smart_monster_driver
 tags: [schema, pydantic, backwards-compat, aoe, fail-soft]
 requires: []
@@ -19,7 +20,6 @@ metrics:
   tests_added: 16
   tests_final: 282 (full gameplay suite)
 completed_date: 2026-05-25
-requirements_completed:
   - AOE-01
 ---
 

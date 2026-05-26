@@ -1,6 +1,7 @@
 ---
 phase: 17-character-cache
 plan: 17-02
+requirements_completed: [CHARCACHE-03]
 subsystem: persistence
 tags: [cache, cli, ttl, kpi, observability]
 requires: [17-01]
@@ -22,7 +23,6 @@ metrics:
   tasks: 6
   tests-added: 7 (CLI)
 status: complete
-requirements_completed:
   - CHARCACHE-03
 ---
 

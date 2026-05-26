@@ -1,6 +1,7 @@
 ---
 phase: 22-operator-polish
 plan: 22-01
+requirements_completed: [OPQOL-01]
 milestone: v1.6
 requirements: [OPQOL-01]
 key-files:
@@ -11,7 +12,6 @@ key-files:
     - src/eldritch_dm/bot/bot.py
 tags: [phase-22, opqol-01, hot-reload, eligibility-yaml, fail-soft]
 completed: 2026-05-25
-requirements_completed:
   - OPQOL-01
 ---
 
