@@ -1,0 +1,187 @@
+{
+  "generated_at": "2026-05-26T04:20:18.848219+00:00",
+  "git_sha": "f7818a46a37b9f1802e512da5133e1e4e3c1e09f",
+  "operations": {
+    "character-ingest-fast-path": {
+      "cprofile_top_10": [
+        "profile_hot_paths._run:552 (100.0%)",
+        "translate.translate_to_character_sheet:194 (99.9%)",
+        "translate.translate_character_sheet:116 (94.9%)",
+        "completions.create:2539 (90.3%)",
+        "_base_client.post:1780 (50.3%)",
+        "_base_client.request:1483 (47.0%)",
+        "_transform.async_maybe_transform:284 (39.7%)",
+        "_transform.async_transform:297 (39.7%)",
+        "_transform._async_transform_recursive:320 (39.6%)",
+        "_transform._async_transform_typeddict:429 (39.2%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.565125,
+      "p95_ms": 0.638209,
+      "p99_ms": 1.084084
+    },
+    "combat-turn-resolution": {
+      "cprofile_top_10": [
+        "profile_hot_paths._run:867 (100.0%)",
+        "client.call:101 (99.8%)",
+        "client._invoke_with_retry:134 (99.7%)",
+        "client._attempt:146 (91.5%)",
+        "_client.post:1838 (81.1%)",
+        "_client.request:1485 (81.0%)",
+        "_client.send:1594 (62.8%)",
+        "_client._send_handling_auth:1645 (54.9%)",
+        "_client._send_handling_redirects:1679 (54.0%)",
+        "_client._send_single_request:1717 (53.6%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.436875,
+      "p95_ms": 0.49825,
+      "p99_ms": 0.605667
+    },
+    "ingest-pipeline-ocr": {
+      "cprofile_top_10": [
+        "base_events._run_once:1859 (100.0%)",
+        "events._run:82 (98.4%)",
+        "~.<method 'run' of '_contextvars.Context' objects>:0 (98.3%)",
+        "profile_hot_paths._run:673 (97.7%)",
+        "pipeline.ingest:143 (97.6%)",
+        "profile_hot_paths._run_all:952 (97.6%)",
+        "profile_hot_paths._profile_ingest_pipeline:601 (97.6%)",
+        "profile_hot_paths._run_both:175 (97.6%)",
+        "profile_hot_paths.measure_cprofile:132 (97.6%)",
+        "translate.translate_to_character_sheet:194 (60.1%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 1.060584,
+      "p95_ms": 1.210125,
+      "p99_ms": 1.44625
+    },
+    "mcp-cache-roundtrip.l1-hit": {
+      "cprofile_top_10": [
+        "profile_hot_paths._run:236 (100.0%)",
+        "cache.call:186 (97.5%)",
+        "~.<built-in method builtins.next>:0 (49.3%)",
+        "instrumentation.traced_mcp_cache:358 (47.4%)",
+        "contextlib.__exit__:141 (47.4%)",
+        "instrumentation._record_to_buffer:222 (44.2%)",
+        "instrumentation._to_row:131 (23.9%)",
+        "cache._args_hash:94 (18.7%)",
+        "span_buffer.record:223 (16.4%)",
+        "__init__.dumps:183 (12.4%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.006791,
+      "p95_ms": 0.010875,
+      "p99_ms": 0.020417
+    },
+    "mcp-cache-roundtrip.l1-l2-miss": {
+      "cprofile_top_10": [
+        "profile_hot_paths._run:298 (100.0%)",
+        "cache.call:186 (99.9%)",
+        "client.call:101 (95.8%)",
+        "client._invoke_with_retry:134 (95.6%)",
+        "client._attempt:146 (87.6%)",
+        "_client.post:1838 (77.0%)",
+        "_client.request:1485 (76.9%)",
+        "_client.send:1594 (58.9%)",
+        "_client._send_handling_auth:1645 (51.6%)",
+        "_client._send_handling_redirects:1679 (50.7%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.16975,
+      "p95_ms": 0.248584,
+      "p99_ms": 0.332
+    },
+    "mcp-cache-roundtrip.l1-miss-l2-hit": {
+      "cprofile_top_10": [
+        "profile_hot_paths._run:269 (100.0%)",
+        "cache.call:186 (98.3%)",
+        "~.<built-in method builtins.next>:0 (50.4%)",
+        "contextlib.__exit__:141 (48.9%)",
+        "instrumentation.traced_mcp_cache:358 (48.8%)",
+        "instrumentation._record_to_buffer:222 (45.7%)",
+        "instrumentation._to_row:131 (26.8%)",
+        "cache._args_hash:94 (18.6%)",
+        "span_buffer.record:223 (16.1%)",
+        "queue.put_nowait:185 (12.2%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.007375,
+      "p95_ms": 0.008458,
+      "p99_ms": 0.084583
+    },
+    "riposte-click-handler": {
+      "cprofile_top_10": [
+        "base_events._run_once:1859 (100.0%)",
+        "events._run:82 (80.2%)",
+        "~.<method 'run' of '_contextvars.Context' objects>:0 (79.7%)",
+        "profile_hot_paths._run:804 (78.1%)",
+        "profile_hot_paths._run_all:952 (75.3%)",
+        "profile_hot_paths._profile_riposte_click:710 (75.2%)",
+        "profile_hot_paths._run_both:175 (75.1%)",
+        "profile_hot_paths.measure_cprofile:132 (75.0%)",
+        "profile_hot_paths._make_interaction:773 (58.2%)",
+        "mock.__init__:2200 (52.4%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 2.481167,
+      "p95_ms": 3.224375,
+      "p99_ms": 3.573292
+    },
+    "smart-driver-oracle.cache-hit": {
+      "cprofile_top_10": [
+        "profile_hot_paths._run:472 (100.0%)",
+        "smart_monster_driver._pick_target_llm:470 (96.6%)",
+        "_native.meth:163 (88.4%)",
+        "_base._proxy_to_logger:192 (86.6%)",
+        "_base._process_event:122 (79.4%)",
+        "dev.__call__:892 (58.5%)",
+        "dev.__call__:297 (34.8%)",
+        "dev.<listcomp>:903 (29.0%)",
+        "dev.<listcomp>:899 (16.6%)",
+        "processors.__call__:492 (12.1%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.012084,
+      "p95_ms": 0.012792,
+      "p99_ms": 0.014125
+    },
+    "smart-driver-oracle.smart-fallback-to-random": {
+      "cprofile_top_10": [
+        "base_events._run_once:1859 (100.0%)",
+        "events._run:82 (72.1%)",
+        "~.<method 'run' of '_contextvars.Context' objects>:0 (71.5%)",
+        "profile_hot_paths._run:435 (68.1%)",
+        "smart_monster_driver._pick_target_llm:470 (67.1%)",
+        "profile_hot_paths._run_all:952 (66.0%)",
+        "profile_hot_paths._profile_smart_driver:387 (65.9%)",
+        "profile_hot_paths._run_both:175 (65.8%)",
+        "profile_hot_paths.measure_cprofile:132 (65.7%)",
+        "_native.meth:163 (35.7%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.086792,
+      "p95_ms": 0.098875,
+      "p99_ms": 0.129833
+    },
+    "smart-driver-oracle.smart-success": {
+      "cprofile_top_10": [
+        "base_events._run_once:1859 (100.0%)",
+        "events._run:82 (74.0%)",
+        "~.<method 'run' of '_contextvars.Context' objects>:0 (73.5%)",
+        "profile_hot_paths._run:405 (71.1%)",
+        "smart_monster_driver._pick_target_llm:470 (69.8%)",
+        "profile_hot_paths._run_all:952 (68.1%)",
+        "profile_hot_paths._profile_smart_driver:387 (68.0%)",
+        "profile_hot_paths._run_both:175 (67.9%)",
+        "profile_hot_paths.measure_cprofile:132 (67.8%)",
+        "_native.meth:163 (36.9%)"
+      ],
+      "iterations": 100,
+      "p50_ms": 0.091208,
+      "p95_ms": 0.106542,
+      "p99_ms": 0.117917
+    }
+  },
+  "version": "1.9.0"
+}
