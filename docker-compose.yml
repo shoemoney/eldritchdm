@@ -38,9 +38,13 @@ services:
     restart: unless-stopped
 
     # All runtime config lives in .env at repo root. The .env file is
-    # git-ignored; see .env.example for the documented surface.
+    # git-ignored; see .env.example for the documented surface. The
+    # `required: false` form (compose v2) lets `docker compose config`
+    # validate without an .env present — the daemon still refuses to start
+    # the bot without DISCORD_TOKEN, which is the correct failure mode.
     env_file:
-      - .env
+      - path: .env
+        required: false
 
     # Linux parity for the macOS/Windows-native host.docker.internal resolution.
     # Without this, Linux containers cannot reach oMLX/dm20 running on the host.
