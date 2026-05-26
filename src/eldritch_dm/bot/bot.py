@@ -492,11 +492,18 @@ class EldritchBot(commands.Bot):
             # Non-fatal: bot connects normally; existing channels resume on next action
 
         # (h) Sync app command tree
+        # Cog @app_commands.command() decorators register globally by default.
+        # When guild_ids is set, we copy_global_to those guilds BEFORE sync so the
+        # per-guild push actually contains the cog commands. Without this,
+        # tree.sync(guild=X) returns 0 because there are no guild-scoped commands —
+        # only global ones — and DISCORD_GUILD_IDS becomes a silent no-op.
         guild_ids = settings.guild_ids_list
         if guild_ids:
             synced_total: list[discord.app_commands.AppCommand] = []
             for gid in guild_ids:
-                synced = await self.tree.sync(guild=discord.Object(id=gid))
+                guild_obj = discord.Object(id=gid)
+                self.tree.copy_global_to(guild=guild_obj)
+                synced = await self.tree.sync(guild=guild_obj)
                 synced_total.extend(synced)
             cmd_count = len(synced_total)
         else:
