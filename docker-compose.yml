@@ -1,0 +1,60 @@
+# EldritchDM — bundled compose for the Discord bot service.
+#
+# Bring up:    docker compose up -d
+# Tear down:   docker compose down
+# Logs:        docker compose logs -f eldritch-bot
+# Rebuild:     docker compose build --no-cache eldritch-bot
+#
+# What this brings up:
+#   * eldritch-bot — the Discord bot process (this repo, built from ./Dockerfile)
+#
+# What this does NOT bring up (by design — D-221):
+#   * oMLX     — runs on the operator's Apple Silicon host (`omlx serve`).
+#                The container reaches it via host.docker.internal:8765.
+#   * dm20 MCP — separate project; runs on the operator's host.
+#                The container reaches it via host.docker.internal:<port>.
+#   * Phoenix  — optional observability stack; bring up separately with:
+#                `docker compose -f docker-compose.observability.yml up -d`
+#
+# Operator setup:
+#   1. cp .env.example .env
+#   2. Edit .env — set DISCORD_TOKEN; if oMLX or dm20 MCP run on your host (not
+#      another container), set their base URLs to use host.docker.internal:
+#        MLX_BASE_URL=http://host.docker.internal:8765/v1
+#        DM20_MCP_URL=http://host.docker.internal:<dm20-port>
+#   3. docker compose up -d
+#
+# Note: `host.docker.internal` resolves to the host on Docker Desktop (mac/win)
+# natively. On Linux Docker Engine, the `extra_hosts: host-gateway` mapping
+# below provides parity.
+
+services:
+  eldritch-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: eldritch-dm:local
+    container_name: eldritch_bot
+    restart: unless-stopped
+
+    # All runtime config lives in .env at repo root. The .env file is
+    # git-ignored; see .env.example for the documented surface.
+    env_file:
+      - .env
+
+    # Linux parity for the macOS/Windows-native host.docker.internal resolution.
+    # Without this, Linux containers cannot reach oMLX/dm20 running on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    # Persistent state — SQLite DB, narration cache, character snapshots, etc.
+    # The bot writes to /app/data by default; override DB_PATH in .env if needed.
+    volumes:
+      - eldritch-data:/app/data
+
+    # Healthcheck is declared in the Dockerfile (HEALTHCHECK directive) so the
+    # contract travels with the image. Compose surfaces it via `docker compose ps`.
+
+volumes:
+  eldritch-data:
+    driver: local
