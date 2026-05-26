@@ -21,8 +21,8 @@
   - `budget.json` — daily LLM spend trend + cap proximity; consumes Phase 13 cost calculator outputs
   - `eval.json` — TacticalJudge scores over time + per-archetype breakdown; consumes Phase 12 eval-CLI outputs
   All 3 use Phase 11 OUR-FORMAT spec (NOT Phoenix-native).
-- [ ] **OPSDASH-02**: `scripts/audit/backfill_summary_frontmatter.py` rewritten to auto-discover ALL `*-SUMMARY.md` files under `.planning/phases/`; no hardcoded path list. Mapping inference: phase number → REQUIREMENTS.md traceability table → plan-suffix-aware split. The Phase 24 finding (14 SUMMARYs missed) should be impossible after this rewrite.
-- [ ] **OPSDASH-03**: `.planning/UPSTREAM-ISSUES.md` extended with 2 more entries:
+- [x] **OPSDASH-02**: `scripts/audit/backfill_summary_frontmatter.py` rewritten to auto-discover ALL `*-SUMMARY.md` files under `.planning/phases/`; no hardcoded path list. Mapping inference: phase number → REQUIREMENTS.md traceability table → plan-suffix-aware split. The Phase 24 finding (14 SUMMARYs missed) should be impossible after this rewrite.
+- [x] **OPSDASH-03**: `.planning/UPSTREAM-ISSUES.md` extended with 2 more entries:
   - ISSUE-2: backfill_summary_frontmatter hardcoded paths (now fixed by OPSDASH-02 — entry serves as proof + log)
   - ISSUE-3: dm20 lacks structured post-resolve damage events (blocks v1.7 WIRE-01)
 
