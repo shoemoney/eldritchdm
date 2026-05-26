@@ -13,7 +13,7 @@
 - ✅ **v1.8 Multi-Channel Hardening** — Phases 25-26 (shipped 2026-05-25) — see [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 Performance Baseline + Tuning** — Phases 27-28 (shipped 2026-05-26) — see [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 - ✅ **v1.10 Operator Deployment Polish** — Phases 29-30 (shipped 2026-05-26) — see [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
-- 🚧 **v1.11 Security Audit Refresh** — Phases 31-32 (in progress) — cross-cutting audit + remediation
+- ✅ **v1.11 Security Audit Refresh** — Phases 31-32 (shipped 2026-05-26 · 0 findings) — see [`milestones/v1.11-ROADMAP.md`](milestones/v1.11-ROADMAP.md)
 
 ## Phases
 
@@ -164,19 +164,17 @@
 </details>
 
 
-## 🚧 v1.11 Security Audit Refresh (Phases 31-32)
+<details>
+<summary>✅ v1.11 Security Audit Refresh (Phases 31-32) — SHIPPED 2026-05-26 (0 findings · Branch B)</summary>
 
-### Phase 31: Security investigation (read-only)
-**Requirements**: SECAUDIT-01, SECAUDIT-02, SECAUDIT-03
-**Plans**:
-- [ ] Plan 01: 8-surface audit + findings (`docs(31-01): SECURITY-AUDIT-v1.11.md with 8-surface findings`)
+- [x] **Phase 31**: Security audit investigation (1/1 plan · 0 findings across 4 severity tiers)
+- [x] **Phase 32**: Security remediation (1/1 plan · Branch B — nothing to fix)
 
-### Phase 32: Remediation + regression guards
-**Requirements**: SECFIX-01, SECFIX-02, SECFIX-03
-**Plans**:
-- [ ] Plan 01: Fix CRITICAL + HIGH findings OR Branch B closure (`fix(32-01): CRITICAL/HIGH remediation with repro tests`)
-- [ ] Plan 02: MEDIUM/LOW backlog file (`docs(32-02): SECURITY-BACKLOG.md for v1.12 follow-ups`)
+**Final stats:** 2 phases · 2 plans · ~6 commits · 6/6 reqs satisfied · 8 attack surfaces audited · 289-line audit document · SECURITY-BACKLOG.md future-tracking surface created · 0 CRITICAL/HIGH/MEDIUM/LOW findings.
 
+**Tag:** `v1.11` · **Archive:** [`milestones/v1.11-ROADMAP.md`](milestones/v1.11-ROADMAP.md)
+
+</details>
 
 ## Traceability
 
