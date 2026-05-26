@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: Integration & Polish
-status: executing
+milestone: v1.8
+milestone_name: Multi-Channel Hardening
+status: complete
 last_updated: "2026-05-26T00:37:16.182Z"
-last_activity: 2026-05-26 -- Phase 26 execution started
+last_activity: 2026-05-25 -- v1.8 all phases complete; ready for tag
 progress:
-  total_phases: 21
-  completed_phases: 20
-  total_plans: 37
-  completed_plans: 37
-  percent: 95
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # EldritchDM — State

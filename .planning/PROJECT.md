@@ -2,8 +2,16 @@
 
 ## Current State
 
-**Current Milestone:** v1.8 Multi-Channel Hardening (in progress, 0/2 phases)
-**Goal:** Close v1.0's open Blockers/Concerns item (concurrent multi-channel sessions) via 4-channel stress test. Bundle 3 more operational dashboards (degraded-mode/budget/eval). Auto-discover SUMMARY frontmatter (kill the hardcoded-paths debt).
+**Shipped:** v1.8 Multi-Channel Hardening · 2026-05-25 · tag `v1.8` · 6/6 reqs · **4-channel stress 3-for-3 GREEN · 9 bundled dashboards · 39 SUMMARY files frontmatter-compliant**
+
+**v1.8 highlights:**
+- Closed v1.0's oldest Blockers/Concerns item (concurrent multi-channel sessions). 4-channel stress test runs in ~0.27s; all 5 D-195 assertions pass; no architectural bugs surfaced.
+- 3 new operational dashboards (degraded_mode/budget/eval); total now 9
+- Backfill auto-discovery — hardcoded-paths debt class architecturally eliminated
+- UPSTREAM-ISSUES.md grew to 3 entries (gsd-tools template + backfill resolution + dm20 damage events)
+- Honesty maintained — agent caught + corrected wrong stress-test assertion with documented reasoning
+
+v1.0 → v1.8 production-ready.
 
 **Previously shipped:** v1.7 Integration & Polish · 2026-05-25 · tag `v1.7` · 5/6 reqs (WIRE-01 deferred) · **full suite 1644 passed, 0 failed**
 
