@@ -60,7 +60,11 @@ jobs:
         run: uv run lint-imports
 
       - name: Pytest with coverage
-        run: uv run pytest tests/ -q --cov=eldritch_dm --cov-report=term --cov-report=xml:coverage.xml
+        # --timeout=120 fails individual tests after 2 min instead of hanging the whole job
+        # for 6h. v1.14.1 added --cov which exposed a coverage-instrumentation hang on at
+        # least one test; --timeout surfaces the offending test in logs instead of masking it.
+        # --timeout-method=thread is required for asyncio tests (signal method deadlocks them).
+        run: uv run pytest tests/ -q --timeout=120 --timeout-method=thread --cov=eldritch_dm --cov-report=term --cov-report=xml:coverage.xml
 
       - name: Upload coverage artifact (Linux only)
         if: matrix.os == 'ubuntu-latest'
@@ -102,4 +106,4 @@ jobs:
           uv pip install -e ".[dev,mac-ocr,observability]"
 
       - name: Pytest with coverage (full extras)
-        run: uv run pytest tests/ -q --cov=eldritch_dm --cov-report=term
+        run: uv run pytest tests/ -q --timeout=120 --timeout-method=thread --cov=eldritch_dm --cov-report=term
