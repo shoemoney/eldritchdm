@@ -5,7 +5,8 @@
 
 > 🔗 **Companion docs:**
 > - [`INSTALL.md`](../INSTALL.md) — fresh-install walkthrough
-> - [`docs/UPGRADE.md`](UPGRADE.md) — version-to-version notes (v1.0 → v1.10)
+> - [`docs/UPGRADE.md`](UPGRADE.md) — version-to-version notes (v1.0 → v1.11)
+> - [`CHANGELOG.md`](../CHANGELOG.md) — rolling release log (v1.0 → v1.11)
 
 ---
 

@@ -34,8 +34,9 @@ EldritchDM is a Discord bot that runs full D&D 5e games. To run it, you need **t
 > 🛑 **The most likely point of confusion, said once now and again later:** dm20 is **always at the oMLX endpoint**. Switching `INGEST_BACKEND=ollama` or `INGEST_BACKEND=openrouter` only changes where character-sheet OCR translation happens — it does **NOT** move dm20. You still need oMLX running locally for the rules engine. Burn this into your brain. 🔥
 
 > 🔗 **Other docs in this set:**
-> - [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — FAQ for the most common operator-pain symptoms across v1.0-v1.10.
-> - [`docs/UPGRADE.md`](docs/UPGRADE.md) — version-to-version upgrade notes (v1.0 → v1.10).
+> - [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — FAQ for the most common operator-pain symptoms across v1.0-v1.11.
+> - [`docs/UPGRADE.md`](docs/UPGRADE.md) — version-to-version upgrade notes (v1.0 → v1.11).
+> - [`CHANGELOG.md`](CHANGELOG.md) — rolling release log (v1.0 → v1.11).
 
 ---
 

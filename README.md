@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](#-license)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-optimized-black.svg?logo=apple)](https://www.apple.com/mac/)
-[![Status](https://img.shields.io/badge/status-v1.0--ready-green.svg)](#-roadmap)
+[![Status](https://img.shields.io/badge/status-v1.11-green.svg)](#-roadmap)
 
 **Created with ♥ by [Jeremy Schoemaker](https://shoemoney.com)** — open source, Apache 2.0-licensed, contributions welcome. 🤝
 
@@ -75,6 +75,8 @@ eldritch-dm                  # PATH-installed CLI from `pip install -e .`
 🎉 Now invite the bot to a Discord server, type `/start_game` in a channel, and let the dice fall.
 
 > 💡 **First time?** Jump to [First Session in 10 Minutes](#-first-session-in-10-minutes) for a step-by-step walkthrough, or open [`INSTALL.md`](INSTALL.md) for the deep guided install with diagrams.
+
+> 🐳 **Prefer Docker?** `docker compose up -d` brings up the whole stack (v1.10+). See [`INSTALL.md`](INSTALL.md) for the bundled `docker-compose.yml` recipe.
 
 ---
 
@@ -491,13 +493,26 @@ EldritchDM v1 is feature-complete. Here's the 5-phase history:
 
 📜 Full details in [`.planning/ROADMAP.md`](.planning/ROADMAP.md) and [`.planning/REQUIREMENTS.md`](.planning/REQUIREMENTS.md). Planning artifacts are committed alongside the code — open them up to see *why* every decision was made. 🔍
 
-**v1.1 lookahead** (see [`.planning/ROADMAP.md`](.planning/ROADMAP.md) for the full list):
+### 🌱 Recent milestones (v1.1 → v1.11)
 
-- 🔒 SAN-01 / OPS-02 closure (the two requirements deferred from the v1.0 audit)
-- 🎯 Smart MonsterDriver — Claudmaster-routed monster targeting instead of round-robin
-- 📝 YAML-configurable Riposte eligibility — opt Swashbuckler / Brute / homebrew subclasses back in without code changes
+Eleven milestones have shipped since v1.0. The full rolling release log lives in [`CHANGELOG.md`](CHANGELOG.md); each bullet below links to that version's milestone archive for the deep dive.
 
-**v2 deferred:** smart Claudmaster-driven monster targeting, additional reactions (Shield, Counterspell, Hellish Rebuke per REACT-01/02/03), voice/TTS narration, map/grid visuals.
+- **[v1.11](.planning/milestones/v1.11-ROADMAP.md)** — 8-surface cross-cutting security audit (0 findings); new `SECURITY-BACKLOG.md`.
+- **[v1.10](.planning/milestones/v1.10-ROADMAP.md)** — `docker compose up -d` quickstart + `INSTALL.md` / `docs/TROUBLESHOOTING.md` / `docs/UPGRADE.md` reflecting 10 milestones of changes.
+- **[v1.9](.planning/milestones/v1.9-ROADMAP.md)** — v1.9.0 perf baseline + `eldritch-dm-perf-baseline` CLI + weekly regression CI; `docs/PERFORMANCE.md` budget table.
+- **[v1.8](.planning/milestones/v1.8-ROADMAP.md)** — 4-channel concurrent-session stress test; 3 new operational Phoenix dashboards (9 total bundled).
+- **[v1.7](.planning/milestones/v1.7-ROADMAP.md)** — `/end_game` command; AOE addendum live integration; cross-platform CI matrix (macOS + Linux).
+- **[v1.6](.planning/milestones/v1.6-ROADMAP.md)** — streaming "monster is thinking" embed; AOE/multi-target tactics; cross-round monster memory; operator QoL bundle.
+- **[v1.5](.planning/milestones/v1.5-ROADMAP.md)** — three-tier cache architecture (MCP query cache + character cache + opt-in narration cache) with fail-CLOSED allow-lists.
+- **[v1.4](.planning/milestones/v1.4-ROADMAP.md)** — first full-suite GREEN since v1.1 (1244 passed); test-isolation snapshot+restore fix.
+- **[v1.3](.planning/milestones/v1.3-ROADMAP.md)** — OCR skip-gates; SUMMARY frontmatter backfill + CI gate.
+- **[v1.2.1](CHANGELOG.md#v121---2026-05-24)** — pricing.yaml verification hotfix (closes v1.2 PLACEHOLDER deviation).
+- **[v1.2](.planning/milestones/v1.2-ROADMAP.md)** — Arize Phoenix observability stack; LLM-as-judge tactical scoring; `eldritch-dm-eval` CLI; production monitoring + cost guard.
+- **[v1.1](.planning/milestones/v1.1-ROADMAP.md)** — Smart MonsterDriver (Claudmaster-routed targeting); YAML-configurable Riposte eligibility; `eldritch-dm-backfill-pc-classes` upgrade CLI; v1.0 audit deferrals (SAN-01 / OPS-02) closed.
+
+> 🧰 **Operator tooling shipped since v1.0** — self-hostable Arize Phoenix stack (v1.2), `eldritch-dm-eval` CLI for LLM-as-judge regression detection (v1.2), `eldritch-dm-perf-baseline` CLI + weekly perf CI (v1.9), `docker compose up -d` quickstart (v1.10). Operator-facing docs: [`INSTALL.md`](INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) · [`docs/UPGRADE.md`](docs/UPGRADE.md).
+
+**v2 deferred:** additional reactions (Shield, Counterspell, Hellish Rebuke per REACT-01/02/03), voice/TTS narration, map/grid visuals.
 
 ---
 
@@ -559,6 +574,8 @@ All other Python dependencies are permissive-licensed (MIT / Apache / BSD). See 
 ---
 
 ## 🩺 Troubleshooting
+
+> 🔗 Symptom not listed below? See the full operator FAQ in [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md), or version-to-version pitfalls in [`docs/UPGRADE.md`](docs/UPGRADE.md). Rolling release log: [`CHANGELOG.md`](CHANGELOG.md).
 
 Things break. Here's how to read the smoke signals and put the fire out. 🔥
 
