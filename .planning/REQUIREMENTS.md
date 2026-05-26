@@ -1,0 +1,26 @@
+# EldritchDM — Requirements (v1.12 Final Consolidation)
+
+**Milestone:** v1.12 Final Consolidation
+**Goal:** README + CHANGELOG.md refresh spanning v1.0-v1.11. README hasn't been updated in 11 milestones; status badge still says v1.0-ready. CHANGELOG.md doesn't exist — needs to span the whole journey synthesized from milestone archives.
+**Total v1.12 requirements:** 3.
+
+---
+
+## v1.12 Requirements
+
+- [ ] **DOCS-04**: README.md updated. Status badge bumped to v1.11 (or latest tag). Add "Recent milestones" section linking to milestone archives. Update tech-stack mentions where applicable (Phoenix observability, eval CLI, perf CLI, Docker quickstart). Cross-link to INSTALL.md (already-cross-linked from Phase 30) + new CHANGELOG.md. Preserve the existing tone — README is the project tour, not a release-notes dump.
+- [ ] **DOCS-05**: CHANGELOG.md (NEW) at repo root. Standard Keep-a-Changelog format. Sections per shipped tag: v1.0 / v1.1 / v1.2 / v1.2.1 / v1.3 / v1.4 / v1.5 / v1.6 / v1.7 / v1.8 / v1.9 / v1.10 / v1.11. Each entry: 3-5 bullet headlines (synthesized from milestone audit + archive). Cross-link to milestone archives for details.
+- [ ] **DOCS-06**: Cross-consistency pass — verify INSTALL.md mentions CHANGELOG; TROUBLESHOOTING.md mentions CHANGELOG; UPGRADE.md mentions CHANGELOG; README mentions all three. No new files beyond CHANGELOG; just cross-links.
+
+## Traceability
+
+| REQ-ID | Phase | Source |
+|---|---|---|
+| DOCS-04 | 33 | README is 11 milestones out of date |
+| DOCS-05 | 33 | CHANGELOG.md doesn't exist |
+| DOCS-06 | 33 | Cross-link consistency across all 5 doc surfaces |
+
+## Mode Constraints
+- Documentation-only milestone. No code changes. ruff/lint-imports should be a no-op pass.
+- Synthesize from existing milestone archives (`.planning/milestones/v1.*-ROADMAP.md`). Don't invent content.
+- Single phase (33), single plan (33-01).
