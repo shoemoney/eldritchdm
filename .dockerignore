@@ -1,0 +1,74 @@
+# EldritchDM — .dockerignore
+# Trims build context shipped to the daemon. Keep this list in sync with
+# .gitignore where it makes sense, but err on the side of EXCLUDING — the
+# image only needs src/, pyproject.toml, uv.lock, and README.md.
+
+# VCS
+.git/
+.gitignore
+.gitattributes
+
+# Python virtualenvs (we let `uv sync` rebuild inside the builder stage)
+.venv/
+venv/
+env/
+ENV/
+
+# Planning + agent state — never belongs in a runtime image
+.planning/
+.claude/
+.agents/
+.cursor/
+.github/
+.codex/
+
+# Build / packaging artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Test + coverage artifacts
+tests/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# Local databases / runtime state
+*.sqlite3
+*.sqlite3-*
+eldritch_dm.db*
+data/
+
+# macOS noise
+.DS_Store
+
+# Secrets — defense in depth (don't trust .gitignore alone)
+.env
+.env.*
+!.env.example
+
+# Docs not needed at runtime (keep top-level README.md only — used by uv build)
+docs/
+CHANGELOG.md
+CONTRIBUTING.md
+
+# Existing optional compose stack (Phoenix) — irrelevant inside the bot image
+docker-compose.observability.yml
+
+# Scratch / scheduled task lockfiles produced by local tooling
+scheduled_tasks.lock
+*.lock
+!uv.lock
+!package-lock.json
