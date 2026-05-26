@@ -77,4 +77,4 @@ After subtracting bot/cog (integration-required) and false-positives from exclud
 
 The 63.7% headline number is misleading because of the subset methodology. The TRUE full-suite number is unknowable from this orchestrator session due to the hang issue — but the per-module evidence (file-by-file inspection) shows the codebase is comprehensively tested. The hangs are an orchestrator environment artifact, NOT a coverage gap.
 
-**Status:** PARTIAL — genuine gaps documented but small; recommend CI integration as the proper next step rather than another phase of coverage work here.
+**Status:** PARTIAL initially; **CI integration shipped as v1.14.1 hotfix** (2026-05-26) — `.github/workflows/ci.yml` now runs `pytest --cov=eldritch_dm` on both macOS + Ubuntu matrix. True full-suite coverage number visible in next CI run.
