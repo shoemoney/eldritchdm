@@ -16,7 +16,7 @@
 
 ### OPSDASH — Operational dashboards + tooling polish (Phase 26)
 
-- [ ] **OPSDASH-01**: 3 bundled dashboards added to `database/dashboards/`:
+- [x] **OPSDASH-01**: 3 bundled dashboards added to `database/dashboards/`:
   - `degraded_mode.json` — degraded-mode entry/exit events + duration; consumes Phase 13 span attrs
   - `budget.json` — daily LLM spend trend + cap proximity; consumes Phase 13 cost calculator outputs
   - `eval.json` — TacticalJudge scores over time + per-archetype breakdown; consumes Phase 12 eval-CLI outputs
