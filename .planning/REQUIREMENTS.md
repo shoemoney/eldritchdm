@@ -10,7 +10,7 @@
 
 ### SECAUDIT — Security investigation (Phase 31)
 
-- [ ] **SECAUDIT-01**: Read-only audit produces `.planning/SECURITY-AUDIT-v1.11.md` covering 8 attack surfaces:
+- [x] **SECAUDIT-01**: Read-only audit produces `.planning/SECURITY-AUDIT-v1.11.md` covering 8 attack surfaces:
   1. **Secret/token leak vectors** — DISCORD_TOKEN, MCPCACHE_L2_PATH, structured-log fields, error responses, sanitizer_audit table
   2. **Allow-list bypass paths** — MCPCache (6 tools, Phase 16), CharacterSnapshot (14 fields, Phase 17), NarrCacheGate (regex, Phase 18); attempt to find paths that bypass each
   3. **Cache-poisoning vectors** — what if an attacker controls a dm20 response cached in L2? Does invalidation cover it? (Phase 16-17)
@@ -19,8 +19,8 @@
   6. **Discord permission scope** — bot intents check (Phase 2 D-04: message_content=False); verify no later phase escalated unnecessarily
   7. **File-system path traversal** — config YAMLs (eligibility, alerts, pricing), pc_classes backfill --db-path, character_cache.sqlite path — any operator-controlled paths sanitized?
   8. **Discord DM-to-owner (Phase 22 OPQOL-02)** — verify DM content doesn't leak secrets (tokens, paths, internal IDs)
-- [ ] **SECAUDIT-02**: Each finding categorized: **CRITICAL** (RCE, secret leak, mechanical-honesty violation), **HIGH** (path traversal, allow-list bypass), **MEDIUM** (info disclosure, missing rate-limit), **LOW** (defense-in-depth gap, doc clarity). Each entry has: title, surface, repro, severity, suggested fix.
-- [ ] **SECAUDIT-03**: Even if 0 findings — produce a "no findings + audit evidence" report showing the methodology was thorough. Branch B closure permitted (mirrors Phase 25 / Phase 28 pattern). Honesty contract: don't manufacture findings to justify the audit.
+- [x] **SECAUDIT-02**: Each finding categorized: **CRITICAL** (RCE, secret leak, mechanical-honesty violation), **HIGH** (path traversal, allow-list bypass), **MEDIUM** (info disclosure, missing rate-limit), **LOW** (defense-in-depth gap, doc clarity). Each entry has: title, surface, repro, severity, suggested fix.
+- [x] **SECAUDIT-03**: Even if 0 findings — produce a "no findings + audit evidence" report showing the methodology was thorough. Branch B closure permitted (mirrors Phase 25 / Phase 28 pattern). Honesty contract: don't manufacture findings to justify the audit.
 
 ### SECFIX — Remediation + regression guards (Phase 32)
 
