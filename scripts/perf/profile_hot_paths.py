@@ -186,9 +186,7 @@ async def _run_both(
     top_10: list[str] = []
     if not skip_cprofile:
         print(f"  [{label}] cProfile × {cprofile_iterations}...", flush=True)
-        top_10 = await measure_cprofile(
-            async_fn_factory, iterations=cprofile_iterations
-        )
+        top_10 = await measure_cprofile(async_fn_factory, iterations=cprofile_iterations)
     return OperationStats(
         p50_ms=p50,
         p95_ms=p95,
@@ -237,6 +235,7 @@ async def _profile_mcp_cache(
         def factory_l1_hit() -> Awaitable[None]:
             async def _run() -> None:
                 await cache_a.call("dm20__get_class_info", name="fighter")
+
             return _run()
 
         out["mcp-cache-roundtrip.l1-hit"] = await _run_both(
@@ -270,6 +269,7 @@ async def _profile_mcp_cache(
                 async def _run() -> None:
                     # Force unique arg per call → L1 miss; respx hit covers L2-miss path.
                     await cache_b.call("dm20__get_class_info", name="fighter")
+
                 return _run()
 
             out["mcp-cache-roundtrip.l1-miss-l2-hit"] = await _run_both(
@@ -297,6 +297,7 @@ async def _profile_mcp_cache(
 
             async def _run() -> None:
                 await cache_c.call("dm20__get_class_info", name=tag)
+
             return _run()
 
         out["mcp-cache-roundtrip.l1-l2-miss"] = await _run_both(
@@ -410,6 +411,7 @@ async def _profile_smart_driver(
                 bound_log=driver_a._log.bind(),
             )
             assert chosen is not None
+
         return _run()
 
     out["smart-driver-oracle.smart-success"] = await _run_both(
@@ -440,6 +442,7 @@ async def _profile_smart_driver(
             )
             # Fallback path returns None — caller picks random elsewhere.
             assert chosen is None
+
         return _run()
 
     out["smart-driver-oracle.smart-fallback-to-random"] = await _run_both(
@@ -475,6 +478,7 @@ async def _profile_smart_driver(
                 bound_log=driver_c._log.bind(),
             )
             assert chosen is not None
+
         return _run()
 
     out["smart-driver-oracle.cache-hit"] = await _run_both(
@@ -551,6 +555,7 @@ async def _profile_character_ingest(
                     client,
                 )
                 assert sheet is not None
+
             return _run()
 
         out["character-ingest-fast-path"] = await _run_both(
@@ -650,9 +655,7 @@ async def _profile_ingest_pipeline(
             mock.post(LLM_URL).mock(side_effect=llm_handler)
             mock.post(DM20_URL).mock(side_effect=dm20_verify_handler)
 
-            openai_client = AsyncOpenAI(
-                api_key="not-needed", base_url="http://localhost:8080/v1"
-            )
+            openai_client = AsyncOpenAI(api_key="not-needed", base_url="http://localhost:8080/v1")
             mcp_client = MCPClient("http://localhost:8765")
 
             # Warm the thread-pool executor so first-iter cost is amortized.
@@ -677,6 +680,7 @@ async def _profile_ingest_pipeline(
                         openai_client=openai_client,
                         mcp_client=mcp_client,
                     )
+
                 return _run()
 
             out["ingest-pipeline-ocr"] = await _run_both(
@@ -793,6 +797,7 @@ async def _profile_riposte_click(
             )
             patcher.start()
             try:
+
                 def factory() -> Awaitable[None]:
                     timer_id = next(row_iter)
 
@@ -810,6 +815,7 @@ async def _profile_riposte_click(
                             invalid_action_kind=WarningKind.INVALID_ACTION,
                             riposte_expired_kind=WarningKind.RIPOSTE_EXPIRED,
                         )
+
                     return _run()
 
                 out["riposte-click-handler"] = await _run_both(
@@ -862,9 +868,8 @@ async def _profile_combat_turn(
                 pop = await mcp_tools.party_pop_action(client)
                 turn_id = pop["action"]["turn_id"]
                 await mcp_tools.party_thinking(client, message="...")
-                await mcp_tools.party_resolve_action(
-                    client, turn_id=turn_id, narration="ok"
-                )
+                await mcp_tools.party_resolve_action(client, turn_id=turn_id, narration="ok")
+
             return _run()
 
         out["combat-turn-resolution"] = await _run_both(
@@ -998,8 +1003,7 @@ def main(argv: list[str] | None = None) -> int:
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
     print(
-        f"✓ wrote {args.output} ({len(operations)} operations, "
-        f"wallclock {wallclock_s:.1f}s)",
+        f"✓ wrote {args.output} ({len(operations)} operations, wallclock {wallclock_s:.1f}s)",
         flush=True,
     )
     if wallclock_s > 120.0:
@@ -1012,4 +1016,15 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    rc = main()
+    # `os._exit` bypasses non-daemon thread joins.
+    # Background components touched by the profiler (aiosqlite writer thread,
+    # structlog span-buffer sqlite handle, httpx connection pool) install
+    # their own atexit/shutdown hooks that may block indefinitely without a
+    # full lifecycle teardown — but the profiler has already written its
+    # JSON and produced its measurements, so forcing immediate exit here is
+    # the right tradeoff. The self-check test (subprocess.run) relies on
+    # this so it doesn't deadlock on capture_output buffers.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(rc)
