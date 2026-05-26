@@ -11,7 +11,7 @@
 - ✅ **v1.6 UX/Feature Expansion** — Phases 19-22 (shipped 2026-05-25) — see [`milestones/v1.6-ROADMAP.md`](milestones/v1.6-ROADMAP.md)
 - ✅ **v1.7 Integration & Polish** — Phases 23-24 (shipped 2026-05-25) — see [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.8 Multi-Channel Hardening** — Phases 25-26 (shipped 2026-05-25) — see [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
-- 🚧 **v1.9 Performance Baseline + Tuning** — Phases 27-28 (in progress) — profile hot paths + optimize top 3 + perf-regression CLI
+- ✅ **v1.9 Performance Baseline + Tuning** — Phases 27-28 (shipped 2026-05-26) — see [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 
 ## Phases
 
@@ -136,22 +136,17 @@
 </details>
 
 
-## 🚧 v1.9 Performance Baseline + Tuning (Phases 27-28)
+<details>
+<summary>✅ v1.9 Performance Baseline + Tuning (Phases 27-28) — SHIPPED 2026-05-26</summary>
 
-### Phase 27: Profiling + latency budget documentation
-**Goal**: Profile 6 hot paths, document budgets at `docs/PERFORMANCE.md`, commit canonical baseline JSON.
-**Requirements**: PROFILE-01, PROFILE-02, PROFILE-03
-**Plans**:
-- [ ] Plan 01: Hot-path profiler script + baseline JSON (`feat(27-01): profile_hot_paths.py + perf-baseline-v1.9.0.json`)
-- [ ] Plan 02: docs/PERFORMANCE.md budget table (`docs(27-02): docs/PERFORMANCE.md per-operation budgets`)
+- [x] **Phase 27**: Profiling + latency budgets (2/2 plans)
+- [x] **Phase 28**: Targeted optimizations + perf CLI (2/2 plans — TUNE-01 Branch B no-targets closure)
 
-### Phase 28: Targeted optimizations + regression-detection CLI
-**Goal**: Optimize top 3 slowest ops (with before/after benchmarks); ship `eldritch-dm-perf-baseline` CLI + CI integration.
-**Requirements**: TUNE-01, TUNE-02, TUNE-03
-**Plans**:
-- [ ] Plan 01: Top-3 optimizations with empirical proof (`fix(28-01): optimize top 3 hot paths with before/after benchmarks`)
-- [ ] Plan 02: perf-baseline CLI + .github/workflows/perf.yml (`feat(28-02): eldritch-dm-perf-baseline CLI + weekly perf CI`)
+**Final stats:** 2 phases · 4 plans · ~16 commits · 6/6 reqs satisfied · `perf-baseline-v1.9.0.json` baseline · `eldritch-dm-perf-baseline` CLI · `.github/workflows/perf.yml` weekly CI · slowest hot-path p99 = 3.573ms (0.12% of budget) · 1662 tests passing.
 
+**Tag:** `v1.9` · **Archive:** [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
+
+</details>
 
 ## Traceability
 

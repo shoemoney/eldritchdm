@@ -2,8 +2,7 @@
 
 ## Current State
 
-**Current Milestone:** v1.9 Performance Baseline + Tuning (in progress, 0/2 phases)
-**Goal:** Profile hot paths, document per-operation latency budgets, optimize top 3 slowest ops, ship `eldritch-dm-perf-baseline` regression-detection CLI. Empirical answer to "is this fast enough?"
+**Shipped:** v1.9 Performance Baseline + Tuning · 2026-05-26 · tag `v1.9` · 6/6 reqs · **codebase ≥45× under budget on every hot path · perf CLI + weekly CI workflow**
 
 **Previously shipped:** v1.8 Multi-Channel Hardening · 2026-05-25 · tag `v1.8` · 6/6 reqs · **4-channel stress 3-for-3 GREEN · 9 bundled dashboards · 39 SUMMARY files frontmatter-compliant**
 
