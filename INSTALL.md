@@ -33,6 +33,10 @@ EldritchDM is a Discord bot that runs full D&D 5e games. To run it, you need **t
 
 > 🛑 **The most likely point of confusion, said once now and again later:** dm20 is **always at the oMLX endpoint**. Switching `INGEST_BACKEND=ollama` or `INGEST_BACKEND=openrouter` only changes where character-sheet OCR translation happens — it does **NOT** move dm20. You still need oMLX running locally for the rules engine. Burn this into your brain. 🔥
 
+> 🔗 **Other docs in this set:**
+> - [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — FAQ for the most common operator-pain symptoms across v1.0-v1.10.
+> - [`docs/UPGRADE.md`](docs/UPGRADE.md) — version-to-version upgrade notes (v1.0 → v1.10).
+
 ---
 
 ## 🛠️ Prerequisites
@@ -141,6 +145,32 @@ python run.py
 ✅ If step 7 prints `🎲 EldritchDM connected as ShoeGPT#xxxx — let the games begin!` and step 8 shows `/start_game` in your Discord channel — **you win**. Skip to [First session walkthrough](#-first-session-walkthrough).
 
 ❌ If any step fails — read on. Each component has a dedicated section below.
+
+---
+
+## 🐳 Docker quickstart (one command)
+
+> 🆕 Added in v1.10 (Phase 29 / DEPLOY-01). Containerizes the **bot process only**. oMLX and dm20 MCP still run on the operator's host (Apple Silicon required for `mlx-lm`).
+
+```bash
+cp .env.example .env       # then edit DISCORD_TOKEN — and, if oMLX is on the host,
+                           # set MLX_BASE_URL=http://host.docker.internal:8765/v1
+docker compose up -d
+docker compose logs -f eldritch-bot
+```
+
+**How the container reaches oMLX / dm20 on the host:**
+- macOS / Windows Docker Desktop resolves `host.docker.internal` natively.
+- Linux gets parity via `extra_hosts: "host.docker.internal:host-gateway"` declared in [`docker-compose.yml`](docker-compose.yml) (lines 49-52).
+- The compose file does **not** bring up oMLX, dm20, or Phoenix — by design (D-221). You bring those up separately on the host.
+
+**Optional observability stack** (Phase 11 / OBS-01, existing artifact):
+
+```bash
+docker compose -f docker-compose.observability.yml up -d
+```
+
+> 🔗 Hit an issue? See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md). Coming from an older release? See [`docs/UPGRADE.md`](docs/UPGRADE.md).
 
 ---
 
@@ -527,6 +557,53 @@ OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 
 > 📋 **Every variable, every default:** see the annotated reference in [`.env.example`](.env.example) and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). The table above only covers the variables relevant to the install path.
 
+### 📋 Env var reference (v1.10 — added since v1.0)
+
+The bot's full env surface is exhaustively documented in [`.env.example`](.env.example). This table covers the variables added or surfaced between v1.0 and v1.10 — the ones you're most likely to set when upgrading. Each row cites the file that actually consumes the variable.
+
+| Variable | Default | Source | Purpose |
+|---|---|---|---|
+| `DISCORD_TOKEN` | (unset; required) | `Settings.discord_token` ([`src/eldritch_dm/config/__init__.py`](src/eldritch_dm/config/__init__.py)) | Discord bot token. Bot exits **4** if missing (Phase 7 SAFETY-03). |
+| `DISCORD_GUILD_IDS` | `""` | `Settings.discord_guild_ids` | CSV of guild IDs for instant slash-command sync. Empty → global. |
+| `DISCORD_OWNER_ID` | `None` | `Settings.discord_owner_id` (alias `DISCORD_OWNER_ID`) | Owner Discord user ID; receives budget + degraded-mode DMs (Phase 22 / OPQOL-02 / D-170). |
+| `ELDRITCH_DB_PATH` | `./eldritch.sqlite3` | `Settings.eldritch_db_path` | SQLite DB path (WAL journaling). |
+| `DM20_MCP_URL` | falls back to `OMLX_ENDPOINT` | [`src/eldritch_dm/tools/backfill_pc_classes.py`](src/eldritch_dm/tools/backfill_pc_classes.py) | Override for the dm20 MCP endpoint used by `eldritch-dm-backfill-pc-classes` (D-48). |
+| `OBSERVABILITY_ENABLED` | `false` | [`src/eldritch_dm/observability/tracer.py:39`](src/eldritch_dm/observability/tracer.py) (`os.environ.get`) | When `true`, OTel tracing wires up; otherwise the observability tree is a lazy no-op (Phase 11 / OBS-01). |
+| `MONSTER_DRIVER` | `smart` | `Settings.monster_driver` (alias `MONSTER_DRIVER`) | `smart` / `random` / `mixed`. `random` is the v1.0 escape hatch (Phase 10 / D-52). |
+| `NARRCACHE_ENABLED` | `false` | `Settings.narrcache_enabled` (alias `NARRCACHE_ENABLED`) | Opt-in narration cache; off by default (Phase 18 / D-129 — mechanical-honesty contract). |
+| `MCPCACHE_L2_ENABLED` | `false` | `Settings.mcpcache_l2_enabled` (alias `MCPCACHE_L2_ENABLED`) | Opt-in L2 SQLite cache. L1 is on by default (Phase 16 / D-117). |
+| `MONSTER_MEMORY_PERSIST` | `false` | `Settings.monster_memory_persist` (alias `MONSTER_MEMORY_PERSIST`) | Opt-in cross-restart monster memory (Phase 21 / D-160). |
+| `ELDRITCH_DAILY_LLM_BUDGET_USD` | `5.00` | [`src/eldritch_dm/tools/cost_report.py:84`](src/eldritch_dm/tools/cost_report.py) | Daily LLM-spend ceiling used by `eldritch-dm-cost-report` (Phase 13 / MON-03). |
+| `STREAM_ENABLED` | `true` | `Settings.stream_enabled` (alias `STREAM_ENABLED`) | When `true`, SmartMonsterDriver emits the "🤔 sizing up the party…" indicator (Phase 19 / STREAM-03). Set `false` for v1.5 silent behavior. |
+
+### 🛠️ Console scripts (after `pip install -e .`)
+
+Pulled verbatim from `[project.scripts]` in [`pyproject.toml`](pyproject.toml):
+
+| Command | Module | Use case |
+|---|---|---|
+| `eldritch-dm` | `eldritch_dm.bot.__main__:main` | The bot entry point. Equivalent to `python -m eldritch_dm.bot`. |
+| `eldritch-dm-backfill-pc-classes` | `eldritch_dm.tools.backfill_pc_classes:main` | v1.0→v1.1 upgrade: populates `pc_classes` for existing characters so Riposte fires (Phase 9 / TD-3). |
+| `eldritch-dm-eval` | `eldritch_dm.eval.cli:main` | LLM-as-judge tactical scoring runner (Phase 12 / EVAL-03). |
+| `eldritch-dm-cost-report` | `eldritch_dm.tools.cost_report:main` | Daily LLM-spend report from the local span buffer (Phase 13 / MON-03). Honors `ELDRITCH_DAILY_LLM_BUDGET_USD`. |
+| `eldritch-dm-cache-clear` | `eldritch_dm.tools.cache_clear:main` | Operator cache-purge for the character snapshot cache (Phase 17 / CHARCACHE-03). |
+| `eldritch-dm-cache-disable` | `eldritch_dm.tools.cache_disable:main` | Operator runtime disable/enable for narration cache (Phase 18 / NARRCACHE-03). |
+| `eldritch-dm-cache-stats` | `eldritch_dm.tools.cache_stats:main` | Print narration cache hit/miss + size (Phase 18 / NARRCACHE-03). |
+| `eldritch-dm-perf-baseline` | `eldritch_dm.tools.perf_baseline:main` | Run hot-path profiler + diff against committed baseline (Phase 28 / TUNE-02 / D-218). Exit codes 0/1/2. |
+
+### 📦 Optional dependency groups
+
+Pulled verbatim from `[project.optional-dependencies]` in [`pyproject.toml`](pyproject.toml):
+
+| Group | Install | Contents | When to install |
+|---|---|---|---|
+| `dev` | `pip install -e ".[dev]"` | pytest + pytest-asyncio + pytest-cov + pytest-mock + ruff + respx + import-linter + syrupy + reportlab | Contributing to EldritchDM or running the test suite. |
+| `mac-ocr` | `pip install -e ".[mac-ocr]"` | `ocrmac>=1.0,<2.0` (Apple Vision via PyObjC) | macOS 10.15+ — primary OCR for character-sheet ingest. |
+| `linux-ocr` | `pip install -e ".[linux-ocr]"` | `easyocr>=1.7,<2.0` | Linux / cross-platform OCR fallback. The OCR test skip-gate (Phase 14 / FLAKE-01) auto-skips OCR tests when neither is installed. |
+| `observability` | `pip install -e ".[observability]"` | opentelemetry-api/sdk/exporter-otlp-proto-http + prometheus_client | Required to actually emit spans/metrics when `OBSERVABILITY_ENABLED=true` (Phase 11 / OBS-01; Phase 13 / MON-01). |
+
+Extras can be combined, e.g. `pip install -e ".[dev,mac-ocr,observability]"`.
+
 ---
 
 ## 🩺 Bootstrap & verify (preflight)
@@ -721,101 +798,16 @@ For the full session reference, see [README.md "First Session in 10 Minutes"](RE
 
 ## 🩺 Troubleshooting
 
-### `python -m eldritch_dm.bootstrap` exits 1 (oMLX unreachable)
+> 🔗 **The full operator FAQ now lives in [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md)** — symptom → diagnose → fix for ≥12 of the most-common operator gotchas surfaced across v1.0-v1.10. Quick jump:
+>
+> - "Bot says DM is offline" → [docs/TROUBLESHOOTING.md#bot-says-dm-is-offline](docs/TROUBLESHOOTING.md#bot-says-dm-is-offline)
+> - "OCR tests are skipping" → [docs/TROUBLESHOOTING.md#ocr-tests-are-skipping](docs/TROUBLESHOOTING.md#ocr-tests-are-skipping)
+> - "Bot exits with code 4" (`DISCORD_TOKEN` missing) → [docs/TROUBLESHOOTING.md#bot-exits-with-code-4-discord_token-missing](docs/TROUBLESHOOTING.md#bot-exits-with-code-4-discord_token-missing)
+> - "Cache hit rate is 0" → [docs/TROUBLESHOOTING.md#cache-hit-rate-is-zero](docs/TROUBLESHOOTING.md#cache-hit-rate-is-zero)
 
-```text
-❌ oMLX unreachable at http://localhost:8765/v1/models: ConnectError(…)
-```
+The full set of install-path bootstrap exit-code diagnostics (exits 1/2/4 etc.) is preserved verbatim there. The legacy inline copy that used to live in this section has been moved, not deleted — anchor links from third-party docs continue to resolve via this header.
 
-**Diagnose:**
-
-```bash
-curl -s http://localhost:8765/v1/models | jq .
-# If this hangs or errors → oMLX isn't running
-```
-
-**Fix:**
-
-1. `launchctl list | grep omlx` (macOS) — is the agent loaded?
-2. `launchctl kickstart -k gui/$(id -u)/com.user.omlx` to bounce it
-3. Tail `~/Library/Logs/omlx.log` for OOM kills or model-load failures
-4. If you intentionally moved oMLX off-host, set `OMLX_ENDPOINT=http://<host>:8765/v1` in `.env`
-
-### Bootstrap exits 2 (dm20 not loaded as MCP server in oMLX)
-
-```text
-❌ dm20 MCP tools are not loaded in oMLX
-   (http://localhost:8765/v1/mcp/tools returned 0 tools, 0 dm20__*).
-   See docs/dm20-troubleshooting.md for the fix.
-```
-
-**Cause:** oMLX is up and answering HTTP, but `/v1/mcp/tools` returns either an empty list or 0 `dm20__*` tools. Almost always means the `mcp` Python SDK isn't installed into oMLX's own virtualenv.
-
-**Fix:** see [`docs/dm20-troubleshooting.md`](docs/dm20-troubleshooting.md) for the exact pip-install command (varies by your oMLX install path). After installing, restart oMLX (`launchctl kickstart -k gui/$(id -u)/com.user.omlx`) and re-run preflight.
-
-### Bootstrap exits 4 (DISCORD_TOKEN not set)
-
-```text
-❌ DISCORD_TOKEN is not set.
-   Copy .env.example to .env and paste your bot token, e.g.:
-     cp .env.example .env && $EDITOR .env
-   (Or run `python run.py --check-only` to verify oMLX / dm20 without a token first.)
-```
-
-**Fix:** `cp .env.example .env && $EDITOR .env`, paste the token from the Discord Developer Portal, save. Note: `python -m eldritch_dm.bootstrap` and `python run.py --check-only` do **NOT** require the token — only `python run.py` (the actual bot launch) does. So you can verify oMLX/dm20 before pasting any real secret.
-
-### OpenRouter backend rejects with 401
-
-```text
-openai.AuthenticationError: 401 Unauthorized
-```
-
-**Diagnose:**
-
-1. Does your `OPENROUTER_API_KEY` start with `sk-or-v1-`? OpenRouter keys all start with that prefix; if yours doesn't, you copied something else.
-2. `curl -H "Authorization: Bearer $OPENROUTER_API_KEY" https://openrouter.ai/api/v1/models | jq '.data | length'` — should return a number. If 401, the key is wrong or revoked.
-3. Check your OpenRouter dashboard — is the key disabled? Out of credit? Rate-limited?
-
-**Fix:** regenerate the key in your OpenRouter dashboard, paste the new value into `.env`, restart the bot.
-
-### Discord shows "Application did not respond"
-
-This is the 3-second-defer gate biting you. Discord requires every interaction be acknowledged within 3 seconds; EldritchDM does `await interaction.response.defer(thinking=True)` as the **first line** of every callback (enforced by a custom ruff rule). If you're seeing this:
-
-1. **oMLX is slow.** Narration is the slowest piece. The defer should still land in <100ms — the "did not respond" appears when defer itself was blocked. Check that the event loop isn't blocked by a sync call.
-2. **You added a callback that forgot to defer.** `ruff` should have caught it pre-commit. Run `ruff check src/` — the custom rule fails on any callback missing `defer(...)` in the first 5 statements.
-3. **Network is wedged.** `curl -s https://discord.com/api/v10/gateway` — should return a gateway URL. If it stalls, something is blocking outbound HTTPS.
-
-### Bot disconnected mid-combat, restart, buttons inert
-
-You're hitting the `DynamicItem` custom_id pattern mismatch. EldritchDM uses `discord.ui.DynamicItem` with regex `custom_id` templates (e.g. `endturn:(?P<channel_id>\d+):(?P<actor>\d+)`) registered in `setup_hook`. If buttons posted by a previous version of the code have a `custom_id` that no longer matches the current regex, they look like normal buttons to Discord but EldritchDM never receives the callback.
-
-**Diagnose:**
-
-```bash
-sqlite3 eldritch.sqlite3 'SELECT custom_id, view_class FROM persistent_views;'
-```
-
-If `custom_id` shapes don't match the current code's regex templates, the buttons are stale.
-
-**Fix:** either let those messages expire (sweeper cleans them) or `DELETE FROM persistent_views WHERE …` for the affected channel and `/start_game` again. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) section on persistent Views.
-
-### `sqlite3.OperationalError: database is locked`
-
-This shouldn't happen — EldritchDM's writer goes through a single `asyncio.Queue` drained serially by one connection. If you see it:
-
-1. **Another process is holding a write lock.** A REPL with an open transaction, a second `python run.py`, a SQLite browser GUI. Close it.
-2. **WAL mode disabled.** `sqlite3 eldritch.sqlite3 'PRAGMA journal_mode;'` — should print `wal`. If it prints `delete`, run `python -m eldritch_dm.bootstrap` to re-apply schema (which sets WAL).
-
-### Character ingest produces garbage JSON
-
-The ingest LLM is returning malformed JSON. Causes ranked by likelihood:
-
-1. **Wrong model for `INGEST_BACKEND`.** Tiny models (<7B params) struggle with structured JSON. Use `llama3.1:8b-instruct` or larger for Ollama; `claude-3.5-haiku` or larger for OpenRouter; `ShoeGPT`/`Qwen3.5-4B-MLX-4bit` or larger for oMLX.
-2. **Model doesn't support `response_format=json_object`.** Some models accept the param but ignore it. Test with: `curl ... /v1/chat/completions -d '{"model": "...", "messages": [...], "response_format": {"type": "json_object"}}'` — does the response have `"object": "chat.completion"` with a parseable JSON body? If not, swap the model.
-3. **OCR garbled the source text.** Set `LOG_LEVEL=DEBUG`, re-ingest, look for the `ingest_ocr_text` log line. If it's nonsense, the photo was unreadable — try better lighting / a digital PDF / a DDB URL instead.
-
-> 🔍 **For deeper diagnostics, see** [`docs/dm20-troubleshooting.md`](docs/dm20-troubleshooting.md) (preflight exit codes), [`docs/character-ingest-formats.md`](docs/character-ingest-formats.md) (every supported sheet format), and the [README troubleshooting section](README.md#-troubleshooting) (Discord-side issues).
+> 📦 **For deeper diagnostics, also see** [`docs/dm20-troubleshooting.md`](docs/dm20-troubleshooting.md) (preflight exit codes 1/2), [`docs/character-ingest-formats.md`](docs/character-ingest-formats.md), and the [README troubleshooting section](README.md#-troubleshooting) (Discord-side issues).
 
 ---
 
@@ -918,88 +910,7 @@ to apply edits. Hot-reload is a v1.2 candidate.
 
 ## v1.0 → v1.1 Upgrade: `pc_classes` Backfill
 
-If you ran v1.0 of EldritchDM, your `eldritch.sqlite3` does not have a
-populated `pc_classes` table yet. Without it, the Phase 5 Riposte
-eligibility check sees no class data for legacy PCs and **Riposte never
-fires** — silently. This is the v1.0 audit's TD-3 gap, closed by the
-following CLI tool (Phase 9 / UPGRADE-01).
-
-### When to run
-
-- Right after upgrading from v1.0 to v1.1.
-- Whenever you import characters into a campaign without going through the
-  Phase 3 character-ingest flow (which already writes `pc_classes`).
-
-You can also re-run it any time — it is idempotent by default.
-
-### Install
-
-`pip install -e .` already exposes the console script on PATH:
-
-```bash
-eldritch-dm-backfill-pc-classes --help
-```
-
-### Recommended flow
-
-```bash
-# 1) Stop the bot first (the tool will fail with EXIT_FATAL=3 if a write
-#    lock is detected; safer to halt cleanly than retry into a partial state)
-launchctl unload ~/Library/LaunchAgents/com.user.eldritch-dm.plist
-#    or:  systemctl --user stop eldritch-dm
-
-# 2) Dry-run — open SQLite read-only (mode=ro URI; driver-impossible to
-#    write) and report what WOULD change
-eldritch-dm-backfill-pc-classes --dry-run
-
-# 3) Real run — populate pc_classes from dm20
-eldritch-dm-backfill-pc-classes
-
-# 4) Restart the bot
-launchctl load ~/Library/LaunchAgents/com.user.eldritch-dm.plist
-```
-
-### Flags
-
-| Flag | Default | Effect |
-|------|---------|--------|
-| `--dry-run` | off | Open SQLite read-only; report counts; never writes |
-| `--force` | off | Re-process rows already in `pc_classes` (default skips them) |
-| `--db-path PATH` | from `Settings().eldritch_db_path` | Override database location |
-| `--dm20-url URL` | `$DM20_MCP_URL` → `$OMLX_ENDPOINT` minus `/v1` → `http://localhost:8765` | dm20 MCP base URL |
-| `--verbose` / `-v` | off | Emit per-character DEBUG events |
-
-### Exit codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Success — all sessions populated |
-| 1 | dm20 unreachable / bad args / DB open failure |
-| 2 | Partial — some channels populated, some failed (check stderr for which) |
-| 3 | Fatal — database is locked (stop the bot and retry) |
-
-### Caveat — `subclass` is left empty
-
-dm20's character schema does not expose a `subclass` field. The tool
-populates `class_name` (normalized lowercase) and writes `subclass=""` for
-every row. **For subclass-gated features like Battle Master Riposte**,
-operators must hand-edit `pc_classes` (or wait for the v1.2 ingest path):
-
-```bash
-sqlite3 eldritch.sqlite3 \
-  "UPDATE pc_classes SET subclass='battle master' \
-   WHERE channel_id='123…' AND character_id='abc…'"
-```
-
-The tool emits a `backfill.subclass_unknown` WARNING per row so you can
-grep stderr for the character_ids needing manual annotation.
-
-### Re-running safely
-
-Default behavior is idempotent — re-running with no flags will report
-`skipped: N` for every row already in `pc_classes` and exit 0. Use
-`--force` only when dm20's class data has drifted from what was last
-backfilled (rare).
+> 🔗 **The detailed upgrade procedure now lives in [`docs/UPGRADE.md#v10--v11`](docs/UPGRADE.md#v10--v11).** Headline: if you ran v1.0, run `eldritch-dm-backfill-pc-classes` once after upgrading so Riposte fires for legacy PCs (Phase 9 / UPGRADE-01 / closes the v1.0 TD-3 gap). The full flag reference, exit-code table, `--dry-run` flow, and the `subclass=""` caveat are documented in [`docs/UPGRADE.md`](docs/UPGRADE.md), along with every other v1.x → v1.(x+1) step from v1.0 through v1.10.
 
 ---
 
