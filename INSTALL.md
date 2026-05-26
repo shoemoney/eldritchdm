@@ -144,6 +144,32 @@ python run.py
 
 ---
 
+## 🐳 Docker quickstart (one command)
+
+> 🆕 Added in v1.10 (Phase 29 / DEPLOY-01). Containerizes the **bot process only**. oMLX and dm20 MCP still run on the operator's host (Apple Silicon required for `mlx-lm`).
+
+```bash
+cp .env.example .env       # then edit DISCORD_TOKEN — and, if oMLX is on the host,
+                           # set MLX_BASE_URL=http://host.docker.internal:8765/v1
+docker compose up -d
+docker compose logs -f eldritch-bot
+```
+
+**How the container reaches oMLX / dm20 on the host:**
+- macOS / Windows Docker Desktop resolves `host.docker.internal` natively.
+- Linux gets parity via `extra_hosts: "host.docker.internal:host-gateway"` declared in [`docker-compose.yml`](docker-compose.yml) (lines 49-52).
+- The compose file does **not** bring up oMLX, dm20, or Phoenix — by design (D-221). You bring those up separately on the host.
+
+**Optional observability stack** (Phase 11 / OBS-01, existing artifact):
+
+```bash
+docker compose -f docker-compose.observability.yml up -d
+```
+
+> 🔗 Hit an issue? See [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md). Coming from an older release? See [`docs/UPGRADE.md`](docs/UPGRADE.md).
+
+---
+
 ## 🧠 Deep install — Component 1: oMLX (always required)
 
 **oMLX is required, no matter which `INGEST_BACKEND` you pick later.** It hosts the narration model AND the dm20 MCP gateway. If oMLX is down, the bot is down. If oMLX has no dm20 tools loaded, the bot can't compute any game state. **No exceptions.**
