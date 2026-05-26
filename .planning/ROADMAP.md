@@ -12,7 +12,7 @@
 - ✅ **v1.7 Integration & Polish** — Phases 23-24 (shipped 2026-05-25) — see [`milestones/v1.7-ROADMAP.md`](milestones/v1.7-ROADMAP.md)
 - ✅ **v1.8 Multi-Channel Hardening** — Phases 25-26 (shipped 2026-05-25) — see [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 Performance Baseline + Tuning** — Phases 27-28 (shipped 2026-05-26) — see [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
-- 🚧 **v1.10 Operator Deployment Polish** — Phases 29-30 (in progress) — bundled docker-compose + INSTALL/troubleshooting runbook
+- ✅ **v1.10 Operator Deployment Polish** — Phases 29-30 (shipped 2026-05-26) — see [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
 
 ## Phases
 
@@ -150,20 +150,17 @@
 </details>
 
 
-## 🚧 v1.10 Operator Deployment Polish (Phases 29-30)
+<details>
+<summary>✅ v1.10 Operator Deployment Polish (Phases 29-30) — SHIPPED 2026-05-26</summary>
 
-### Phase 29: Bundled docker-compose for full stack
-**Requirements**: DEPLOY-01, DEPLOY-02, DEPLOY-03
-**Plans**:
-- [ ] Plan 01: docker-compose.yml + Dockerfile (`feat(29-01): bundled docker-compose + multi-stage Dockerfile`)
-- [ ] Plan 02: Docker smoke test (`test(29-02): docker compose up smoke test`)
+- [x] **Phase 29**: Bundled docker-compose for full stack (2/2 plans)
+- [x] **Phase 30**: INSTALL refresh + troubleshooting runbook (2/2 plans)
 
-### Phase 30: INSTALL refresh + troubleshooting runbook
-**Requirements**: DOCS-01, DOCS-02, DOCS-03
-**Plans**:
-- [ ] Plan 01: INSTALL.md refresh (`docs(30-01): INSTALL.md reflecting v1.0-v1.9 surface`)
-- [ ] Plan 02: TROUBLESHOOTING.md + UPGRADE.md (`docs(30-02): operator FAQ + version-to-version notes`)
+**Final stats:** 2 phases · 4 plans · ~17 commits · 6/6 reqs satisfied · single-command Docker setup · 14-FAQ TROUBLESHOOTING.md · 11-version UPGRADE.md · bidirectional cross-links.
 
+**Tag:** `v1.10` · **Archive:** [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
+
+</details>
 
 ## Traceability
 
