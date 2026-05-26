@@ -16,7 +16,7 @@
 
 ### TUNE — Targeted optimizations + regression-detection CLI (Phase 28)
 
-- [ ] **TUNE-01**: Optimize the TOP 3 slowest operations identified by Phase 27's baseline. Each optimization gets: (a) a benchmark BEFORE the fix, (b) the actual change, (c) a benchmark AFTER showing the improvement, (d) a test that wasn't passing before now passes (regression guard). NO speculative optimization — only fix what profiling identifies.
+- [x] **TUNE-01**: Optimize the TOP 3 slowest operations identified by Phase 27's baseline. Each optimization gets: (a) a benchmark BEFORE the fix, (b) the actual change, (c) a benchmark AFTER showing the improvement, (d) a test that wasn't passing before now passes (regression guard). NO speculative optimization — only fix what profiling identifies. **Shipped as Branch B no-targets closure (Phase 28 / Plan 28-01): per-op budget analysis confirmed every operation is ≥45× under target with no WARN/FAIL — empirical bar from D-216 cannot be satisfied. See `docs/PERFORMANCE.md` § "Phase 28 TUNE-01 closure".**
 - [ ] **TUNE-02**: `eldritch-dm-perf-baseline` CLI (new `[project.scripts]`) — runs the hot-path profiler from PROFILE-01 + diffs against `--baseline path/to/baseline.json` (default: the v1.9.0 baseline). Exit codes: 0 (within ±10% of baseline), 1 (regression > 10% on any p99), 2 (regression > 25% on any p99 — critical). Mirrors Phase 12 `eldritch-dm-eval` exit-code pattern.
 - [ ] **TUNE-03**: CI integration — `.github/workflows/perf.yml` (separate from main CI matrix) runs the perf CLI weekly + on tagged releases against the current baseline. Failure → opens an issue (informational, not blocking releases — perf is operator-tunable, not a hard ship gate).
 
