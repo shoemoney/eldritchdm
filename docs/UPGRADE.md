@@ -6,6 +6,7 @@
 > 🔗 **Companion docs:**
 > - [`INSTALL.md`](../INSTALL.md) — fresh-install walkthrough
 > - [`docs/TROUBLESHOOTING.md`](TROUBLESHOOTING.md) — operator FAQ
+> - [`CHANGELOG.md`](../CHANGELOG.md) — rolling release log (v1.0 → v1.11)
 
 ---
 
