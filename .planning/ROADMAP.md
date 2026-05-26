@@ -13,6 +13,7 @@
 - ✅ **v1.8 Multi-Channel Hardening** — Phases 25-26 (shipped 2026-05-25) — see [`milestones/v1.8-ROADMAP.md`](milestones/v1.8-ROADMAP.md)
 - ✅ **v1.9 Performance Baseline + Tuning** — Phases 27-28 (shipped 2026-05-26) — see [`milestones/v1.9-ROADMAP.md`](milestones/v1.9-ROADMAP.md)
 - ✅ **v1.10 Operator Deployment Polish** — Phases 29-30 (shipped 2026-05-26) — see [`milestones/v1.10-ROADMAP.md`](milestones/v1.10-ROADMAP.md)
+- 🚧 **v1.11 Security Audit Refresh** — Phases 31-32 (in progress) — cross-cutting audit + remediation
 
 ## Phases
 
@@ -162,6 +163,21 @@
 
 </details>
 
+
+## 🚧 v1.11 Security Audit Refresh (Phases 31-32)
+
+### Phase 31: Security investigation (read-only)
+**Requirements**: SECAUDIT-01, SECAUDIT-02, SECAUDIT-03
+**Plans**:
+- [ ] Plan 01: 8-surface audit + findings (`docs(31-01): SECURITY-AUDIT-v1.11.md with 8-surface findings`)
+
+### Phase 32: Remediation + regression guards
+**Requirements**: SECFIX-01, SECFIX-02, SECFIX-03
+**Plans**:
+- [ ] Plan 01: Fix CRITICAL + HIGH findings OR Branch B closure (`fix(32-01): CRITICAL/HIGH remediation with repro tests`)
+- [ ] Plan 02: MEDIUM/LOW backlog file (`docs(32-02): SECURITY-BACKLOG.md for v1.12 follow-ups`)
+
+
 ## Traceability
 
 | REQ-ID | Phase | Source Plan |
@@ -235,6 +251,12 @@
 | DOCS-01 | 30 | 30-01-PLAN-install-refresh |
 | DOCS-02 | 30 | 30-02-PLAN-troubleshooting-upgrade |
 | DOCS-03 | 30 | 30-02-PLAN-troubleshooting-upgrade |
+| SECAUDIT-01 | 31 | 31-01-PLAN-audit |
+| SECAUDIT-02 | 31 | 31-01-PLAN-audit |
+| SECAUDIT-03 | 31 | 31-01-PLAN-audit |
+| SECFIX-01 | 32 | 32-01-PLAN-remediation |
+| SECFIX-02 | 32 | 32-01-PLAN-remediation |
+| SECFIX-03 | 32 | 32-02-PLAN-backlog |
 
 ## Progress
 
