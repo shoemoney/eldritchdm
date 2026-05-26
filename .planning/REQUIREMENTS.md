@@ -10,9 +10,9 @@
 
 ### PROFILE — Profiling + latency budget documentation (Phase 27)
 
-- [ ] **PROFILE-01**: Hot-path profiler at `scripts/perf/profile_hot_paths.py` — runs each named hot path (combat-turn-resolution, mcp-cache-roundtrip, smart-driver-oracle, character-ingest-fast-path, riposte-click-handler, ingest-pipeline-ocr) under `cProfile` + wall-clock measurement. Outputs `perf-baseline-{ISO ts}-{git sha}.json` with per-operation: `p50_ms`, `p95_ms`, `p99_ms`, `cprofile_top_10` (functions by cumulative time). Uses mocked dm20 (respx) so the profile measures OUR code, not dm20 latency.
-- [ ] **PROFILE-02**: Per-operation latency budgets documented at `docs/PERFORMANCE.md` (NEW). Each hot path gets: target p99 (from PROJECT.md performance section's existing constraints: character ingest <6s, narration <150 words/1500ms via D-54, Discord ack <3s, embed updates ≤1/sec/message), measurement methodology, and "OK / WARN / FAIL" thresholds. Builds a regression-detection table the CLI uses.
-- [ ] **PROFILE-03**: Baseline JSON committed at `.planning/perf-baseline-v1.9.0.json` — the canonical baseline subsequent runs compare against. Updated whenever a deliberate perf regression is accepted (e.g., correctness fix that costs latency).
+- [x] **PROFILE-01**: Hot-path profiler at `scripts/perf/profile_hot_paths.py` — runs each named hot path (combat-turn-resolution, mcp-cache-roundtrip, smart-driver-oracle, character-ingest-fast-path, riposte-click-handler, ingest-pipeline-ocr) under `cProfile` + wall-clock measurement. Outputs `perf-baseline-{ISO ts}-{git sha}.json` with per-operation: `p50_ms`, `p95_ms`, `p99_ms`, `cprofile_top_10` (functions by cumulative time). Uses mocked dm20 (respx) so the profile measures OUR code, not dm20 latency.
+- [x] **PROFILE-02**: Per-operation latency budgets documented at `docs/PERFORMANCE.md` (NEW). Each hot path gets: target p99 (from PROJECT.md performance section's existing constraints: character ingest <6s, narration <150 words/1500ms via D-54, Discord ack <3s, embed updates ≤1/sec/message), measurement methodology, and "OK / WARN / FAIL" thresholds. Builds a regression-detection table the CLI uses.
+- [x] **PROFILE-03**: Baseline JSON committed at `.planning/perf-baseline-v1.9.0.json` — the canonical baseline subsequent runs compare against. Updated whenever a deliberate perf regression is accepted (e.g., correctness fix that costs latency).
 
 ### TUNE — Targeted optimizations + regression-detection CLI (Phase 28)
 
