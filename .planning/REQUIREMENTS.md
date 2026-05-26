@@ -1,24 +1,17 @@
-# EldritchDM — Requirements (v1.13 Open-Source Hygiene)
+# EldritchDM — Requirements (v1.14 Test Coverage Audit)
 
-**Milestone:** v1.13 Open-Source Hygiene
-**Goal:** Close real open-source repo gaps. CODE_OF_CONDUCT.md (separated from inline CONTRIBUTING.md). SPDX-License-Identifier headers on all src/ Python files (was 0/105). Apache-2.0 license is in LICENSE but headers identify provenance per-file.
-**Total v1.13 requirements:** 2.
+**Milestone:** v1.14 Test Coverage Audit
+**Goal:** Measure test coverage across src/ to surface genuine gaps (vs. environmental — bot/ cog code requires integration tests that hang in this orchestrator session, but should work in CI). If real gaps surface beyond integration-test surfaces, document for v1.15 work.
+**Total v1.14 requirements:** 2.
 
 ---
 
-## v1.13 Requirements
+## v1.14 Requirements
 
-- [x] **HYGIENE-01**: `CODE_OF_CONDUCT.md` at repo root. Project-specific lightweight version (not full Contributor Covenant adoption — clarity over ceremony). Cross-link from CONTRIBUTING.md. Maintainer email + 4-step enforcement process documented.
-- [x] **HYGIENE-02**: `SPDX-License-Identifier: Apache-2.0` headers on all 105 `src/eldritch_dm/**/*.py` files. Comment-only change; placement is AFTER any module docstring (Python convention). 0% → 100% coverage.
-
-## Traceability
-
-| REQ-ID | Phase | Source |
-|---|---|---|
-| HYGIENE-01 | 34 | Open-source repo gap — Apache-2.0 repos conventionally ship CODE_OF_CONDUCT.md as a separate file |
-| HYGIENE-02 | 34 | SPDX best practice — per-file provenance even with a LICENSE file in repo root |
+- [x] **COVERAGE-01**: Coverage run against full test suite (excluding `tests/integration` due to known orchestrator-session hangs documented since v1.3). Output coverage.json + write `.planning/COVERAGE-AUDIT-v1.14.md` with per-module breakdown.
+- [x] **COVERAGE-02**: Categorize gaps: (a) **GENUINE** — production code without unit tests despite being unit-testable, (b) **ENVIRONMENTAL** — needs integration test we can't run in this session, (c) **DEFENSIBLY-UNCOVERED** — defensive branches that are hard to exercise (e.g., `except` blocks for impossible-in-practice failures). Document each.
 
 ## Mode Constraints
-- Documentation-only milestone. SPDX headers are comment lines; ruff verified clean post-patch.
-- No new dependencies, no code-behavior change.
-- Single phase (34), single plan (34-01).
+- Documentation-only — no source changes.
+- Single phase (35), single plan (35-01).
+- Branch B (zero genuine gaps) is a valid result.
