@@ -10,9 +10,9 @@
 
 ### CONC — Multi-channel concurrency (Phase 25)
 
-- [ ] **CONC-01**: Concurrent-session stress test — `tests/integration/test_multi_channel_stress.py` simulates 4 channels with active sessions running simultaneously (same bot process, shared MCPClient, shared WriterQueue from v1.4, shared MonsterMemoryRegistry from v1.6). Asserts: no database-is-locked errors, no cross-channel state leakage in MonsterMemory, no SmartMonsterDriver per-round cache collisions across channels.
-- [ ] **CONC-02**: MCP query cache (Phase 16) under concurrent load — same stress test extends to verify L1 LRU + L2 SQLite handle 4-channel concurrent reads/writes without race conditions. Asserts L1 hit/miss accounting stays consistent; L2 SQLite WAL handles concurrent writers (single-writer pattern from Phase 1).
-- [ ] **CONC-03**: Any concurrency bug surfaced by CONC-01/02 is FIXED at source (not masked by test ordering or skip-marks). Honest-report if a real bug is found that requires architectural changes beyond v1.8 scope — halt + escalate to v1.9.
+- [x] **CONC-01**: Concurrent-session stress test — `tests/integration/test_multi_channel_stress.py` simulates 4 channels with active sessions running simultaneously (same bot process, shared MCPClient, shared WriterQueue from v1.4, shared MonsterMemoryRegistry from v1.6). Asserts: no database-is-locked errors, no cross-channel state leakage in MonsterMemory, no SmartMonsterDriver per-round cache collisions across channels.
+- [x] **CONC-02**: MCP query cache (Phase 16) under concurrent load — same stress test extends to verify L1 LRU + L2 SQLite handle 4-channel concurrent reads/writes without race conditions. Asserts L1 hit/miss accounting stays consistent; L2 SQLite WAL handles concurrent writers (single-writer pattern from Phase 1).
+- [x] **CONC-03**: Any concurrency bug surfaced by CONC-01/02 is FIXED at source (not masked by test ordering or skip-marks). Honest-report if a real bug is found that requires architectural changes beyond v1.8 scope — halt + escalate to v1.9. _(Branch B: no-op closure — 3-run stress test 3-for-3 green, no bug surfaced.)_
 
 ### OPSDASH — Operational dashboards + tooling polish (Phase 26)
 
