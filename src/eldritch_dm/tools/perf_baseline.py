@@ -32,7 +32,18 @@ from pathlib import Path
 from typing import Literal
 
 from eldritch_dm.logging import get_logger
-from scripts.perf._schema import BaselineSchema
+
+# The ``scripts/`` directory is intentionally NOT a package under ``src/`` —
+# it lives at the repo root alongside the installed source. When running
+# inside the dev checkout (``pip install -e .``) the repo root is on
+# ``sys.path`` via pytest conftest, but a bare console-script invocation
+# (``uv run eldritch-dm-perf-baseline``) doesn't get that bootstrap. Anchor
+# the path here so the import works in both modes.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scripts.perf._schema import BaselineSchema  # noqa: E402
 
 log = get_logger(__name__)
 
@@ -47,7 +58,6 @@ EXIT_CRITICAL = 2
 WARN_PCT = 10.0
 CRITICAL_PCT = 25.0
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_BASELINE = _REPO_ROOT / ".planning" / "perf-baseline-v1.9.0.json"
 
 # ────────────────────────────────────────────────────────────────────────────
