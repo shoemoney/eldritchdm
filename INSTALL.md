@@ -553,6 +553,53 @@ OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
 
 > 📋 **Every variable, every default:** see the annotated reference in [`.env.example`](.env.example) and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md). The table above only covers the variables relevant to the install path.
 
+### 📋 Env var reference (v1.10 — added since v1.0)
+
+The bot's full env surface is exhaustively documented in [`.env.example`](.env.example). This table covers the variables added or surfaced between v1.0 and v1.10 — the ones you're most likely to set when upgrading. Each row cites the file that actually consumes the variable.
+
+| Variable | Default | Source | Purpose |
+|---|---|---|---|
+| `DISCORD_TOKEN` | (unset; required) | `Settings.discord_token` ([`src/eldritch_dm/config/__init__.py`](src/eldritch_dm/config/__init__.py)) | Discord bot token. Bot exits **4** if missing (Phase 7 SAFETY-03). |
+| `DISCORD_GUILD_IDS` | `""` | `Settings.discord_guild_ids` | CSV of guild IDs for instant slash-command sync. Empty → global. |
+| `DISCORD_OWNER_ID` | `None` | `Settings.discord_owner_id` (alias `DISCORD_OWNER_ID`) | Owner Discord user ID; receives budget + degraded-mode DMs (Phase 22 / OPQOL-02 / D-170). |
+| `ELDRITCH_DB_PATH` | `./eldritch.sqlite3` | `Settings.eldritch_db_path` | SQLite DB path (WAL journaling). |
+| `DM20_MCP_URL` | falls back to `OMLX_ENDPOINT` | [`src/eldritch_dm/tools/backfill_pc_classes.py`](src/eldritch_dm/tools/backfill_pc_classes.py) | Override for the dm20 MCP endpoint used by `eldritch-dm-backfill-pc-classes` (D-48). |
+| `OBSERVABILITY_ENABLED` | `false` | [`src/eldritch_dm/observability/tracer.py:39`](src/eldritch_dm/observability/tracer.py) (`os.environ.get`) | When `true`, OTel tracing wires up; otherwise the observability tree is a lazy no-op (Phase 11 / OBS-01). |
+| `MONSTER_DRIVER` | `smart` | `Settings.monster_driver` (alias `MONSTER_DRIVER`) | `smart` / `random` / `mixed`. `random` is the v1.0 escape hatch (Phase 10 / D-52). |
+| `NARRCACHE_ENABLED` | `false` | `Settings.narrcache_enabled` (alias `NARRCACHE_ENABLED`) | Opt-in narration cache; off by default (Phase 18 / D-129 — mechanical-honesty contract). |
+| `MCPCACHE_L2_ENABLED` | `false` | `Settings.mcpcache_l2_enabled` (alias `MCPCACHE_L2_ENABLED`) | Opt-in L2 SQLite cache. L1 is on by default (Phase 16 / D-117). |
+| `MONSTER_MEMORY_PERSIST` | `false` | `Settings.monster_memory_persist` (alias `MONSTER_MEMORY_PERSIST`) | Opt-in cross-restart monster memory (Phase 21 / D-160). |
+| `ELDRITCH_DAILY_LLM_BUDGET_USD` | `5.00` | [`src/eldritch_dm/tools/cost_report.py:84`](src/eldritch_dm/tools/cost_report.py) | Daily LLM-spend ceiling used by `eldritch-dm-cost-report` (Phase 13 / MON-03). |
+| `STREAM_ENABLED` | `true` | `Settings.stream_enabled` (alias `STREAM_ENABLED`) | When `true`, SmartMonsterDriver emits the "🤔 sizing up the party…" indicator (Phase 19 / STREAM-03). Set `false` for v1.5 silent behavior. |
+
+### 🛠️ Console scripts (after `pip install -e .`)
+
+Pulled verbatim from `[project.scripts]` in [`pyproject.toml`](pyproject.toml):
+
+| Command | Module | Use case |
+|---|---|---|
+| `eldritch-dm` | `eldritch_dm.bot.__main__:main` | The bot entry point. Equivalent to `python -m eldritch_dm.bot`. |
+| `eldritch-dm-backfill-pc-classes` | `eldritch_dm.tools.backfill_pc_classes:main` | v1.0→v1.1 upgrade: populates `pc_classes` for existing characters so Riposte fires (Phase 9 / TD-3). |
+| `eldritch-dm-eval` | `eldritch_dm.eval.cli:main` | LLM-as-judge tactical scoring runner (Phase 12 / EVAL-03). |
+| `eldritch-dm-cost-report` | `eldritch_dm.tools.cost_report:main` | Daily LLM-spend report from the local span buffer (Phase 13 / MON-03). Honors `ELDRITCH_DAILY_LLM_BUDGET_USD`. |
+| `eldritch-dm-cache-clear` | `eldritch_dm.tools.cache_clear:main` | Operator cache-purge for the character snapshot cache (Phase 17 / CHARCACHE-03). |
+| `eldritch-dm-cache-disable` | `eldritch_dm.tools.cache_disable:main` | Operator runtime disable/enable for narration cache (Phase 18 / NARRCACHE-03). |
+| `eldritch-dm-cache-stats` | `eldritch_dm.tools.cache_stats:main` | Print narration cache hit/miss + size (Phase 18 / NARRCACHE-03). |
+| `eldritch-dm-perf-baseline` | `eldritch_dm.tools.perf_baseline:main` | Run hot-path profiler + diff against committed baseline (Phase 28 / TUNE-02 / D-218). Exit codes 0/1/2. |
+
+### 📦 Optional dependency groups
+
+Pulled verbatim from `[project.optional-dependencies]` in [`pyproject.toml`](pyproject.toml):
+
+| Group | Install | Contents | When to install |
+|---|---|---|---|
+| `dev` | `pip install -e ".[dev]"` | pytest + pytest-asyncio + pytest-cov + pytest-mock + ruff + respx + import-linter + syrupy + reportlab | Contributing to EldritchDM or running the test suite. |
+| `mac-ocr` | `pip install -e ".[mac-ocr]"` | `ocrmac>=1.0,<2.0` (Apple Vision via PyObjC) | macOS 10.15+ — primary OCR for character-sheet ingest. |
+| `linux-ocr` | `pip install -e ".[linux-ocr]"` | `easyocr>=1.7,<2.0` | Linux / cross-platform OCR fallback. The OCR test skip-gate (Phase 14 / FLAKE-01) auto-skips OCR tests when neither is installed. |
+| `observability` | `pip install -e ".[observability]"` | opentelemetry-api/sdk/exporter-otlp-proto-http + prometheus_client | Required to actually emit spans/metrics when `OBSERVABILITY_ENABLED=true` (Phase 11 / OBS-01; Phase 13 / MON-01). |
+
+Extras can be combined, e.g. `pip install -e ".[dev,mac-ocr,observability]"`.
+
 ---
 
 ## 🩺 Bootstrap & verify (preflight)
