@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Performance Baseline + Tuning
 status: executing
-last_updated: "2026-05-26T05:36:36.781Z"
-last_activity: 2026-05-26 -- Phase 29 execution started
+last_updated: "2026-05-26T05:56:05.186Z"
+last_activity: 2026-05-26 -- Phase 30 execution started
 progress:
   total_phases: 25
-  completed_phases: 23
-  total_plans: 43
-  completed_plans: 43
-  percent: 92
+  completed_phases: 24
+  total_plans: 45
+  completed_plans: 45
+  percent: 96
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 29 — docker-compose
+**Current focus:** Phase 30 — install-troubleshooting
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 29 (docker-compose) — EXECUTING
+Phase: 30 (install-troubleshooting) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 29
-Last activity: 2026-05-26 -- Phase 29 execution started
+Status: Executing Phase 30
+Last activity: 2026-05-26 -- Phase 30 execution started
 
 ## Operator Next Steps
 
