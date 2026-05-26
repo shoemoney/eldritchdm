@@ -24,9 +24,9 @@
 
 ### SECFIX — Remediation + regression guards (Phase 32)
 
-- [ ] **SECFIX-01**: Fix all CRITICAL findings from Phase 31. Each fix gets: (a) repro test that FAILS before the fix, (b) the change, (c) test PASSES after, (d) cross-link in SECURITY-AUDIT.md to commit SHA. If 0 CRITICAL findings, Branch B closure.
-- [ ] **SECFIX-02**: Fix all HIGH findings from Phase 31. Same evidence chain. Branch B if 0 HIGH.
-- [ ] **SECFIX-03**: MEDIUM + LOW findings deferred to v1.12 backlog with explicit entries in `.planning/UPSTREAM-ISSUES.md` OR `.planning/SECURITY-BACKLOG.md` (new). Document why each was deferred (low operational risk, breaks backwards compat, etc.).
+- [x] **SECFIX-01** *(Branch B — 0 CRITICAL findings in Phase 31)*: Fix all CRITICAL findings from Phase 31. Each fix gets: (a) repro test that FAILS before the fix, (b) the change, (c) test PASSES after, (d) cross-link in SECURITY-AUDIT.md to commit SHA. If 0 CRITICAL findings, Branch B closure.
+- [x] **SECFIX-02** *(Branch B — 0 HIGH findings)*: Fix all HIGH findings from Phase 31. Same evidence chain. Branch B if 0 HIGH.
+- [x] **SECFIX-03** *(SECURITY-BACKLOG.md created; no current entries)*: MEDIUM + LOW findings deferred to v1.12 backlog with explicit entries in `.planning/UPSTREAM-ISSUES.md` OR `.planning/SECURITY-BACKLOG.md` (new). Document why each was deferred (low operational risk, breaks backwards compat, etc.).
 
 ---
 
