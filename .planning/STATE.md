@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: Integration & Polish
-status: complete
-last_updated: "2026-05-25T22:30:00.000Z"
-last_activity: 2026-05-25 -- v1.7 all phases complete (WIRE-01 deferred); ready for tag
+status: executing
+last_updated: "2026-05-26T00:37:16.182Z"
+last_activity: 2026-05-26 -- Phase 26 execution started
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_phases: 21
+  completed_phases: 20
+  total_plans: 37
+  completed_plans: 37
+  percent: 95
 ---
 
 # EldritchDM — State
@@ -24,7 +24,7 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 **Core value:** Mechanically honest AI DM, on Discord, fully local — bot never computes game math; all mechanical effects flow through dm20 MCP tools.
-**Current focus:** Phase 23 — cog-wiring
+**Current focus:** Phase 26 — opsdash-tooling
 
 ## Architecture (post-pivot)
 
@@ -163,10 +163,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 23 (cog-wiring) — EXECUTING
+Phase: 26 (opsdash-tooling) — EXECUTING
 Plan: 1 of 2
-Status: Executing Phase 23
-Last activity: 2026-05-25 -- Phase 23 execution started
+Status: Executing Phase 26
+Last activity: 2026-05-26 -- Phase 26 execution started
 
 ## Operator Next Steps
 
