@@ -8,9 +8,9 @@
 
 ## v1.12 Requirements
 
-- [ ] **DOCS-04**: README.md updated. Status badge bumped to v1.11 (or latest tag). Add "Recent milestones" section linking to milestone archives. Update tech-stack mentions where applicable (Phoenix observability, eval CLI, perf CLI, Docker quickstart). Cross-link to INSTALL.md (already-cross-linked from Phase 30) + new CHANGELOG.md. Preserve the existing tone — README is the project tour, not a release-notes dump.
-- [ ] **DOCS-05**: CHANGELOG.md (NEW) at repo root. Standard Keep-a-Changelog format. Sections per shipped tag: v1.0 / v1.1 / v1.2 / v1.2.1 / v1.3 / v1.4 / v1.5 / v1.6 / v1.7 / v1.8 / v1.9 / v1.10 / v1.11. Each entry: 3-5 bullet headlines (synthesized from milestone audit + archive). Cross-link to milestone archives for details.
-- [ ] **DOCS-06**: Cross-consistency pass — verify INSTALL.md mentions CHANGELOG; TROUBLESHOOTING.md mentions CHANGELOG; UPGRADE.md mentions CHANGELOG; README mentions all three. No new files beyond CHANGELOG; just cross-links.
+- [x] **DOCS-04**: README.md updated. Status badge bumped to v1.11 (or latest tag). Add "Recent milestones" section linking to milestone archives. Update tech-stack mentions where applicable (Phoenix observability, eval CLI, perf CLI, Docker quickstart). Cross-link to INSTALL.md (already-cross-linked from Phase 30) + new CHANGELOG.md. Preserve the existing tone — README is the project tour, not a release-notes dump.
+- [x] **DOCS-05**: CHANGELOG.md (NEW) at repo root. Standard Keep-a-Changelog format. Sections per shipped tag: v1.0 / v1.1 / v1.2 / v1.2.1 / v1.3 / v1.4 / v1.5 / v1.6 / v1.7 / v1.8 / v1.9 / v1.10 / v1.11. Each entry: 3-5 bullet headlines (synthesized from milestone audit + archive). Cross-link to milestone archives for details.
+- [x] **DOCS-06**: Cross-consistency pass — verify INSTALL.md mentions CHANGELOG; TROUBLESHOOTING.md mentions CHANGELOG; UPGRADE.md mentions CHANGELOG; README mentions all three. No new files beyond CHANGELOG; just cross-links.
 
 ## Traceability
 
