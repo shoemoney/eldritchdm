@@ -76,7 +76,7 @@ eldritch-dm                  # PATH-installed CLI from `pip install -e .`
 
 > 💡 **First time?** Jump to [First Session in 10 Minutes](#-first-session-in-10-minutes) for a step-by-step walkthrough, or open [`INSTALL.md`](INSTALL.md) for the deep guided install with diagrams.
 
-> 🐳 **Prefer Docker?** `docker compose up -d` brings up the whole stack (v1.10+). See [`INSTALL.md`](INSTALL.md) for the bundled `docker-compose.yml` recipe.
+> 🐳 **Prefer Docker?** `docker compose up -d` brings up the whole stack (v1.10+). See [`INSTALL.md`](INSTALL.md) for the operator-facing recipe and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the full Dockerfile + CI matrix walkthrough.
 
 ---
 
@@ -462,9 +462,9 @@ Other Discord disciplines:
 - 📡 **Embed coalescer.** During combat, the embed updates many times per round. Discord rate-limits message edits at ~5/5s; we limit ourselves to ≤1/sec via a per-message `asyncio.Queue` + render task. Under the 8-player load test, zero 429s. 🟢
 - ⚠️ **Ephemeral warnings.** "❌ Not your turn," "❌ Riposte expired," "🔌 DM is offline" — all delivered as ephemeral followups so only the offending user sees them.
 
-### 🗡️ The Riposte Magic (`src/eldritch_dm/combat/riposte.py`)
+### 🗡️ The Riposte Magic (`src/eldritch_dm/gameplay/reactions.py` + `gameplay/riposte_sweeper.py`)
 
-This is the most fun piece. When dm20 resolves a monster's attack as a miss against an eligible PC (**Battle Master Fighter** by RAW — see [Known Limitations](#-known-limitations-v1) for the v1 scope; v2 plans to make eligibility YAML-configurable for homebrew) who has their reaction available, EldritchDM:
+This is the most fun piece. When dm20 resolves a monster's attack as a miss against an eligible PC (**Battle Master Fighter** by RAW out of the box; YAML-configurable for homebrew subclasses via `database/eligibility.yaml` and the 3-tier `ELDRITCH_ELIGIBILITY_YAML` override — see Phase 8 / [`INSTALL.md`](INSTALL.md#homebrew-riposte-eligibility)) who has their reaction available, EldritchDM:
 
 1. Inserts a row in `riposte_timers` with `deadline_ts = now() + RIPOSTE_TTL_SECONDS`
 2. Posts an ephemeral message visible only to that PC's user, containing the `[ ↩️ Riposte Counter-strike ]` button
@@ -619,7 +619,7 @@ The embed coalescer is supposed to keep edits ≤1/sec per message. If you're se
 You shouldn't see this — the single-writer queue exists precisely to prevent it. If you do:
 
 1. ⚠️ You have a second process touching `eldritch.sqlite3` (another `python run.py`, a forgotten REPL, a SQLite browser GUI with a write transaction held open). Close it.
-2. 💾 Make sure WAL is enabled: `sqlite3 eldritch.sqlite3 'PRAGMA journal_mode;'` should print `wal`. If it prints `delete`, your DB file predates the WAL migration — run `python -m eldritch_dm.persistence.bootstrap` again.
+2. 💾 Make sure WAL is enabled: `sqlite3 eldritch.sqlite3 'PRAGMA journal_mode;'` should print `wal`. If it prints `delete`, your DB file predates the WAL migration — run `python -m eldritch_dm.bootstrap` again (idempotent; safe to re-run).
 
 ### 📸 Character sheet OCR returns garbage or empty text
 
