@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-eval",
+  "title": "TacticalJudge eval scores — overall + per-dimension + per-archetype",
+  "description": "Phase 12 LLM-as-Judge offline eval surface. UNLIKE the other dashboards, this consumes JSON-lines artifacts written by `python -m eldritch_dm.eval.cli` (see src/eldritch_dm/eval/runner.py + aggregator.py), NOT live Phoenix spans — eval is an offline regression-test loop, not an online signal. The phoenix_project_name field is kept for seed-script consistency. KPIs: overall_score trend per release, per-dimension floor (tactics / role-play / mechanics), per-archetype scoreboard.",
+  "span_filter": {
+    "span_name": "OFFLINE_ARTIFACT",
+    "attribute_filters": {
+      "source": { "eq": "eval-cli" }
+    }
+  },
+  "metric": {
+    "field": "overall_score",
+    "aggregations": ["mean", "min"],
+    "group_by": ["archetype"]
+  },
+  "time_window": "30d",
+  "query_recipe": "**OFFLINE DASHBOARD — Phoenix UI is not the primary consumer.** Source: per-run JSON-lines artifacts written by `python -m eldritch_dm.eval.cli` (default output dir: `eval-outputs/<run_id>.jsonl`). Each line is an EvalAggregate (see src/eldritch_dm/eval/aggregator.py: fields `overall_score`, `per_dimension_mean`, `per_archetype_mean`, `n_scenarios`, plus per-scenario `verdict.overall_score` and `verdict.per_dimension`).\n\nRender via a notebook or BI tool (Phoenix UI cannot ingest these natively):\n  1. Overall score over time (line): plot `EvalAggregate.overall_score` against run timestamp across the last 30d of runs. Healthy: monotonic-ish improvement or stable >7.5 floor.\n  2. Per-dimension breakdown (radar or bar): `per_dimension_mean` for the most-recent run — tactics, role-play, mechanics, judgement, narration etc. Alert when any dimension drops below CRITICAL_DIM_MIN (currently 5.0 — see aggregator.py::CRITICAL_DIM_MIN).\n  3. Per-archetype scoreboard (table): `per_archetype_mean` sorted descending. Identifies which monster archetypes the SmartMonsterDriver handles well vs. badly. Target: no archetype <6.0 mean over 3-run rolling window.\n  4. Per-scenario drill-down: for any run, expand `results[]` to inspect individual verdicts and judge rationales — useful when overall_score regresses.\n\nTo also see the eval runs as span traces (latency, tokens, cost) cross-reference Phoenix project 'eldritch-eval-spans' (NOT this project) — `eldritch.eval` spans land in the span buffer via the standard observability path and feed the eldritch-budget dashboard's spend trend."
+}

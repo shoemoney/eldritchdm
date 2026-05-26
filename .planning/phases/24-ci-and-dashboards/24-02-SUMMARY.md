@@ -1,9 +1,9 @@
 ---
 phase: 24-ci-and-dashboards
 plan: 24-02
+requirements_completed: [POLISH-02, POLISH-03]
 subsystem: observability
 tags: [dashboards, phoenix, polish, doc-fix, upstream]
-requirements_completed: [POLISH-02, POLISH-03]
 dependency_graph:
   requires: [phase-11-observability, phase-16-mcp-cache, phase-17-character-cache, phase-18-narrcache, phase-22-operator-polish]
   provides: [cache-observability-dashboards, upstream-backlog]

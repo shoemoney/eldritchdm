@@ -1,7 +1,7 @@
 ---
 phase: 14-flake-cleanup
 plan: "01"
-requirements_completed: [FLAKE-01]
+requirements_completed: [FLAKE-01, FLAKE-02]
 requirements_partial: [FLAKE-02]
 subsystem: tests
 tags: [flake-cleanup, ocr, prometheus, structlog, test-pollution, capsys, observability]

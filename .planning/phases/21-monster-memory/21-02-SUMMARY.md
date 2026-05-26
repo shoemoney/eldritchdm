@@ -1,6 +1,7 @@
 ---
 phase: 21-monster-memory
 plan: 21-02
+requirements_completed: [MEM-03]
 subsystem: persistence
 tags: [monster-memory, mem-03, aiosqlite, opt-in, fail-soft, honest-gap]
 requirements: [MEM-03]
@@ -23,7 +24,6 @@ metrics:
   full_phase_test_count: 39 (memory) + 15 (repo) + 8 (driver augment) + 2 (factory) = 64 new
   full_suite_after_phase: 473 gameplay+persistence pass
   regression_in_existing_tests: 0
-requirements_completed:
   - MEM-03
 ---
 

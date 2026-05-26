@@ -1,9 +1,9 @@
 ---
 phase: 25-multi-channel-stress
 plan: 25-01
+requirements_completed: [CONC-01, CONC-02]
 subsystem: testing
 tags: [stress-test, concurrency, multi-channel, mcp-cache, writer-queue, monster-memory]
-requirements_completed: [CONC-01, CONC-02]
 dependency_graph:
   requires: [v1.0-mcp-client, v1.4-writer-queue, v1.5-mcp-cache, v1.6-monster-memory]
   provides: [multi-channel-stress-harness]

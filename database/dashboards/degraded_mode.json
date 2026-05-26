@@ -1,0 +1,19 @@
+{
+  "schema_version": "1",
+  "phoenix_project_name": "eldritch-degraded",
+  "title": "Degraded-mode trip / exit events + dwell time",
+  "description": "Phase 13 DegradedModeState surface. Tracks the bot's fail-soft transitions: when the SmartMonsterDriver downshifts to deterministic fallback (entered), when the trip-reason flips while still degraded (reason_changed), and when the bot recovers (exited). KPIs: time-in-degraded-mode <5% rolling 24h; mean dwell <60s; trip frequency <3/hour sustained.",
+  "span_filter": {
+    "span_name": "eldritch.degraded_mode",
+    "attribute_filters": {
+      "event": { "in": ["entered", "reason_changed", "exited"] }
+    }
+  },
+  "metric": {
+    "field": "dwell_seconds",
+    "aggregations": ["count", "sum", "p50", "p95"],
+    "group_by": ["reason"]
+  },
+  "time_window": "24h",
+  "query_recipe": "Phoenix UI → Project 'eldritch-degraded' → Filter on structured-log events emitted by src/eldritch_dm/observability/degraded_mode.py:\n  1. `eldritch.degraded_mode.entered` — count over time, grouped by `reason` (line chart). Healthy: spikes during upstream MLX outages, baseline near zero.\n  2. `eldritch.degraded_mode.reason_changed` — count over time (single series). Indicates the bot stayed degraded long enough for the root cause to mutate; investigate if non-zero.\n  3. `eldritch.degraded_mode.exited` — distribution of `dwell_seconds` attribute (histogram or p50/p95). Targets: p50<30s, p95<120s. Long tails indicate the recovery probe is mis-tuned.\n  4. Current-state gauge: most-recent event per (process_id) — if the latest event is `entered` or `reason_changed`, the bot is still degraded. (Compute in the UI by sorting events DESC and picking head.)\n  5. Total time-in-degraded: `sum(dwell_seconds)` from exited events over the time window / window_seconds → fraction. Alert above 5%."
+}
