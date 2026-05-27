@@ -462,6 +462,8 @@ class EldritchBot(commands.Bot):
 
         # (f) Load cogs
         await self.load_extension("eldritch_dm.bot.cogs.diagnostics")
+        # Onboarding: /help + on_guild_join welcome (no dependencies on other cogs)
+        await self.load_extension("eldritch_dm.bot.cogs.onboarding")
         # Phase 3: LobbyCog (/start_game, /load_adventure, ReadyButton wiring)
         await self.load_extension("eldritch_dm.bot.cogs.lobby")
         # Phase 3: IngestCog — character upload via URL, file, and manual entry
