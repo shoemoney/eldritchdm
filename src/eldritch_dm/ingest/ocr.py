@@ -37,6 +37,22 @@ class UnavailableOCRBackend(RuntimeError):
     """Raised when no OCR backend is available in the current environment."""
 
 
+class _OcrmacRegion:
+    """Tuple-to-object adapter for ocrmac >=1.0 recognize() results.
+
+    ocrmac 1.0 returns (text, confidence, bbox) tuples. Older versions
+    returned Region objects with .text and .confidence. We adapt to the
+    older shape so the rest of this module (and tests) can stay tuple-
+    agnostic.
+    """
+
+    __slots__ = ("text", "confidence")
+
+    def __init__(self, *, text: str, confidence: float) -> None:
+        self.text = text
+        self.confidence = confidence
+
+
 # ---------------------------------------------------------------------------
 # Backend resolution
 # ---------------------------------------------------------------------------
@@ -114,11 +130,24 @@ def run_ocrmac(image_bytes: bytes) -> tuple[str, float]:
     if importlib.util.find_spec(_OCRMAC_SPEC) is None:
         raise UnavailableOCRBackend("ocrmac is not installed")
 
-    import ocrmac  # type: ignore[import-untyped]
+    # ocrmac >=1.0 moved OCR into the ocrmac.ocrmac submodule and changed the
+    # API: OCR no longer accepts raw bytes (path or PIL.Image only) and its
+    # recognize() returns a list of (text, confidence, bbox) tuples instead
+    # of Region objects with .text/.confidence attributes. Both of those
+    # changes are upstream as of 1.0; this wrapper bridges to the older
+    # interface our callers expect.
+    from io import BytesIO  # noqa: PLC0415
+    from PIL import Image  # noqa: PLC0415
+    from ocrmac.ocrmac import OCR  # type: ignore[import-untyped]  # noqa: PLC0415
 
-    regions = ocrmac.OCR(image_bytes, recognition_level="accurate").recognize()
-    lines = [getattr(r, "text", "") for r in regions]
-    text = "\n".join(line for line in lines if line)
+    pil_image = Image.open(BytesIO(image_bytes))
+    raw_regions = OCR(pil_image, recognition_level="accurate").recognize()
+    # Normalize tuple-shaped results into objects with .text/.confidence so
+    # downstream callers (aggregate_ocrmac_confidence in particular) keep
+    # working unchanged.
+    regions = [_OcrmacRegion(text=t, confidence=c) for (t, c, _bbox) in raw_regions]
+    lines = [r.text for r in regions if r.text]
+    text = "\n".join(lines)
     confidence = aggregate_ocrmac_confidence(regions)
     log.debug("ocrmac_done", char_count=len(text), confidence=confidence)
     return text, confidence
