@@ -171,3 +171,8 @@ Last activity: 2026-05-26 -- Phase 33 execution started
 ## Operator Next Steps
 
 - Start the next milestone with /gsd-new-milestone
+
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 36 added: Add verbose player instructions to UI modals and embeds

@@ -279,5 +279,15 @@
 | 14. Flake cleanup + planner template hardening | v1.3 | 2/2 | Complete   | 2026-05-25 |
 | 15. Writer-queue shutdown rewrite + FLAKE-02 closure | v1.4 | 1/1 | Complete   | 2026-05-25 |
 
+### Phase 36: Add verbose player instructions to UI modals and embeds
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 35
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 36 to break down)
+
 ---
 *Last revised: 2026-05-24 after v1.1 Polish research synthesis (Stack + Features + Architecture + Pitfalls all converged on this 5-phase build order)*
