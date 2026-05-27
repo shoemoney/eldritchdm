@@ -510,6 +510,22 @@ Eleven milestones have shipped since v1.0. The full rolling release log lives in
 - **[v1.2](.planning/milestones/v1.2-ROADMAP.md)** — Arize Phoenix observability stack; LLM-as-judge tactical scoring; `eldritch-dm-eval` CLI; production monitoring + cost guard.
 - **[v1.1](.planning/milestones/v1.1-ROADMAP.md)** — Smart MonsterDriver (Claudmaster-routed targeting); YAML-configurable Riposte eligibility; `eldritch-dm-backfill-pc-classes` upgrade CLI; v1.0 audit deferrals (SAN-01 / OPS-02) closed.
 
+### 🤖 Autonomous Iteration
+
+EldritchDM development is currently driven by an autonomous loop (`gsd-autonomous`). This allows continuous, verify-and-commit workflows driven by agent reasoning.
+
+```mermaid
+flowchart LR
+    Plan([📝 Plan Phase]) --> Execute[⚡ Execute Tasks]
+    Execute --> Verify[🔍 Verify & Test]
+    Verify --> Commit[💾 Commit & Push]
+    Commit --> Plan
+    style Plan fill:#f9f,stroke:#333,stroke-width:2px
+    style Execute fill:#bbf,stroke:#333,stroke-width:2px
+    style Verify fill:#dfd,stroke:#333,stroke-width:2px
+    style Commit fill:#fdd,stroke:#333,stroke-width:2px
+```
+
 > 🧰 **Operator tooling shipped since v1.0** — self-hostable Arize Phoenix stack (v1.2), `eldritch-dm-eval` CLI for LLM-as-judge regression detection (v1.2), `eldritch-dm-perf-baseline` CLI + weekly perf CI (v1.9), `docker compose up -d` quickstart (v1.10). Operator-facing docs: [`INSTALL.md`](INSTALL.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) · [`docs/UPGRADE.md`](docs/UPGRADE.md).
 
 **v2 deferred:** additional reactions (Shield, Counterspell, Hellish Rebuke per REACT-01/02/03), voice/TTS narration, map/grid visuals.
