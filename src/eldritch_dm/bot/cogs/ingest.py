@@ -291,7 +291,7 @@ class IngestCog(commands.Cog):
 
     @app_commands.command(
         name="upload_character_url",
-        description="Import a character from a D&D Beyond URL",
+        description="Import a character from a D&D Beyond URL. (Must be set to Public on DDB!)",
     )
     @app_commands.describe(
         url="Full D&D Beyond character URL or character ID",
@@ -399,7 +399,7 @@ class IngestCog(commands.Cog):
 
     @app_commands.command(
         name="upload_character_file",
-        description="Upload a character sheet image or PDF for OCR parsing",
+        description="Upload a character sheet image/PDF (we will OCR and translate it for you)",
     )
     @app_commands.describe(
         attachment="PNG, JPEG, or PDF character sheet (max 10 MB)",

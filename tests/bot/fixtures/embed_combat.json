@@ -33,6 +33,6 @@
   "color": 15548997,
   "timestamp": "<TIMESTAMP>",
   "type": "rich",
-  "description": "Current turn: **Thorin**",
+  "description": "Current turn: **Thorin**\n\n*💡 Only **Thorin** can take actions right now. Wait for your turn to click an action button! Targets can use dm20 IDs shown below.*",
   "title": "⚔️ Combat — Round 3"
 }

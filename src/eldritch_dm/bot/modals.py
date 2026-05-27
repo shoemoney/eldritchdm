@@ -204,6 +204,7 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         # Field 1: Character Name
         self.name_field = ui.TextInput(
             label="Character Name",
+            placeholder="e.g. Aragorn",
             default=str(prefill.get("name", "")) or None,
             max_length=80,
             style=discord.TextStyle.short,
@@ -213,6 +214,7 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         # Field 2: Class
         self.class_field = ui.TextInput(
             label="Class",
+            placeholder="e.g. Ranger",
             default=str(prefill.get("character_class", "")) or None,
             max_length=40,
             style=discord.TextStyle.short,
@@ -222,6 +224,7 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         # Field 3: Level
         self.level_field = ui.TextInput(
             label="Level (1-20)",
+            placeholder="e.g. 5",
             default=str(prefill.get("class_level", "")) or None,
             max_length=2,
             style=discord.TextStyle.short,
@@ -231,6 +234,7 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         # Field 4: Race
         self.race_field = ui.TextInput(
             label="Race",
+            placeholder="e.g. Human",
             default=str(prefill.get("race", "")) or None,
             max_length=40,
             style=discord.TextStyle.short,
@@ -240,6 +244,7 @@ class CharacterReviewModal(_CapEnforcedModal, title=MODAL_TITLE_REVIEW):
         # Field 5: Ability scores — single space-separated field (RESEARCH §5)
         self.abilities_field = ui.TextInput(
             label="Ability Scores (STR DEX CON INT WIS CHA)",
+            placeholder="e.g. 16 14 14 10 12 8 (space separated)",
             default=abilities_default,
             max_length=23,
             style=discord.TextStyle.short,
@@ -358,7 +363,7 @@ class CharacterEntryModal(_CapEnforcedModal, title=MODAL_TITLE_ENTRY):
         # Field 5: Ability scores
         self.abilities_field = ui.TextInput(
             label="Ability Scores (STR DEX CON INT WIS CHA)",
-            placeholder="e.g. 15 18 14 12 10 8",
+            placeholder="e.g. 16 14 14 10 12 8 (space separated)",
             default=abilities_default,
             max_length=23,
             style=discord.TextStyle.short,
@@ -551,7 +556,7 @@ class WeaponSelectModal(_CapEnforcedModal, title="Attack: Select Weapon & Target
         # Field 2: Target ID (dm20 character UUID)
         self.target_field = ui.TextInput(
             label="Target ID",
-            placeholder="e.g. goblin-king-001 (dm20 character id)",
+            placeholder="e.g. goblin-king-001 (get from combat embed)",
             max_length=80,
             style=discord.TextStyle.short,
             required=True,

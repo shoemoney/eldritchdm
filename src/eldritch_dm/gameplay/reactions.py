@@ -237,8 +237,8 @@ async def surface_riposte_button(
 
     # Step 3: post public message with mention (NOT ephemeral — restart-survival).
     content = (
-        f"⚔️ <@{eligibility.user_id}> — RIPOSTE opportunity! "
-        f"You have {ttl_seconds}s to counter-attack."
+        f"⚔️ <@{eligibility.user_id}> — RIPOSTE opportunity!\n"
+        f"*💡 A creature missed you! Because you are eligible for Riposte, you have {ttl_seconds}s to click the button below to counter-attack.*"
     )
     message = await channel.send(content=content, view=view)
 
