@@ -1,16 +1,35 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.12
-milestone_name: Final Consolidation
+milestone: v1.15
+milestone_name: Autonomous Era Close
 status: complete
-last_updated: "2026-05-26T06:25:20.125Z"
-last_activity: 2026-05-26 -- v1.12 README + CHANGELOG shipped; ready for tag
+last_updated: "2026-05-26T18:00:00.000Z"
+last_activity: 2026-05-26 — cron 03ccc5a6 cancelled; STATE/gitignore/COVERAGE-AUDIT cleanup; ready for v1.15 ceremonial tag
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_phases: 35
+  completed_phases: 35
+  total_plans: 60
+  completed_plans: 60
   percent: 100
+shipped_milestones:
+  - v1.0  # MVP
+  - v1.1  # Polish
+  - v1.2  # Quality Flywheel
+  - v1.2.1  # hotfix
+  - v1.3  # Hygiene Sweep (partial)
+  - v1.4  # Writer-Queue Reliability (first full-suite green since v1.1)
+  - v1.5  # Cache Architecture
+  - v1.6  # UX/Feature Expansion
+  - v1.7  # Integration & Polish
+  - v1.8  # Multi-Channel Hardening
+  - v1.9  # Performance Baseline + Tuning
+  - v1.10  # Operator Deployment Polish
+  - v1.11  # Security Audit Refresh (0 findings)
+  - v1.12  # Final Consolidation
+  - v1.13  # Open-Source Hygiene (CODE_OF_CONDUCT + SPDX × 105)
+  - v1.14  # Test Coverage Audit (partial 63.7%)
+  - v1.14.1  # coverage hotfix
+  - v1.15  # Autonomous Era Close (this tag)
 ---
 
 # EldritchDM — State

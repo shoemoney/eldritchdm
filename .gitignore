@@ -48,3 +48,9 @@ logs/
 # 🎲 EldritchDM runtime artifacts
 eldritch.sqlite3*
 ocr_cache/
+
+# 🤖 runtime artifacts (post-v1.14 autonomous-era artifacts)
+.bot.pid
+coverage.json
+.claude/worktrees/
+assets/test-characters/
