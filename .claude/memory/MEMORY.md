@@ -1,0 +1,1 @@
+- [Git push as Root/Opencode](git_opencode_root_push.md) — When opencode runs as root, use `sudo -u shoemoney git push origin main` to access user SSH keys and bypass Permission Denied errors
