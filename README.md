@@ -53,7 +53,7 @@ flowchart LR
 
 ```bash
 # 1️⃣ Clone
-git clone https://github.com/shoemoney/eldritchdm.git
+git clone https://github.com/shoemoney/EldritchDM.git
 cd eldritchdm
 
 # 2️⃣ Install everything (Python 3.11+, system deps, Python deps)

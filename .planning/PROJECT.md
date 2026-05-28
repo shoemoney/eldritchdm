@@ -39,7 +39,7 @@ v1.0 → v1.8 production-ready.
 The full SmartMonsterDriver flywheel from v1.1 → v1.2 (eval) → v1.5 (caches) → v1.6 (UX + memory + AOE) is now end-to-end functional. v1.0 → v1.6 production-ready.
 
 **Earlier:** v1.5 (`v1.5` 9/9) · v1.4 (`v1.4` 3/3, **first full-suite GREEN since v1.1**) · v1.3 (`v1.3` 2.5/3 → FLAKE-02 closed by v1.4) · v1.2 (`v1.2` 8/8) · v1.2.1 hotfix · v1.1 (`v1.1` 10/10) · v1.0 MVP (`v1.0` 71/73)
-**Repo:** https://github.com/shoemoney/eldritchdm
+**Repo:** https://github.com/shoemoney/EldritchDM
 **License:** Apache 2.0
 
 ## v1.7 Candidate Backlog
@@ -63,7 +63,7 @@ All 3 caches preserve v1.0's mechanical-honesty contract via fail-CLOSED allow-l
 **Previous shipped:** v1.4 Writer-Queue Reliability · 2026-05-25 · `v1.4` · 3/3 · **first full-suite GREEN since v1.1**
 **Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
 **Earlier:** v1.3 Hygiene Sweep · `v1.3` 2.5/3 (FLAKE-02 closed by v1.4) / v1.2 · `v1.2` 8/8 / v1.1 · `v1.1` 10/10 / v1.0 · `v1.0` 71/73
-**Repo:** https://github.com/shoemoney/eldritchdm
+**Repo:** https://github.com/shoemoney/EldritchDM
 **License:** Apache 2.0
 
 <details>
@@ -86,7 +86,7 @@ Halt-report preserved at `.planning/phases/15-writer-queue-fix/15-HALT-REPORT.md
 **Shipped:** v1.3 Hygiene Sweep · 2026-05-25 · `v1.3` · 2.5/3 (FLAKE-02 partial — still partial after v1.4)
 **Recent hotfix:** v1.2.1 · 2026-05-24 · pricing.yaml verified
 **Earlier:** v1.2 Quality Flywheel · `v1.2` 8/8 / v1.1 Polish · `v1.1` 10/10 / v1.0 MVP · `v1.0` 71/73
-**Repo:** https://github.com/shoemoney/eldritchdm
+**Repo:** https://github.com/shoemoney/EldritchDM
 **License:** Apache 2.0
 
 ## Next Milestone Recommendation (v1.4)

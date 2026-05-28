@@ -31,7 +31,7 @@
 
 **Final stats:** 5 phases · 15 plans · 110 commits · 864 tests passing / 873 collected · 7/7 import-linter contracts kept · 71/73 requirements satisfied (97%).
 
-**Tag:** `v1.0` · **Repo:** https://github.com/shoemoney/eldritchdm
+**Tag:** `v1.0` · **Repo:** https://github.com/shoemoney/EldritchDM
 
 </details>
 

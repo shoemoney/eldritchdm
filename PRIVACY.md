@@ -4,7 +4,7 @@
 **Project:** EldritchDM
 **Maintainer:** Jeremy Schoemaker — jeremy@shoemoney.com
 **License:** Apache-2.0
-**Source:** https://github.com/shoemoney/eldritchdm
+**Source:** https://github.com/shoemoney/EldritchDM
 
 > ⚠️ **This is a self-hostable open-source Discord bot.** Each person who runs
 > EldritchDM is operating their own instance on their own hardware. The
@@ -20,7 +20,7 @@
 ## 1. Who this policy applies to
 
 This policy applies to **the reference EldritchDM software as distributed at
-https://github.com/shoemoney/eldritchdm**. If you install and run the bot, you
+https://github.com/shoemoney/EldritchDM**. If you install and run the bot, you
 are an "Operator" and you become the data controller for the data your
 specific instance handles.
 

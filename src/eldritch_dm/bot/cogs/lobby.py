@@ -346,7 +346,7 @@ class LobbyCog(commands.Cog):
             "**4️⃣ Exploration:** Click `[ 💬 Declare Action ]`.\n"
             "**5️⃣ Combat:** Weapons out! Only click actions on *your turn*. Target by ID.\n"
             "**⚡ Ripostes:** Watch for the 8s Riposte button if a monster misses you!\n\n"
-            "Full guide: [PLAYER_GUIDE.md](https://github.com/shoemoney/eldritchdm/blob/main/docs/PLAYER_GUIDE.md)"
+            "Full guide: [PLAYER_GUIDE.md](https://github.com/shoemoney/EldritchDM/blob/main/docs/PLAYER_GUIDE.md)"
         )
 
         embed = discord.Embed(

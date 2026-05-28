@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-_DEFAULT_USER_AGENT = "EldritchDM/0.1 (+https://github.com/shoemoney/eldritchdm)"
+_DEFAULT_USER_AGENT = "EldritchDM/0.1 (+https://github.com/shoemoney/EldritchDM)"
 
 
 class _TransientHTTPError(Exception):

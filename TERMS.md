@@ -4,7 +4,7 @@
 **Project:** EldritchDM
 **Maintainer:** Jeremy Schoemaker — jeremy@shoemoney.com
 **License:** Apache-2.0
-**Source:** https://github.com/shoemoney/eldritchdm
+**Source:** https://github.com/shoemoney/EldritchDM
 
 > ⚠️ **EldritchDM is self-hostable open-source software.** These terms
 > govern the *reference software* (the code in this repository) and the

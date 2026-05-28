@@ -117,7 +117,7 @@ The optimistic happy path. No diagnostics, no troubleshooting. If anything fails
 
 ```bash
 # 1) Clone — see "What you're installing" above
-git clone https://github.com/shoemoney/eldritchdm.git
+git clone https://github.com/shoemoney/EldritchDM.git
 cd eldritchdm
 
 # 2) Make sure oMLX + dm20 are reachable on :8765
