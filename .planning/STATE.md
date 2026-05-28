@@ -175,4 +175,5 @@ Last activity: 2026-05-26 -- Phase 33 execution started
 ## Accumulated Context
 
 ### Roadmap Evolution
+- Phase 37 added: Add Player Guide command and documentation
 - Phase 36 added: Add verbose player instructions to UI modals and embeds
