@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/avatars/eldritchdm_avatar.png" alt="EldritchDM Avatar" width="450" />
+</p>
+
 # 🐉 EldritchDM — ShoeGPT, Your Forever Dungeon Master
 
 > 🎲 **An open-source, local-first Discord bot that runs full Dungeons & Dragons 5e games end-to-end with an AI Dungeon Master persona called *ShoeGPT*.** No API bills. No data leaves your machine. No more "sorry can't DM tonight." Just hit `/start_game` and roll initiative.
