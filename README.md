@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/avatars/eldritchdm_avatar.png" alt="EldritchDM Avatar" width="680" />
+  <img src="assets/avatars/eldritchdm_avatar.png" alt="EldritchDM Avatar" width="1280" />
 </p>
 
 # 🐉 EldritchDM — ShoeGPT, Your Forever Dungeon Master
