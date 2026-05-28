@@ -41,7 +41,7 @@ import structlog
 from discord import app_commands
 from discord.ext import commands
 
-from eldritch_dm.bot.embeds import lobby_embed
+from eldritch_dm.bot.embeds import EmbedColor, lobby_embed
 from eldritch_dm.bot.party_mode_parser import parse_party_mode_response
 from eldritch_dm.bot.permissions import can_act_on_character
 from eldritch_dm.bot.qr import render_qr_for_embed
@@ -214,13 +214,10 @@ class LobbyCog(commands.Cog):
                     )
                     bound_log.info("start_game_rollback_ok", session_id=cm_session_id)
                 except Exception:  # noqa: BLE001
-                    bound_log.warning(
-                        "start_game_rollback_failed", session_id=cm_session_id
-                    )
+                    bound_log.warning("start_game_rollback_failed", session_id=cm_session_id)
             await interaction.followup.send(
                 content=(
-                    f"Failed to start Party Mode for '{name}'."
-                    " Claudmaster session was rolled back."
+                    f"Failed to start Party Mode for '{name}'. Claudmaster session was rolled back."
                 ),
                 ephemeral=True,
             )
@@ -327,15 +324,46 @@ class LobbyCog(commands.Cog):
 
         bound_log.info("start_game_ok", server_url=server_url)
 
+    # ── /guide ─────────────────────────────────────────────────────────────────
+
+    @app_commands.command(
+        name="guide",
+        description="Show the EldritchDM Player Guide with tips, flows, and hints!",
+    )
+    async def guide(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Send the player guide embed to help onboard new players."""
+        # EDM001: Defer first
+        await interaction.response.defer(ephemeral=True)
+
+        desc = (
+            "Welcome to the table! **EldritchDM** is your automated DM.\n\n"
+            "**1️⃣ Join Lobby:** Wait for `/start_game`.\n"
+            "**2️⃣ Character:** Use `/upload_character_url` or `/upload_character_file`.\n"
+            "**3️⃣ Ready Up:** Click the ✅ Ready button.\n"
+            "**4️⃣ Exploration:** Click `[ 💬 Declare Action ]`.\n"
+            "**5️⃣ Combat:** Weapons out! Only click actions on *your turn*. Target by ID.\n"
+            "**⚡ Ripostes:** Watch for the 8s Riposte button if a monster misses you!\n\n"
+            "Full guide: [PLAYER_GUIDE.md](https://github.com/shoemoney/eldritchdm/blob/main/docs/PLAYER_GUIDE.md)"
+        )
+
+        embed = discord.Embed(
+            title="🎮 EldritchDM Player Guide",
+            description=desc,
+            color=int(EmbedColor.LOBBY),
+        )
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
     # ── /load_adventure ────────────────────────────────────────────────────────
 
     @app_commands.command(
         name="load_adventure",
         description="Load an official 5e adventure module into the active campaign",
     )
-    @app_commands.describe(
-        adventure_id="Adventure module ID (CoS, LMoP, etc.) — use autocomplete"
-    )
+    @app_commands.describe(adventure_id="Adventure module ID (CoS, LMoP, etc.) — use autocomplete")
     async def load_adventure(
         self,
         interaction: discord.Interaction,
