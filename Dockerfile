@@ -24,7 +24,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 1 — builder: materialize /app/.venv from the lockfile
 # ─────────────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Pull the uv binary from the official Astral image — avoids curl/pip bootstrap.
 # Pinning to a release tag (not :latest) for reproducibility; bump deliberately.
@@ -51,7 +51,7 @@ RUN uv sync --frozen --no-dev
 # ─────────────────────────────────────────────────────────────────────────────
 # STAGE 2 — runtime: minimal image with venv + source + non-root user
 # ─────────────────────────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # Create a non-root user. UID/GID 1000 plays nicely with host bind mounts
 # from typical Linux user accounts. /home/eldritch exists for any tools
