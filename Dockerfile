@@ -28,7 +28,7 @@ FROM python:3.11-slim AS builder
 
 # Pull the uv binary from the official Astral image — avoids curl/pip bootstrap.
 # Pinning to a release tag (not :latest) for reproducibility; bump deliberately.
-COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.17 /uv /uvx /usr/local/bin/
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
