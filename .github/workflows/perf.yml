@@ -42,7 +42,7 @@ jobs:
     continue-on-error: true  # informational only — does NOT block release
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
