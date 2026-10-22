@@ -98,7 +98,10 @@ class LobbyCog(commands.Cog):
 
     @app_commands.command(
         name="start_game",
-        description="Start a new D&D 5e campaign in this channel. (Players will be guided to add characters next)",
+        description=(
+            "Start a new D&D 5e campaign in this channel. "
+            "(Players will be guided to add characters next)"
+        ),
     )
     @app_commands.describe(
         name="Campaign name (short, memorable)",
