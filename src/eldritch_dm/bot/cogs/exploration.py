@@ -69,7 +69,11 @@ class DeclareActionModal(discord.ui.Modal, title="Declare Your Action"):
         label="What do you do?",
         style=discord.TextStyle.paragraph,
         max_length=500,
-        placeholder="Example: 'I quietly open the door and scan for traps in the corridor.'\nExample: 'I ask the bartender if he has seen the cloaked figure, offering a gold piece.'",
+        placeholder=(
+            "Example: 'I quietly open the door and scan for traps in the corridor.'\n"
+            "Example: 'I ask the bartender if he has seen the cloaked figure, "
+            "offering a gold piece.'"
+        ),
         required=True,
     )
 

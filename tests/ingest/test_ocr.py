@@ -6,6 +6,7 @@ All OCR backend calls are mocked — no screen / GPU required.
 from __future__ import annotations
 
 import sys
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -101,6 +102,17 @@ class TestResolveOcrBackend:
 # ---------------------------------------------------------------------------
 
 
+def _install_fake_ocrmac(recognize_return):
+    """Stub ``ocrmac.ocrmac.OCR`` the way ``run_ocrmac`` imports it."""
+    fake_ocr_instance = MagicMock()
+    fake_ocr_instance.recognize.return_value = recognize_return
+    package = types.ModuleType("ocrmac")
+    package.__path__ = []
+    submodule = types.ModuleType("ocrmac.ocrmac")
+    submodule.OCR = MagicMock(return_value=fake_ocr_instance)
+    return package, submodule
+
+
 class TestRunOcrmac:
     def test_raises_when_not_installed(self):
         with patch("importlib.util.find_spec", return_value=None):
@@ -108,14 +120,16 @@ class TestRunOcrmac:
                 run_ocrmac(b"fake_image_bytes")
 
     def test_returns_text_and_confidence(self, mock_ocrmac_regions):
-        fake_ocrmac = MagicMock()
-        fake_ocr_instance = MagicMock()
-        fake_ocr_instance.recognize.return_value = mock_ocrmac_regions
-        fake_ocrmac.OCR.return_value = fake_ocr_instance
+        # ocrmac >=1.0 recognize() yields (text, confidence, bbox) tuples.
+        recognize_return = [
+            (region.text, region.confidence, None) for region in mock_ocrmac_regions
+        ]
+        package, submodule = _install_fake_ocrmac(recognize_return)
 
         with (
             patch("importlib.util.find_spec", return_value=MagicMock()),
-            patch.dict("sys.modules", {"ocrmac": fake_ocrmac}),
+            patch.dict(sys.modules, {"ocrmac": package, "ocrmac.ocrmac": submodule}),
+            patch("PIL.Image.open", return_value=MagicMock()),
         ):
             text, conf = run_ocrmac(b"fake_image_bytes")
 
@@ -124,14 +138,12 @@ class TestRunOcrmac:
         assert abs(conf - 0.95) < 1e-9
 
     def test_empty_regions_returns_empty_text(self):
-        fake_ocrmac = MagicMock()
-        fake_ocr_instance = MagicMock()
-        fake_ocr_instance.recognize.return_value = []
-        fake_ocrmac.OCR.return_value = fake_ocr_instance
+        package, submodule = _install_fake_ocrmac([])
 
         with (
             patch("importlib.util.find_spec", return_value=MagicMock()),
-            patch.dict("sys.modules", {"ocrmac": fake_ocrmac}),
+            patch.dict(sys.modules, {"ocrmac": package, "ocrmac.ocrmac": submodule}),
+            patch("PIL.Image.open", return_value=MagicMock()),
         ):
             text, conf = run_ocrmac(b"blank_image")
 

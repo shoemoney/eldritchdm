@@ -1,6 +1,7 @@
 ---
 phase: 29-docker-compose
 plan: 29-01
+requirements_completed: [DEPLOY-01, DEPLOY-02]
 subsystem: deploy
 tags: [docker, compose, dockerfile, self-host]
 requirements: [DEPLOY-01, DEPLOY-02]

@@ -1,6 +1,7 @@
 ---
 phase: 30-install-troubleshooting
 plan: 30-01
+requirements_completed: [DOCS-01]
 requirements: [DOCS-01]
 status: complete
 completed: 2026-05-26

@@ -137,8 +137,9 @@ def run_ocrmac(image_bytes: bytes) -> tuple[str, float]:
     # changes are upstream as of 1.0; this wrapper bridges to the older
     # interface our callers expect.
     from io import BytesIO  # noqa: PLC0415
-    from PIL import Image  # noqa: PLC0415
+
     from ocrmac.ocrmac import OCR  # type: ignore[import-untyped]  # noqa: PLC0415
+    from PIL import Image  # noqa: PLC0415
 
     pil_image = Image.open(BytesIO(image_bytes))
     raw_regions = OCR(pil_image, recognition_level="accurate").recognize()

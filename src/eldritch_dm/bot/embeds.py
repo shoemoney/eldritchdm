@@ -103,7 +103,11 @@ def lobby_embed(
     elif transition_state == "exploration":
         suffix = "\n\n🟢 EXPLORATION active"
     else:
-        suffix = "\n\nWaiting for players to ready up.\n\n*💡 Hint: Use `/upload_character_file` or `/upload_character_url` to load your character, then click **Ready**!*"
+        suffix = (
+            "\n\nWaiting for players to ready up.\n\n"
+            "*💡 Hint: Use `/upload_character_file` or `/upload_character_url` "
+            "to load your character, then click **Ready**!*"
+        )
 
     description = player_block + suffix
 
@@ -233,7 +237,12 @@ def combat_embed(
     """
     embed = discord.Embed(
         title=f"⚔️ Combat — Round {round_n}",
-        description=f"Current turn: **{current_actor}**\n\n*💡 Only **{current_actor}** can take actions right now. Wait for your turn to click an action button! Targets can use dm20 IDs shown below.*",
+        description=(
+            f"Current turn: **{current_actor}**\n\n"
+            f"*💡 Only **{current_actor}** can take actions right now. "
+            "Wait for your turn to click an action button! "
+            "Targets can use dm20 IDs shown below.*"
+        ),
         color=int(EmbedColor.COMBAT),
     )
 
