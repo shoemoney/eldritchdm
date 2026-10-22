@@ -1,6 +1,7 @@
 ---
 phase: 28-tuning
 plan: 28-02
+requirements_completed: [TUNE-02, TUNE-03]
 subsystem: performance / tooling
 tags: [perf, cli, ci, regression-detection]
 requires: [27-01, 27-02]

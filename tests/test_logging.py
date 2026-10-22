@@ -8,6 +8,7 @@ import importlib
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import structlog
@@ -155,7 +156,7 @@ class TestImportLinter:
             [lint_imports_bin, "--config", "pyproject.toml"],
             capture_output=True,
             text=True,
-            cwd="/Users/shoemoney/Services/DiscordDM",
+            cwd=Path(__file__).resolve().parents[1],
         )
         assert result.returncode == 0, (
             f"import-linter failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"

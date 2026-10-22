@@ -294,6 +294,11 @@ async def test_bot_graceful_shutdown_ordering(bot_factory):
                 await real_wq_task
             except (asyncio.CancelledError, Exception):
                 pass
+        # Cancelling the drain task leaves aiosqlite's worker thread blocked.
+        conn = bot.writer_queue._conn
+        if conn is not None:
+            await conn.close()
+            bot.writer_queue._conn = None
 
     async def mcp_aclose_side_effect():
         call_order.append("mcp")
@@ -330,13 +335,19 @@ async def test_writer_queue_drain_timeout(bot_factory):
                 pass
 
     async def wq_stop_hangs():
-        # Simulate a very slow drain that exceeds the 5s timeout
+        # Simulate a very slow drain that exceeds the 5s timeout.
+        # Close the sqlite connection first so its worker thread can exit
+        # even though this coroutine itself is cancelled by the timeout.
         if real_wq_task and not real_wq_task.done():
             real_wq_task.cancel()
             try:
                 await real_wq_task
             except (asyncio.CancelledError, Exception):
                 pass
+        conn = bot.writer_queue._conn
+        if conn is not None:
+            await conn.close()
+            bot.writer_queue._conn = None
         await asyncio.sleep(30)  # Hang indefinitely
 
     bot.health.stop = AsyncMock(side_effect=health_stop_ok)

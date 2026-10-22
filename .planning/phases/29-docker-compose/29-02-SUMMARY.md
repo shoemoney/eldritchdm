@@ -1,6 +1,7 @@
 ---
 phase: 29-docker-compose
 plan: 29-02
+requirements_completed: [DEPLOY-03]
 subsystem: deploy
 tags: [docker, smoke-test, ops]
 requirements: [DEPLOY-03]

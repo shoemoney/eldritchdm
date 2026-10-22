@@ -1,6 +1,7 @@
 ---
 phase: 28-tuning
 plan: 28-01
+requirements_completed: [TUNE-01]
 subsystem: performance
 tags: [tuning, branch-b, honesty-clause, no-targets]
 requires: [27-01, 27-02]

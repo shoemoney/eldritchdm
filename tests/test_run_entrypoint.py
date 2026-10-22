@@ -384,7 +384,10 @@ def test_install_launchd_script() -> None:
     assert "{PROJECT_DIR}" in content  # placeholder substitution
     assert "DRY_RUN" in content
 
-    # DRY_RUN smoke test
+    # DRY_RUN shells out to plutil, which ships with macOS only.
+    if shutil.which("plutil") is None:
+        pytest.skip("plutil not available (not macOS)")
+
     result = subprocess.run(
         ["bash", str(INSTALL_SH)],
         cwd=PROJECT_ROOT,

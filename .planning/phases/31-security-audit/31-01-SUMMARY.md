@@ -1,6 +1,7 @@
 ---
 phase: 31
 plan: 01
+requirements_completed: [SECAUDIT-01, SECAUDIT-02, SECAUDIT-03]
 subsystem: security-audit
 tags: [security, audit, read-only, branch-b]
 requires: []

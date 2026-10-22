@@ -99,6 +99,11 @@ async def test_close_cleanly_shuts_down(bot_factory, mocker):
                 await real_wq_task
             except (_asyncio.CancelledError, Exception):
                 pass
+        # Cancelling the drain task leaves aiosqlite's worker thread blocked.
+        conn = bot.writer_queue._conn
+        if conn is not None:
+            await conn.close()
+            bot.writer_queue._conn = None
 
     # Spy on the three shutdown methods (with side effects that do real cleanup)
     health_stop_spy = mocker.patch.object(bot.health, "stop", new=AsyncMock(side_effect=fake_health_stop))

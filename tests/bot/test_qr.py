@@ -15,9 +15,15 @@ Covers:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import discord
 
 from eldritch_dm.bot.qr import render_qr_for_embed
+
+_LOBBY_SRC = (
+    Path(__file__).resolve().parents[2] / "src" / "eldritch_dm" / "bot" / "cogs" / "lobby.py"
+)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -77,8 +83,7 @@ def test_render_qr_non_empty_output():
 def test_lobby_does_not_import_segno_directly():
     """After the refactor, lobby.py should not contain 'import segno'."""
     # Read source directly to check imports without executing the module
-    with open("/Users/shoemoney/Services/DiscordDM/src/eldritch_dm/bot/cogs/lobby.py") as fh:
-        source = fh.read()
+    source = _LOBBY_SRC.read_text(encoding="utf-8")
 
     assert "import segno" not in source, (
         "lobby.py still contains 'import segno'; should import render_qr_for_embed from qr.py"
@@ -87,8 +92,7 @@ def test_lobby_does_not_import_segno_directly():
 
 def test_lobby_imports_render_qr_for_embed():
     """After the refactor, lobby.py imports render_qr_for_embed from qr.py."""
-    with open("/Users/shoemoney/Services/DiscordDM/src/eldritch_dm/bot/cogs/lobby.py") as fh:
-        source = fh.read()
+    source = _LOBBY_SRC.read_text(encoding="utf-8")
 
     assert "render_qr_for_embed" in source, (
         "lobby.py does not import render_qr_for_embed; refactor not applied"
